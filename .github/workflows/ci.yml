@@ -37,9 +37,15 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:desktop
+      # Em dois passos, como na publicação, em que o programa é assinado antes de empacotar.
+      - name: Gerar o programa
+        working-directory: apps/desktop
+        run: npx electron-builder --config electron-builder.yml --publish never --win --dir
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Gerar instalador e versão portátil
         working-directory: apps/desktop
-        run: npx electron-builder --config electron-builder.yml --publish never --win
+        run: npx electron-builder --config electron-builder.yml --publish never --win nsis portable --prepackaged ../../release/win-unpacked
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - run: npm run test:dist

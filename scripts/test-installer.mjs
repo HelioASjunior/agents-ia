@@ -8,10 +8,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
+import { refuseRealInstall } from './guard-real-install.mjs';
 
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const { version } = JSON.parse(fs.readFileSync(path.join(root, 'apps/desktop/package.json'), 'utf8'));
 const release = path.join(root, 'release');
+refuseRealInstall();
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'xinoia-dist-'));
 // O Electron no Windows ignora a variável APPDATA: a pasta de teste vai pela opção própria.
 const dataDir = path.join(sandbox, 'dados-do-usuario', 'XinoIA');

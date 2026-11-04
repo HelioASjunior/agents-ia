@@ -4,7 +4,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+### Adicionado
+
+- Política de privacidade e preparação para a assinatura de código pela SignPath Foundation, que fica desligada até o pedido ser aprovado.
+
 ### Corrigido
+
+- Os testes de instalação se recusam a rodar em um computador com o XinoIA instalado ou aberto. Antes, podiam encerrar o programa e apagar o registro da instalação.
 
 - `SHA256SUMS.txt` não lista mais um arquivo interno do empacotador, que não é publicado. O arquivo da versão 0.1.0 foi corrigido no próprio GitHub, e os outros arquivos dela não mudaram.
 

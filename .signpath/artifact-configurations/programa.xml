@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Primeiro pedido de cada versão: o executável que entra dentro do instalador.
+     O SignPath não abre instaladores NSIS, por isso ele é assinado antes de empacotar. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="productVersion" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="XinoIA.exe" product-name="XinoIA" product-version="${productVersion}.0">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

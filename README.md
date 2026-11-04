@@ -133,6 +133,18 @@ Plugin loading and configuration are tested. Tool calls against a running editor
 | Publish a version | [Releasing](docs/RELEASING.md) |
 | Report a vulnerability | [Security](SECURITY.md) |
 
+## Code signing policy
+
+**Signing isn't active yet:** the application to SignPath Foundation is pending, and files ship without code signing until it's approved. Once approved, the following applies:
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- **Committers and reviewers:** [HelioASjunior](https://github.com/HelioASjunior)
+- **Approvers:** [HelioASjunior](https://github.com/HelioASjunior)
+- **Privacy:** this program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. See the [privacy policy](PRIVACY.md) for each case, including the update check, which can be turned off, and the AI tools you choose.
+
+Each version is built automatically from this repository, and each signature is approved by hand. The AI tools, which you install separately, aren't part of the signed files.
+
 ## Development
 
 You need [Node.js 24+](https://nodejs.org) and [Git](https://git-scm.com).

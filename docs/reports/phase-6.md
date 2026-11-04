@@ -50,6 +50,12 @@ A versão 0.1.0 saiu pelo workflow `Release`, de ponta a ponta. Depois, os arqui
 
 O histórico foi reescrito antes de publicar, para os commits usarem o endereço privado do GitHub em vez de um e-mail pessoal.
 
+## Preparação da assinatura de código
+
+Os passos da SignPath estão no workflow, desligados até a aprovação, com a política em `README.md` e `PRIVACY.md`. O caminho completo, com um certificado descartável, roda no workflow **Teste de atualização**. A assinatura real pela SignPath só pode ser testada depois da aprovação, inclusive as regras de metadados de `.signpath/artifact-configurations/`.
+
+Um teste de instalação rodou enquanto a primeira cópia real estava sendo instalada, na mesma máquina, e tudo indica que apagou o registro dela no Windows, porque os dois usam a mesma chave. Por isso, esses testes agora se recusam a rodar com o programa instalado ou aberto.
+
 ## O que depende do dono do repositório
 
 1. **Guardar a chave privada** em `%USERPROFILE%\.xinoia-release\` em um lugar seguro. Sem ela, os apps instalados não aceitam versões novas.

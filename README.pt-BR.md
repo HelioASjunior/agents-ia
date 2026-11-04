@@ -131,6 +131,18 @@ O carregamento do plugin e a configuração têm testes. As chamadas de ferramen
 | Publicar uma versão | [Publicação](docs/RELEASING.md) |
 | Relatar uma vulnerabilidade | [Segurança](SECURITY.md) |
 
+## Code signing policy
+
+**A assinatura ainda não está ativa:** o pedido à SignPath Foundation será feito, e até a aprovação os arquivos saem sem assinatura de código. Depois de aprovado, vale o texto abaixo:
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+- **Quem altera o código e revisa:** [HelioASjunior](https://github.com/HelioASjunior)
+- **Quem aprova cada assinatura:** [HelioASjunior](https://github.com/HelioASjunior)
+- **Privacidade:** este programa não transfere informações para outros sistemas em rede, a não ser quando pedido por quem o instala ou opera. Veja a [política de privacidade](PRIVACY.md) para cada caso, incluindo a verificação de atualizações, que pode ser desligada, e as ferramentas de IA que você escolher.
+
+Cada versão é compilada automaticamente a partir deste repositório, e a assinatura de cada uma é aprovada à mão. As ferramentas de IA, que você instala à parte, não fazem parte dos arquivos assinados.
+
 ## Desenvolvimento
 
 Você precisa do [Node.js 24+](https://nodejs.org) e do [Git](https://git-scm.com).

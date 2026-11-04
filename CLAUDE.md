@@ -16,6 +16,7 @@ Valem para qualquer pessoa ou agente que trabalhe aqui.
 ## Código
 
 - Antes de considerar algo pronto, rode `npm run typecheck` e `npm test`.
+- `npm run test:dist` e `scripts/test-update-local.mjs` só rodam em máquina sem o XinoIA instalado: no computador de quem usa o programa, use o CI.
 - `npm run test:real` usa os CLIs e as contas reais e gasta cota: rode só quando mexer em integração com provedores.
 - Só o que estiver em `apps/server/src/providers/` conhece as opções de cada CLI.
 - Só o que estiver em `apps/server/src/persistence/` conhece SQL. Serviços usam as interfaces de `persistence/types.ts`.

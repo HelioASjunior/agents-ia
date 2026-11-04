@@ -1,0 +1,45 @@
+name: Teste de atualização
+
+# Instala, atualiza e desinstala de verdade, seguindo os passos do workflow de publicação e
+# assinando com um certificado descartável. Por isso roda só em máquina limpa, nunca em um
+# computador com o XinoIA instalado.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - apps/desktop/**
+      - scripts/refresh-update-info.mjs
+      - scripts/test-update*.mjs
+      - .github/workflows/update-test.yml
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Par de chaves só deste teste: a chave oficial de publicação não entra aqui.
+      - name: Gerar a chave descartável
+        shell: bash
+        run: |
+          node -e "
+            const c = require('node:crypto'), fs = require('node:fs');
+            const { privateKey, publicKey } = c.generateKeyPairSync('ed25519', {
+              privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+              publicKeyEncoding: { type: 'spki', format: 'pem' },
+            });
+            fs.writeFileSync(process.env.RUNNER_TEMP + '/chave-teste.pem', privateKey);
+            fs.writeFileSync('apps/desktop/build/update-public-key.pem', publicKey);
+          "
+      - name: Atualizar de uma versão assinada para outra
+        shell: bash
+        run: node scripts/test-update-local.mjs "$RUNNER_TEMP/chave-teste.pem"

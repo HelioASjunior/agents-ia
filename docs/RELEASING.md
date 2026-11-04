@@ -30,6 +30,8 @@ O workflow `Release` testa, gera os pacotes, instala e testa em uma máquina lim
 
 ## Gerar localmente
 
+Para testar o pacote localmente, use um computador sem o XinoIA instalado (veja [Testes de instalação](#testes-de-instalação)).
+
 ```bash
 npm run build:desktop
 cd apps/desktop
@@ -50,19 +52,41 @@ A chave privada fica no segredo `XINOIA_SIGNING_KEY` do GitHub, com uma cópia e
 
 Se a chave vazar, gere outra, publique uma versão assinada ainda pela chave antiga com a nova chave pública, e avise em `SECURITY.md`.
 
-## Assinatura de código do Windows (opcional)
+## Assinatura de código do Windows
 
-Sem certificado, o Windows mostra o aviso do SmartScreen. Nada neste projeto remove esse aviso sozinho.
+Sem assinatura, o Windows mostra o aviso do SmartScreen, e o Controle Inteligente de Aplicativos, no Windows 11, pode bloquear o programa. Com ela, o aviso ainda pode aparecer no começo, até o arquivo ganhar reputação. Só a Microsoft Store elimina o aviso de imediato.
 
-| Opção | Custo aproximado | Observações |
-| --- | --- | --- |
-| Certificado OV | Da ordem de centenas de dólares por ano | A reputação se constrói com o tempo, e o aviso pode continuar no começo |
-| Certificado EV | Mais caro que OV | Costuma ter reputação mais rápida, mas exige token de hardware ou serviço em nuvem |
-| Azure Trusted Signing | Assinatura mensal | Exige requisitos de elegibilidade da Microsoft |
+O caminho escolhido é a [SignPath Foundation](https://signpath.org), gratuita para código aberto. O workflow já tem os passos, que ficam desligados até a variável `SIGNPATH_ORGANIZATION_ID` existir.
 
-Confira preços e requisitos atuais com os fornecedores. Com um certificado em PFX, defina os segredos `WIN_CSC_LINK` (o arquivo em base64) e `WIN_CSC_KEY_PASSWORD`. O workflow já os usa.
+### Depois da aprovação
 
-Só defina `win.signtoolOptions.publisherName` em `electron-builder.yml` depois de publicar ao menos uma versão assinada. Com essa opção, o app passa a recusar qualquer atualização sem o certificado.
+1. Na SignPath, crie o projeto com o nome `XinoIA` e ligue o sistema de compilação confiável **GitHub.com**.
+2. Crie duas configurações de artefato, com os slugs `programa` e `instaladores`, copiando os arquivos de `.signpath/artifact-configurations/`.
+3. Crie a política de assinatura de produção, com você como aprovador, e um usuário de CI com permissão de enviar pedidos.
+4. No GitHub, em Settings > Secrets and variables > Actions, crie o segredo `SIGNPATH_API_TOKEN` e as variáveis `SIGNPATH_ORGANIZATION_ID`, `SIGNPATH_PROJECT_SLUG` e `SIGNPATH_POLICY_SLUG`.
+5. Tire dos dois READMEs o aviso de que a assinatura ainda não está ativa.
+6. Publique uma versão de teste, como `v0.1.1-beta.1`, e confira o aviso no Windows.
+
+### O que muda em cada versão
+
+O workflow para duas vezes e espera a sua aprovação no site da SignPath, por até uma hora em cada:
+
+1. **`programa`:** o `XinoIA.exe`, antes de empacotar. A SignPath não abre instaladores NSIS, então ele precisa ser assinado antes.
+2. **`instaladores`:** o instalador e a versão portátil, depois de passarem pelo teste de instalação.
+
+Depois disso, `scripts/refresh-update-info.mjs` refaz o hash, o tamanho e o blockmap, porque assinar muda o arquivo, e só então vem a assinatura Ed25519 das atualizações. Essa ordem importa: invertida, as atualizações seriam recusadas.
+
+### Limitações
+
+- O desinstalador, gerado dentro do instalador, e as bibliotecas de terceiros, como as do Electron e do `node-pty`, não recebem a assinatura. Os termos permitem incluí-las sem assinar.
+- O publicador que aparece no Windows é a SignPath Foundation, não o seu nome.
+- Só defina `win.signtoolOptions.publisherName` em `electron-builder.yml` depois de publicar ao menos uma versão assinada. Com essa opção, o app passa a recusar qualquer atualização sem o certificado.
+
+Se a SignPath recusar o pedido, as alternativas estão nas [opções de assinatura da Microsoft](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options). O workflow precisaria ser adaptado.
+
+## Testes de instalação
+
+`npm run test:dist` e `scripts/test-update-local.mjs` instalam, encerram e desinstalam o XinoIA, e por isso se recusam a rodar em um computador com o programa instalado ou aberto. Nesse caso, use o CI: o job `package` e o workflow **Teste de atualização**, que também pode ser disparado à mão.
 
 ## macOS e Linux
 

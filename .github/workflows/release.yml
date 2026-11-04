@@ -11,7 +11,10 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 45
+    # Com a SignPath, cada versão espera duas aprovações manuais de quem publica.
+    timeout-minutes: 180
+    env:
+      SIGNPATH_ENABLED: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,16 +34,95 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build:desktop
+      - name: Separar os números da versão
+        id: version
+        shell: bash
+        run: |
+          full="${GITHUB_REF_NAME#v}"
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          echo "product=${full%%-*}" >> "$GITHUB_OUTPUT"
+      - name: Gerar o programa
+        working-directory: apps/desktop
+        run: npx electron-builder --config electron-builder.yml --publish never --win --dir
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Enviar o programa para assinar
+        id: upload-program
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: programa-sem-assinatura
+          if-no-files-found: error
+          retention-days: 1
+          path: release/win-unpacked/XinoIA.exe
+      - name: Assinar o programa
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: programa
+          github-artifact-id: ${{ steps.upload-program.outputs.artifact-id }}
+          parameters: |
+            productVersion: "${{ steps.version.outputs.product }}"
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: release/assinado-programa
+      - name: Colocar o programa assinado no lugar
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: bash
+        run: cp release/assinado-programa/XinoIA.exe release/win-unpacked/XinoIA.exe
       - name: Gerar instalador e versão portátil
         working-directory: apps/desktop
-        run: npx electron-builder --config electron-builder.yml --publish never --win
+        run: npx electron-builder --config electron-builder.yml --publish never --win nsis portable --prepackaged ../../release/win-unpacked
         env:
-          # Certificado opcional. Sem ele, o instalador sai sem assinatura Authenticode.
-          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Testar a instalação em uma máquina limpa
         run: npm run test:dist
+      # Só depois dos testes: a segunda aprovação vale para um pacote que já passou por eles.
+      - name: Enviar os instaladores para assinar
+        id: upload-installers
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: instaladores-sem-assinatura
+          if-no-files-found: error
+          retention-days: 1
+          path: |
+            release/XinoIA-Setup-*.exe
+            release/XinoIA-Portable-*.exe
+      - name: Assinar os instaladores
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: instaladores
+          github-artifact-id: ${{ steps.upload-installers.outputs.artifact-id }}
+          parameters: |
+            version: "${{ steps.version.outputs.full }}"
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: release/assinado-instaladores
+      - name: Refazer os dados de atualização a partir dos arquivos assinados
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: bash
+        run: |
+          cp release/assinado-instaladores/*.exe release/
+          node scripts/refresh-update-info.mjs release
+      - name: Conferir a assinatura do Windows
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem release/win-unpacked/XinoIA.exe, release/XinoIA-Setup-*.exe, release/XinoIA-Portable-*.exe) {
+            $signature = Get-AuthenticodeSignature $file.FullName
+            if ($signature.Status -ne 'Valid') { throw "$($file.Name): $($signature.Status)" }
+            Write-Output "$($file.Name): $($signature.SignerCertificate.Subject)"
+          }
       - name: Assinar os pacotes e calcular checksums
         run: node scripts/release-sign.mjs release
         env:
@@ -75,6 +157,8 @@ jobs:
           path: dist-release
       - name: Montar as notas da versão
         run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
+        env:
+          XINOIA_SIGNED: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
       - name: Publicar no GitHub Releases
         env:
           GH_TOKEN: ${{ github.token }}

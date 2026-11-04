@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Segundo pedido de cada versão: o instalador e a versão portátil, já testados. -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="XinoIA-Setup-v${version}.exe" product-name="XinoIA" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="XinoIA-Portable-v${version}.exe" product-name="XinoIA" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

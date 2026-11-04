@@ -4,6 +4,10 @@ import fs from 'node:fs';
 const tag = process.argv[2] ?? '';
 const version = tag.replace(/^v/, '');
 const changelog = fs.readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
+const policy = 'https://github.com/HelioASjunior/agents-ia#code-signing-policy';
+const signing = process.env.XINOIA_SIGNED === 'true'
+  ? `> Os arquivos têm assinatura de código. Uma versão nova ainda pode mostrar o aviso do SmartScreen até ganhar reputação. Veja a [Code signing policy](${policy}).`
+  : `> Esta versão não tem assinatura de código, então o Windows pode mostrar o aviso do SmartScreen. Em **Mais informações**, escolha **Executar assim mesmo**. Veja a [Code signing policy](${policy}).`;
 
 function section(name) {
   const lines = changelog.split('\n');
@@ -24,7 +28,7 @@ process.stdout.write(`${notes}
 
 O XinoIA não inclui as ferramentas de IA: instale as que quiser e entre com a sua própria conta. Veja o [guia de instalação](https://github.com/HelioASjunior/agents-ia/blob/main/docs/USER_GUIDE.md).
 
-> O instalador ainda não tem assinatura de código da Microsoft, então o Windows pode mostrar o aviso do SmartScreen. Em **Mais informações**, escolha **Executar assim mesmo**.
+${signing}
 
 ## Como verificar o download
 

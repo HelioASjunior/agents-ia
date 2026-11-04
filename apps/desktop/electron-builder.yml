@@ -28,9 +28,9 @@ win:
       arch: [x64]
   icon: build/icon.ico
   executableName: XinoIA
-  # A assinatura Authenticode entra sozinha quando CSC_LINK estiver definido no CI.
-  # Só defina signtoolOptions.publisherName depois disso: com ele, o atualizador exige
-  # o certificado, e toda atualização sem assinatura Authenticode passa a ser recusada.
+  # A assinatura de código é feita pela SignPath no workflow de publicação. Só defina
+  # signtoolOptions.publisherName depois de publicar versões assinadas: com ele, o atualizador
+  # exige o certificado, e toda atualização sem essa assinatura passa a ser recusada.
 nsis:
   artifactName: XinoIA-Setup-v${version}.${ext}
   oneClick: false
