@@ -14,6 +14,17 @@ const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const { version } = JSON.parse(fs.readFileSync(path.join(root, 'apps/desktop/package.json'), 'utf8'));
 const release = path.join(root, 'release');
 refuseRealInstall();
+
+/** O que o Windows lista em Aplicativos instalados para o XinoIA. */
+function uninstallEntry() {
+  try {
+    const output = execFileSync('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall', '/s', '/f', 'XinoIA', '/d'], { encoding: 'utf8' });
+    return output.split(/\r?\n/).filter((line) => /DisplayName|DisplayVersion/.test(line)).map((line) => line.trim()).join(' | ') || null;
+  } catch {
+    // O reg termina com erro quando não encontra nada.
+    return null;
+  }
+}
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'xinoia-dist-'));
 // O Electron no Windows ignora a variável APPDATA: a pasta de teste vai pela opção própria.
 const dataDir = path.join(sandbox, 'dados-do-usuario', 'XinoIA');
@@ -155,6 +166,10 @@ try {
   assert.ok(fs.existsSync(path.join(installDir, 'Uninstall XinoIA.exe')), 'desinstalador presente');
   // Sem este arquivo o programa abre normalmente, mas nunca consegue se atualizar.
   assert.ok(fs.existsSync(path.join(installDir, 'resources', 'app-update.yml')), 'configuração de atualização presente');
+  // Sem o registro, o programa não aparece em Aplicativos instalados do Windows.
+  const registered = uninstallEntry();
+  process.stdout.write(`  registro no Windows: ${registered ?? 'ausente'}\n`);
+  assert.match(registered ?? '', /DisplayName\s+REG_SZ\s+XinoIA/, 'aparece em Aplicativos instalados');
   const shipped = execFileSync('powershell', ['-NoProfile', '-Command', `(Get-Item '${exe}').VersionInfo | Select-Object -ExpandProperty ProductName`], { encoding: 'utf8' }).trim();
   assert.equal(shipped, 'XinoIA', 'nome nas propriedades do executável');
   process.stdout.write(`  instalado em ${installDir}\n`);
