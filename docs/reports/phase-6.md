@@ -71,6 +71,7 @@ Defeitos encontrados no primeiro uso real, em um projeto de verdade, e confirmad
 - **Preferências perdidas a cada abertura:** o app abria em uma porta aleatória, e o navegador guarda preferências por porta. Agora usa uma porta fixa, ou outra só naquela vez, se ela estiver ocupada. O teste de instalação passou a conferir isso.
 - **Retomar depois de reprovar:** a tarefa reprovada contava como concluída e liberava as seguintes.
 - **Workflow salvo:** a tela recarregava antes de a lista nova chegar.
+- **Atualização com agentes trabalhando:** a tela prometia esperar, mas só oferecia interromper. O teste automático usa a ponte do app, por isso não via a falta do botão.
 
 O teste de instalação e o de atualização também passaram a exigir o registro em Aplicativos instalados.
 

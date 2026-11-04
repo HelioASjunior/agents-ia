@@ -11,6 +11,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - O tema, o projeto escolhido, o layout e a visão do escritório se perdiam a cada abertura do app instalado, porque ele usava uma porta nova a cada vez. Depois desta atualização, as preferências passam a ser mantidas. Como a porta muda uma última vez, elas voltam ao padrão uma vez.
 - **Retomar** passava por cima de uma tarefa reprovada no limite de correções. Agora a missão para de novo e pede **Tentar de novo** ou **Pular**.
 - Depois de salvar um workflow, a tela mostrava o desenho antigo até reabri-lo.
+- Com agentes trabalhando, a tela de atualização só oferecia interromper. Agora há **Instalar quando terminar**, que também não instala no intervalo entre duas tarefas de uma missão.
 
 ## [0.1.1] - 2026-11-04
 

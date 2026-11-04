@@ -106,7 +106,7 @@ A detecção de comando destrutivo é uma rede de proteção, não uma garantia.
 
 ## Atualizações
 
-Em **Configurações > Atualizações**, veja a versão, verifique, atualize e escolha o canal (estável ou beta). O XinoIA verifica ao abrir e a cada 4 horas. Antes de instalar, confere a assinatura do pacote e faz uma cópia dos seus dados. Com agentes trabalhando, ele espera terminarem, a menos que você autorize interromper.
+Em **Configurações > Atualizações**, veja a versão, verifique, atualize e escolha o canal (estável ou beta). O XinoIA verifica ao abrir e a cada 4 horas. Antes de instalar, confere a assinatura do pacote e faz uma cópia dos seus dados. Nada é instalado sem você pedir. Com trabalho em andamento, escolha **Instalar quando terminar**. Se escolher **Interromper e reiniciar**, a missão fica pausada: ao retomar, a tarefa interrompida recomeça do início, e o que ela já alterou nos arquivos continua lá.
 
 ## Onde ficam os dados
 

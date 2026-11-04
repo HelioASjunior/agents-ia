@@ -16,7 +16,7 @@ export function registerSystemRoutes(app: FastifyInstance, ctx: AppContext): voi
     schemaVersion: await ctx.db.schemaVersion(),
     recoveredFrom: ctx.recoveredFrom,
     interruptedOnStart: ctx.interruptedOnStart,
-    activeRuns: ctx.runs.activeCount(),
+    activeRuns: Math.max(ctx.runs.activeCount(), (await ctx.db.missions.listUnfinished()).filter((mission) => mission.status === 'running' || mission.status === 'planning').length),
   }));
 
   app.post('/api/system/backup', async () => ({ file: await ctx.db.backup('manual') }));

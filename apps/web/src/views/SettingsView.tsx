@@ -27,12 +27,24 @@ function Section({ title, icon, children }: { title: string; icon: ReactNode; ch
   );
 }
 
-function UpdatesSection({ activeRuns }: { activeRuns: number }) {
+function UpdatesSection() {
   const bridge = window.xinoia?.updates;
   const toast = useStore((state) => state.toast);
   const [state, setState] = useState<UpdateState | null>(null);
   const [auto, setAuto] = useState(true);
   const [channel, setChannel] = useState<'latest' | 'beta'>('latest');
+  const [activeRuns, setActiveRuns] = useState(0);
+  const [waiting, setWaiting] = useState(false);
+  const ready = state?.status === 'ready';
+
+  // Com a atualização pronta, a decisão depende de quem está trabalhando agora.
+  useEffect(() => {
+    if (!ready) return undefined;
+    const read = () => void api.get<SystemInfo>('/api/system').then((info) => setActiveRuns(info.activeRuns)).catch(() => undefined);
+    read();
+    const timer = setInterval(read, 5000);
+    return () => clearInterval(timer);
+  }, [ready]);
 
   useEffect(() => {
     if (!bridge) return undefined;
@@ -80,7 +92,7 @@ function UpdatesSection({ activeRuns }: { activeRuns: number }) {
 
       {state.status === 'ready' && activeRuns > 0 && (
         <p className="rounded-md bg-amber-soft px-3 py-2 text-amber">
-          {activeRuns === 1 ? 'Um agente está trabalhando.' : `${activeRuns} agentes estão trabalhando.`} A atualização espera o término, ou você pode reiniciar agora e interromper o trabalho.
+          {activeRuns === 1 ? 'Há trabalho em andamento.' : `Há ${activeRuns} trabalhos em andamento.`} {waiting ? 'A atualização será instalada quando terminar.' : 'Escolha instalar quando terminar, ou interrompa agora: a tarefa em andamento recomeça do início ao retomar.'}
         </p>
       )}
 
@@ -88,10 +100,14 @@ function UpdatesSection({ activeRuns }: { activeRuns: number }) {
         <Button disabled={state.status === 'checking' || state.status === 'downloading'} onClick={() => void bridge.check()}><RefreshCw size={13} /> Verificar atualizações</Button>
         {state.status === 'available' && <Button kind="primary" onClick={() => void bridge.download()}><Download size={13} /> Atualizar agora</Button>}
         {state.status === 'available' && <Button kind="ghost" onClick={() => { void bridge.dismiss(); toast('info', 'Lembraremos mais tarde.'); }}>Lembrar depois</Button>}
-        {state.status === 'ready' && (
-          <Button kind={activeRuns > 0 ? 'danger' : 'primary'} onClick={() => void bridge.install(activeRuns > 0)}>
-            <RotateCcw size={13} /> {activeRuns > 0 ? 'Interromper e reiniciar' : 'Reiniciar e instalar'}
-          </Button>
+        {state.status === 'ready' && activeRuns === 0 && (
+          <Button kind="primary" onClick={() => void bridge.install(false)}><RotateCcw size={13} /> Reiniciar e instalar</Button>
+        )}
+        {state.status === 'ready' && activeRuns > 0 && (
+          <>
+            <Button kind="primary" disabled={waiting} onClick={() => { setWaiting(true); void bridge.install(false); }}><RotateCcw size={13} /> Instalar quando terminar</Button>
+            <Button kind="danger" onClick={() => void bridge.install(true)}>Interromper e reiniciar</Button>
+          </>
         )}
       </div>
 
@@ -189,7 +205,7 @@ export function SettingsView() {
           </Section>
 
           <Section title="Atualizações" icon={<Download size={15} />}>
-            <UpdatesSection activeRuns={system?.activeRuns ?? 0} />
+            <UpdatesSection />
           </Section>
 
           <Section title="Dados" icon={<Database size={15} />}>
