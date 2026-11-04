@@ -40,7 +40,7 @@ O XinoIA coloca Claude Code, Codex CLI e outros agentes de programação para tr
 Você não precisa de Node.js nem de ferramentas de desenvolvimento para rodar o XinoIA. As atualizações chegam dentro do programa, e seus dados são preservados.
 
 > [!NOTE]
-> O instalador ainda não tem certificado de assinatura de código da Microsoft, então o Windows pode mostrar o aviso do SmartScreen. Clique em **Mais informações** e em **Executar assim mesmo**. [Por que isso acontece](SECURITY.md#instalador-e-smartscreen).
+> O instalador ainda não tem certificado de assinatura de código da Microsoft, então o Windows pode mostrar o aviso do SmartScreen. Clique em **Mais informações** e em **Executar assim mesmo**. [Por que isso acontece](SECURITY.md#instalador-e-smartscreen). O projeto pediu assinatura gratuita à SignPath Foundation: veja a [Code signing policy](#code-signing-policy).
 
 Prefere não instalar? Baixe o `XinoIA-Portable-vX.X.X.exe`, que guarda os dados em uma pasta ao lado dele.
 
