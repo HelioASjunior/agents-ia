@@ -31,6 +31,9 @@ O XinoIA coloca Claude Code, Codex CLI e outros agentes de programação para tr
 
 ## Instalação
 
+> [!IMPORTANT]
+> **A primeira versão ainda não foi publicada.** Até lá, [rode pelo código-fonte](#desenvolvimento) ou [gere o instalador você mesmo](docs/RELEASING.md#gerar-localmente). Os passos abaixo valem assim que ela estiver disponível.
+
 ### Windows 10 e 11
 
 1. Abra [Releases](https://github.com/HelioASjunior/agents-ia/releases) e baixe o `XinoIA-Setup-vX.X.X.exe`.

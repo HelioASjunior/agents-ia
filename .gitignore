@@ -24,3 +24,6 @@ data/
 Thumbs.db
 .claude/
 .vscode/
+
+# A chave pública de atualização faz parte do programa. A privada nunca entra aqui.
+!apps/desktop/build/update-public-key.pem

@@ -6,7 +6,11 @@ import { verifyFile } from './verify.ts';
 
 const { autoUpdater } = electronUpdater;
 
-const RELEASE_BASE = 'https://github.com/HelioASjunior/agents-ia/releases/download';
+// Fixo no pacote oficial. Só o teste de atualização, em uma compilação própria, troca isto.
+declare const __XINOIA_RELEASE_BASE__: string | undefined;
+const RELEASE_BASE = typeof __XINOIA_RELEASE_BASE__ === 'string'
+  ? __XINOIA_RELEASE_BASE__
+  : 'https://github.com/HelioASjunior/agents-ia/releases/download';
 const CHECK_EVERY_MS = 4 * 60 * 60 * 1000;
 const FIRST_CHECK_MS = 15_000;
 const SNOOZE_MS = 24 * 60 * 60 * 1000;

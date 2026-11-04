@@ -1,5 +1,15 @@
 # Como publicar uma versão
 
+## Antes da primeira publicação
+
+1. Envie a chave de assinatura como segredo do repositório. Sem ela, o workflow para antes de publicar:
+
+   ```bash
+   gh secret set XINOIA_SIGNING_KEY --repo HelioASjunior/agents-ia < ~/.xinoia-release/update-signing-key.pem
+   ```
+
+2. Remova dos dois READMEs o aviso de que a primeira versão ainda não foi publicada.
+
 ## Publicar
 
 ```bash

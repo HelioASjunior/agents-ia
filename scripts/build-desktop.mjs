@@ -25,6 +25,10 @@ await build({
   target: 'node24',
   external: ['electron', 'electron-updater'],
   logLevel: 'warning',
+  // Só o teste de atualização define isto, para usar um servidor local.
+  define: process.env.XINOIA_TEST_RELEASE_BASE
+    ? { __XINOIA_RELEASE_BASE__: JSON.stringify(process.env.XINOIA_TEST_RELEASE_BASE) }
+    : {},
 });
 
 // O backend é ESM (usa await no topo) e leva junto dependências CommonJS.
