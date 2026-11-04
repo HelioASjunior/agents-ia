@@ -4,7 +4,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+### Alterado
+
+- A lista de modelos do Claude mostra a versão, como **Opus 5.5 (claude-opus-5-5)**, e os apelidos dizem que acompanham a versão mais recente. O card do agente mostra o modelo escolhido e o que a última execução informou ter usado.
+
 ### Corrigido
+
+- Ao escolher **Outro…**, o campo de modelo começa vazio, em vez de já trazer o nome escolhido antes.
 
 - Uma reconexão do Codex marcava como falha uma execução que depois terminava normalmente, com código 0 e entrega completa. O veredito era ignorado e o trabalho era repetido. Agora a reconexão aparece como aviso, e só conta como falha se o turno não for concluído.
 

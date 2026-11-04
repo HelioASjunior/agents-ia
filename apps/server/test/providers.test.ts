@@ -155,6 +155,19 @@ test('Codex: a execução vale pelo fim do turno, não pelos avisos do caminho',
   assert.equal(failedTurn.errorText, 'stream disconnected');
 });
 
+test('Claude: todo modelo da lista tem nome, e a versão aparece nos nomes completos', () => {
+  for (const id of claudeAdapter.models) {
+    const label = claudeAdapter.modelLabels?.[id] ?? '';
+    assert.ok(label.includes(id), `${id}: ${label}`);
+  }
+  assert.equal(claudeAdapter.modelLabels?.['claude-opus-5-5'], 'Opus 5.5 (claude-opus-5-5)');
+  // O nome salvo vai sem mudança para o CLI, seja o completo ou o apelido.
+  for (const model of ['claude-opus-5-5', 'claude-sonnet-5-5', 'opus']) {
+    const args = claudeAdapter.buildArgs({ model, permission: 'edit' } as BuildArgsOptions);
+    assert.equal(args[args.indexOf('--model') + 1], model);
+  }
+});
+
 test('Gemini: eventos documentados', () => {
   const events = feed(createGeminiParser(), [
     { type: 'init', session_id: 'g1', model: 'auto' },

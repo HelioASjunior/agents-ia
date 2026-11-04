@@ -64,7 +64,7 @@ export class DetectionService {
       const catalog = detected?.modelOptions ?? [];
       const modelOptions = catalog.length
         ? catalog
-        : adapter.models.map((id) => ({ id, label: id, efforts: adapter.efforts }));
+        : adapter.models.map((id) => ({ id, label: adapter.modelLabels?.[id] ?? id, efforts: adapter.efforts }));
       return {
         id: adapter.id,
         label: adapter.label,

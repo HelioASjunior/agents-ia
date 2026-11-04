@@ -54,6 +54,8 @@ export interface ProviderAdapter {
   /** Comando de ajuda e opções que indicam cada capacidade. */
   capabilityProbe: { args: string[]; flags: Record<string, string> } | null;
   models: string[];
+  /** Como mostrar cada modelo. Sem nome aqui, aparece o próprio ID. */
+  modelLabels?: Record<string, string>;
   efforts: string[];
   /** Comando que lista os modelos da versão instalada, quando o CLI oferece um. */
   modelProbe?: { args: string[]; parse(stdout: string): ModelOption[] };

@@ -8,6 +8,7 @@ import { after, before, test } from 'node:test';
 import type { Agent, Profile, Project } from '@xinoia/shared';
 import { createConfig } from '../../src/config.ts';
 import { createContext, type AppContext } from '../../src/context.ts';
+import { claudeAdapter } from '../../src/providers/claude.ts';
 import { codexAdapter } from '../../src/providers/codex.ts';
 import { buildEnv, capture } from '../../src/process/spawn.ts';
 
@@ -91,6 +92,20 @@ test('Claude real: cria arquivo, com acentos e pasta com espaço, e continua a s
   assert.equal(next.status, 'completed', next.errorText ?? '');
   assert.equal(next.sessionId, done.sessionId);
   assert.match(next.finalText ?? '', /claude\.txt/);
+});
+
+test('Claude real: cada nome completo da lista existe, e o apelido aponta para a versão certa', async () => {
+  for (const model of claudeAdapter.models.filter((name) => name.startsWith('claude-'))) {
+    const agent = await ctx.agents.create({ name: `Modelo ${model}`, provider: 'claude', profileId: claudeProfile.id, model, permission: 'read' });
+    const done = await run(agent, 'Responda só OK.');
+    assert.equal(done.status, 'completed', `${model}: ${done.errorText ?? ''}`);
+    assert.equal(done.model, model);
+    await ctx.agents.remove(agent.id);
+  }
+  const alias = await run(claude, 'Responda só OK.');
+  assert.equal(alias.status, 'completed', alias.errorText ?? '');
+  assert.ok(claudeAdapter.models.includes(alias.model ?? ''), `o apelido apontou para ${alias.model}, que falta na lista`);
+  assert.match(alias.model ?? '', /^claude-haiku-/);
 });
 
 test('Claude real: somente leitura não consegue alterar arquivos', async () => {

@@ -30,6 +30,17 @@ interface Draft {
 
 const OTHER_MODEL = '__outro';
 
+/** O modelo que a execução mais recente do agente neste projeto usou, de acordo com a ferramenta. */
+function useLastModel(agentId: string | undefined): string | null {
+  return useStore((state) => {
+    let latest: { model: string; queuedAt: number } | null = null;
+    for (const run of Object.values(state.runs)) {
+      if (run.agentId === agentId && run.model && (!latest || run.queuedAt > latest.queuedAt)) latest = { model: run.model, queuedAt: run.queuedAt };
+    }
+    return latest?.model ?? null;
+  });
+}
+
 function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => void }) {
   const providers = useStore((state) => state.providers);
   const profiles = useStore((state) => state.profiles);
@@ -61,6 +72,10 @@ function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => voi
   // Um nome fora da lista continua valendo: o catálogo pode estar atrasado, ou faltar.
   const [typingModel, setTypingModel] = useState(() => Boolean(agent?.model) && !chosenModel);
   const efforts = chosenModel?.efforts.length ? chosenModel.efforts : provider?.efforts ?? [];
+  const lastModel = useLastModel(agent?.id);
+  const modelHint = typingModel
+    ? 'Será usado exatamente este nome. Se a ferramenta não o reconhecer, a execução falha e mostra o motivo.'
+    : `Vazio usa o padrão da ferramenta.${lastModel ? ` Na última execução, este agente usou ${lastModel}.` : ''}`;
 
   const submit = async () => {
     const body = { ...draft, profileId: draft.profileId || null };
@@ -134,7 +149,7 @@ function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => voi
               {options.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}{profile.auth?.loggedIn ? '' : ' (sem login)'}</option>)}
             </select>
           </Field>
-          <Field label="Modelo" hint="Vazio usa o padrão da ferramenta.">
+          <Field label="Modelo" hint={modelHint}>
             {modelOptions.length > 0 && (
               <select
                 aria-label="Modelo"
@@ -143,7 +158,11 @@ function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => voi
                 onChange={(event) => {
                   const typed = event.target.value === OTHER_MODEL;
                   setTypingModel(typed);
-                  if (typed) return;
+                  if (typed) {
+                    // Começa vazio: o nome escolhido na lista não é o começo do nome a digitar.
+                    if (chosenModel) set({ model: '' });
+                    return;
+                  }
                   const next = modelOptions.find((item) => item.id === event.target.value);
                   // Um esforço que o novo modelo não aceita faria a execução falhar.
                   set({ model: event.target.value, effort: next?.efforts.length && !next.efforts.includes(draft.effort) ? '' : draft.effort });
@@ -155,7 +174,7 @@ function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => voi
               </select>
             )}
             {(typingModel || !modelOptions.length) && (
-              <input aria-label="Nome do modelo" className={`field ${modelOptions.length ? 'mt-1.5' : ''}`} value={draft.model} onChange={(event) => set({ model: event.target.value })} placeholder="Nome exato do modelo" />
+              <input aria-label="Nome do modelo" autoComplete="off" spellCheck={false} className={`field ${modelOptions.length ? 'mt-1.5' : ''}`} value={draft.model} onChange={(event) => set({ model: event.target.value.trim() })} placeholder="Nome exato do modelo" />
             )}
           </Field>
           <Field label="Esforço">
@@ -217,6 +236,8 @@ function AgentCard({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
   const info = ACTIVITY[activity];
   const permission = PERMISSIONS.find((item) => item.id === agent.permission);
   const problem = !profile ? 'Sem conta conectada' : profile.auth && !profile.auth.loggedIn ? 'A conta precisa de login' : !provider?.installed ? 'Ferramenta não instalada' : null;
+  const modelLabel = provider?.modelOptions.find((item) => item.id === agent.model)?.label ?? agent.model ?? 'Padrão da ferramenta';
+  const lastModel = useLastModel(agent.id);
 
   return (
     <article className="rise flex flex-col rounded-xl border border-line bg-panel p-3.5">
@@ -230,7 +251,9 @@ function AgentCard({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
       </div>
       {state?.detail && activity !== 'available' && <p className="mt-2 truncate font-mono text-[11px] text-accent">{state.detail}</p>}
       <dl className="mt-3 space-y-1 text-xs">
-        <div className="flex justify-between gap-2"><dt className="text-muted">Ferramenta</dt><dd className="truncate">{provider?.label ?? agent.provider}{agent.model ? ` · ${agent.model}` : ''}</dd></div>
+        <div className="flex justify-between gap-2"><dt className="text-muted">Ferramenta</dt><dd className="truncate">{provider?.label ?? agent.provider}</dd></div>
+        <div className="flex justify-between gap-2"><dt className="shrink-0 text-muted">Modelo</dt><dd className="truncate" title={modelLabel}>{modelLabel}</dd></div>
+        {lastModel && lastModel !== agent.model && <div className="flex justify-between gap-2"><dt className="shrink-0 text-muted">Usou por último</dt><dd className="truncate" title={lastModel}>{lastModel}</dd></div>}
         <div className="flex justify-between gap-2"><dt className="text-muted">Conta</dt><dd className="truncate">{profile?.label ?? '—'}</dd></div>
         <div className="flex justify-between gap-2"><dt className="text-muted">Permissão</dt><dd>{permission?.label}</dd></div>
         {toolkits.length > 0 && <div className="flex justify-between gap-2"><dt className="text-muted">Integrações</dt><dd className="truncate">{toolkits.map((kit) => kit.name).join(', ')}</dd></div>}

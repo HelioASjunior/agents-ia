@@ -215,7 +215,19 @@ export const claudeAdapter: ProviderAdapter = {
       effort: '--effort',
     },
   },
-  models: ['fable', 'opus', 'sonnet', 'haiku'],
+  // O Claude Code não tem comando de catálogo. Os nomes completos são conferidos por
+  // real-cli.test.ts, e os apelidos acompanham a versão mais recente sem depender desta lista.
+  models: ['claude-fable-5-1', 'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'fable', 'opus', 'sonnet', 'haiku'],
+  modelLabels: {
+    'claude-fable-5-1': 'Fable 5.1 (claude-fable-5-1)',
+    'claude-opus-5-5': 'Opus 5.5 (claude-opus-5-5)',
+    'claude-sonnet-5-5': 'Sonnet 5.5 (claude-sonnet-5-5)',
+    'claude-haiku-5-5': 'Haiku 5.5 (claude-haiku-5-5)',
+    fable: 'fable (sempre o Fable mais recente)',
+    opus: 'opus (sempre o Opus mais recente)',
+    sonnet: 'sonnet (sempre o Sonnet mais recente)',
+    haiku: 'haiku (sempre o Haiku mais recente)',
+  },
   efforts: ['low', 'medium', 'high', 'xhigh', 'max'],
   requiresProfile: true,
 
