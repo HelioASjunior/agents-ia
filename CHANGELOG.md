@@ -4,6 +4,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+## [0.1.4] - 2026-11-04
+
 ### Alterado
 
 - A lista de modelos do Claude mostra a versão, como **Opus 5.5 (claude-opus-5-5)**, e os apelidos dizem que acompanham a versão mais recente. O card do agente mostra o modelo escolhido e o que a última execução informou ter usado.

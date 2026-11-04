@@ -44,7 +44,7 @@ Use apenas contas suas e respeite os termos de cada fornecedor. O XinoIA nunca t
 
 ## Agentes
 
-Cada agente tem função, ferramenta, conta, modelo e nível de permissão. Os modelos do Codex vêm do catálogo da versão instalada. Nem toda conta tem acesso a todos: se a execução recusar, escolha outro modelo ou outra conta. Em **Outro…**, dá para digitar um nome fora da lista.
+Cada agente tem função, ferramenta, conta, modelo e nível de permissão. Os modelos do Codex vêm do catálogo da versão instalada. No Claude, a lista traz a versão fixa, como **Opus 5.5 (claude-opus-5-5)**, e os apelidos, como **opus**, que acompanham a versão mais recente. O card do agente mostra o modelo que a última execução informou ter usado. Nem toda conta tem acesso a todos: se a execução recusar, escolha outro modelo ou outra conta. Em **Outro…**, dá para digitar um nome fora da lista.
 
 | Permissão | Pode fazer |
 | --- | --- |

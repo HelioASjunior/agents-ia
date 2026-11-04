@@ -83,6 +83,12 @@ Veio do uso real em um projeto com uma fila montada só por configuração:
 - O tipo **Trabalho** para quem testa ou revisa virava revisão na aprovação, e a tarefa falhava sem veredito.
 - **Fila de objetivos:** testada com o CLI de teste, nos testes automáticos e na tela em um navegador. Falta o uso com contas reais, principalmente saber se cada ferramenta informa o consumo.
 
+## Versão 0.1.4
+
+- **Reconexão do Codex:** o evento de topo `error` avisa de cada reconexão e não encerra o turno, mas marcava como falha execuções com código 0 e entrega completa. Foram 4 no primeiro uso real. Agora vale o fim do turno. Testado com a sequência real de eventos e com o Codex real em uso normal; uma reconexão de verdade não foi provocada.
+- **Modelos do Claude:** nomes completos e apelidos conferidos com o Claude Code 2.1.318. O card mostra o modelo informado pela última execução.
+- **Campo Outro…:** o texto extra relatado não foi reproduzido, e não há código que o escreva. O campo agora começa vazio.
+
 ## Preparação da assinatura de código
 
 Os passos da SignPath estão no workflow, desligados, com a política em `README.md` e `PRIVACY.md`. O pedido ainda não foi feito: a decisão foi ganhar usuários antes, porque o formulário pede provas de reputação. O caminho completo, com um certificado descartável, roda no workflow **Teste de atualização**. A assinatura real pela SignPath só pode ser testada depois da aprovação, inclusive as regras de metadados de `.signpath/artifact-configurations/`.
