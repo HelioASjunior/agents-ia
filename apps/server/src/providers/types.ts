@@ -61,6 +61,8 @@ export interface ProviderAdapter {
   prepareHome?(homeDir: string): void;
   buildArgs(options: BuildArgsOptions): string[];
   toolArgs?(options: ToolArgsOptions): ToolArgsResult;
+  /** Regras de segurança que o próprio CLI aplica antes de executar. */
+  policyArgs?(policyFile: string, quotePath: (value: string) => string): string[];
   createParser(): LineParser;
   classifyError(text: string): ErrorKind | null;
   isNoise?(line: string): boolean;

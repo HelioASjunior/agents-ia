@@ -109,9 +109,9 @@ Agents can read and change files in the project folder, and they can run command
 | --- | --- | --- |
 | 1 | Backend, database, real CLI integration | **Done and tested** |
 | 2 | Orchestrator, tasks, review between agents | **Done and tested** |
-| 3 | Chat, terminal, monitoring | Planned |
-| 4 | Projects, workflows, Git worktrees | Planned |
-| 5 | Virtual office and visual identity | Planned |
+| 3 | Chat, terminal, monitoring | **Done and tested** |
+| 4 | Projects, workflows, Git worktrees | **Done and tested** |
+| 5 | Virtual office and visual identity | **Done and tested** |
 | 6 | Installer, automatic updates, releases | Planned |
 
 ## Development

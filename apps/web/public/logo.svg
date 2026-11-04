@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="XinoIA">
+  <title>XinoIA</title>
+  <!-- O piso isométrico do escritório, com o X de dois agentes passando trabalho um ao outro. -->
+  <path d="M128 18 244 86v84L128 238 12 170V86Z" fill="#141A22"/>
+  <path d="M128 18 244 86 128 154 12 86Z" fill="#1B2430"/>
+  <path d="M128 154v84L12 170V86Z" fill="#10151C"/>
+  <path d="M128 154v84l116-68V86Z" fill="#0C1016"/>
+  <path d="M128 18 244 86 128 154 12 86Z" fill="none" stroke="#2C3948" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M72 51 184 121" stroke="#F5B544" stroke-width="24" stroke-linecap="round"/>
+  <path d="M184 51 72 121" stroke="#2DD4BF" stroke-width="24" stroke-linecap="round"/>
+  <path d="M104 71 152 101" stroke="#F5B544" stroke-width="24" stroke-linecap="butt"/>
+  <circle cx="72" cy="51" r="17" fill="#FFD27A"/>
+  <circle cx="184" cy="121" r="17" fill="#FFD27A"/>
+  <circle cx="184" cy="51" r="17" fill="#7FF3E2"/>
+  <circle cx="72" cy="121" r="17" fill="#7FF3E2"/>
+  <path d="M64 178v24M64 178l-14-8M64 178l14-8" stroke="#2DD4BF" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+  <path d="M192 178v24M192 178l-14-8M192 178l14-8" stroke="#F5B544" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+</svg>

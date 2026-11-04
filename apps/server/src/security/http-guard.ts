@@ -68,7 +68,10 @@ export function installHttpGuard(app: FastifyInstance, options: GuardOptions): v
     // Host local barra DNS rebinding: um site apontando seu domínio para 127.0.0.1.
     if (!isLocalHost(request.headers.host)) return refuse(403, 'forbidden_host', 'Host não permitido.');
     if (!originAllowed(request, allowed)) return refuse(403, 'forbidden_origin', 'Origem não permitida.');
-    if (request.url === '/api/health') return undefined;
+    // Só os arquivos da interface são públicos, e eles não contêm o token: ele chega
+    // à página no fragmento da URL de abertura, que nunca é enviado ao servidor.
+    const protectedPath = request.url.startsWith('/api/') || request.url.startsWith('/ws');
+    if (!protectedPath || request.url === '/api/health') return undefined;
     if (!tokenMatches(receivedToken(request), options.token)) {
       return refuse(401, 'unauthorized', 'Token ausente ou inválido.');
     }

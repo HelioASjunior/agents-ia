@@ -31,13 +31,37 @@ if (!isPlanning && !isReport) fs.appendFileSync('ordem.txt', `inicio ${name}\n`)
 
 if (prompt.includes('VER_AMBIENTE')) fs.writeFileSync('ambiente.json', JSON.stringify(process.env));
 if (prompt.includes('VER_ARGS')) fs.writeFileSync('args.json', JSON.stringify(args));
-fs.writeFileSync('prompt-recebido.txt', prompt);
+// Planejar e relatar são só leitura, como o CLI real nesse nível de permissão.
+if (!isPlanning && !isReport) fs.writeFileSync('prompt-recebido.txt', prompt);
 
 const write = command.match(/ESCREVER=(\S+)/)?.[1];
 if (write) {
   out({ type: 'assistant', message: { id: 'm1', content: [{ type: 'tool_use', id: 't1', name: 'Write', input: { file_path: `${process.cwd()}/${write}`, content: 'oi' } }] }, parent_tool_use_id: null, session_id: sessionId });
   fs.writeFileSync(write, 'oi');
   out({ type: 'user', message: { role: 'user', content: [{ tool_use_id: 't1', type: 'tool_result', content: 'Arquivo criado' }] }, parent_tool_use_id: null, session_id: sessionId });
+}
+
+const overwrite = command.match(/SOBRESCREVER=([^:\s]+):(\S+)/);
+if (overwrite) {
+  fs.writeFileSync(overwrite[1], `${overwrite[2]}\n`);
+}
+
+// Tarefa de resolver conflito: junta os dois lados, como um agente faria.
+if (command.includes('[CORREÇÃO]') && command.includes('integração com conflitos')) {
+  for (const file of fs.readdirSync('.')) {
+    if (!fs.statSync(file).isFile()) continue;
+    const text = fs.readFileSync(file, 'utf8');
+    if (text.includes('<<<<<<<')) {
+      fs.writeFileSync(file, text.split('\n').filter((line) => !/^(<<<<<<<|=======|>>>>>>>)/.test(line)).join('\n'));
+    }
+  }
+}
+
+if (command.includes('COMANDO_PERIGOSO') && prompt.includes('[TAREFA]')) {
+  out({ type: 'assistant', message: { id: 'm9', content: [{ type: 'tool_use', id: 't9', name: 'Bash', input: { command: 'rm -rf node_modules' } }] }, parent_tool_use_id: null, session_id: sessionId });
+  await wait(1500);
+  fs.writeFileSync('depois-do-perigo.txt', 'x');
+  out({ type: 'user', message: { role: 'user', content: [{ tool_use_id: 't9', type: 'tool_result', content: 'ok' }] }, parent_tool_use_id: null, session_id: sessionId });
 }
 
 if (command.includes('VAZAR_SEGREDO')) {
@@ -50,9 +74,22 @@ if (command.includes('DORMIR')) {
 }
 if (command.includes('ESPERAR_POUCO')) await wait(300);
 // Só termina quando outro processo também estiver rodando, o que prova a concorrência.
-if (command.includes('ENCONTRO')) {
+if (command.includes('ENCONTRO NOME=')) {
   const deadline = Date.now() + 20_000;
   while (fs.readFileSync('ordem.txt', 'utf8').split('inicio').length - 1 < 2) {
+    if (Date.now() > deadline) {
+      process.stderr.write('o outro agente não começou\n');
+      process.exit(9);
+    }
+    await wait(20);
+  }
+}
+
+const meeting = command.match(/ENCONTRO_EM=(\S+)/)?.[1];
+if (meeting) {
+  fs.appendFileSync(meeting, `${process.cwd()}\n`);
+  const deadline = Date.now() + 20_000;
+  while (fs.readFileSync(meeting, 'utf8').trim().split('\n').length < 2) {
     if (Date.now() > deadline) {
       process.stderr.write('o outro agente não começou\n');
       process.exit(9);
@@ -141,7 +178,8 @@ if (prompt.includes('[TAREFA]')) {
     process.exit(6);
   }
   fs.appendFileSync('contexto.txt', `${prompt}\n=====\n`);
-  reply(`Trabalho feito.\n<handoff>Entreguei ${prompt.match(/Sua tarefa: (.+)/)?.[1] ?? 'a tarefa'}.</handoff>`);
+  const decision = prompt.includes('Sua tarefa: Implementar') && prompt.includes('DECIDIR') ? '<decisao>Banco será SQLite</decisao>\n' : '';
+  reply(`Trabalho feito.\n${decision}<handoff>Entreguei ${prompt.match(/Sua tarefa: (.+)/)?.[1] ?? 'a tarefa'}.</handoff>`);
   process.exit(0);
 }
 

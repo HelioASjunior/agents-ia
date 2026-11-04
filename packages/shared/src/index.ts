@@ -342,7 +342,7 @@ export interface ProviderInfo {
 // ---------------------------------------------------------------------------
 
 export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted';
-export type ErrorKind = 'limit' | 'auth' | 'missing' | 'session' | 'timeout' | 'unknown';
+export type ErrorKind = 'limit' | 'auth' | 'missing' | 'session' | 'timeout' | 'blocked' | 'unknown';
 
 export interface RunUsage {
   inputTokens: number;
@@ -441,6 +441,7 @@ export const CreateMissionInput = z.object({
   goal: z.string().trim().min(1).max(50_000),
   /** auto: o coordenador monta o plano. pipeline: a sequência é a ordem de agentIds. */
   mode: z.enum(['auto', 'pipeline']).default('auto'),
+  workflowId: z.string().nullish(),
   coordinatorId: z.string().nullish(),
   agentIds: z.array(z.string()).default([]),
   settings: MissionSettings.partial().default({}),
@@ -472,7 +473,7 @@ export interface Mission {
   projectId: string;
   goal: string;
   status: MissionStatus;
-  mode: 'auto' | 'pipeline';
+  mode: 'auto' | 'pipeline' | 'workflow';
   coordinatorId: string | null;
   agentIds: string[];
   settings: MissionSettings;
@@ -482,6 +483,13 @@ export interface Mission {
   report: string | null;
   /** Orientações do usuário durante a missão, repassadas às próximas tarefas. */
   notes: string[];
+  /** worktree: cada tarefa trabalha em uma cópia isolada, integrada ao final dela. */
+  isolation: 'none' | 'worktree';
+  baseBranch: string | null;
+  integrationBranch: string | null;
+  /** O resultado isolado só chega ao projeto depois da revisão do usuário. */
+  mergeStatus: 'none' | 'pending' | 'merged' | 'discarded';
+  workflowId: string | null;
   createdAt: number;
   startedAt: number | null;
   endedAt: number | null;
@@ -512,6 +520,14 @@ export interface Task {
   errorText: string | null;
   startedAt: number | null;
   endedAt: number | null;
+  /** Condição em relação à revisão anterior. Fora dela, a tarefa é pulada. */
+  runIf: 'always' | 'approved' | 'rejected';
+  /** Limite próprio de tentativas; sem ele, vale o da missão. */
+  maxAttempts: number | null;
+  /** Ramo com conflito que esta tarefa precisa resolver. */
+  mergeFrom: string | null;
+  /** Quando o usuário liberou esta tarefa, no modo supervisionado. */
+  approvedAt: number | null;
 }
 
 export type MissionEventData =
@@ -523,7 +539,11 @@ export type MissionEventData =
   | { type: 'fix_requested'; fromAgentName: string; toAgentName: string; round: number; summary: string }
   | { type: 'retry'; title: string; attempt: number; reason: string }
   | { type: 'reassigned'; title: string; fromAgentName: string; toAgentName: string; reason: string }
-  | { type: 'note'; text: string };
+  | { type: 'note'; text: string }
+  | { type: 'conflict'; title: string; files: string[]; toAgentName: string }
+  | { type: 'merged'; into: string; files: number }
+  | { type: 'dangerous_command'; agentName: string; command: string; reason: string; blocked: boolean }
+  | { type: 'task_skipped_by_condition'; title: string; condition: string };
 
 export interface StoredMissionEvent {
   id: number;
@@ -550,13 +570,254 @@ export interface AgentLiveState {
   since: number;
 }
 
+// ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+
+/** Canal da equipe. Os demais canais são o ID de um agente. */
+export const TEAM_CHANNEL = 'team';
+
+export type ChatMessageStatus = 'streaming' | 'done' | 'error' | 'cancelled';
+
+export interface Attachment {
+  name: string;
+  /** Caminho relativo à pasta do projeto. */
+  path: string;
+  size: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  projectId: string;
+  channel: string;
+  role: 'user' | 'agent' | 'system';
+  agentId: string | null;
+  agentName: string | null;
+  text: string;
+  runId: string | null;
+  status: ChatMessageStatus;
+  error: string | null;
+  attachments: Attachment[];
+  createdAt: number;
+}
+
+export const SendMessageInput = z.object({
+  projectId: z.string().min(1),
+  channel: z.string().min(1),
+  text: z.string().trim().min(1).max(200_000),
+  attachments: z.array(z.object({ name: z.string(), path: z.string(), size: z.number() })).default([]),
+});
+export type SendMessageInput = z.input<typeof SendMessageInput>;
+
+export const UploadAttachmentInput = z.object({
+  name: z.string().trim().min(1).max(200),
+  /** Conteúdo em base64. */
+  content: z.string().min(1),
+});
+
+// ---------------------------------------------------------------------------
+// Arquivos e terminal
+// ---------------------------------------------------------------------------
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+}
+
+export interface FileContent {
+  path: string;
+  size: number;
+  /** null quando o arquivo é binário ou grande demais para abrir. */
+  content: string | null;
+  reason: string | null;
+}
+
+export const SaveFileInput = z.object({ path: z.string().min(1), content: z.string() });
+
+export const CreateTerminalInput = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('shell'), projectId: z.string().min(1) }),
+  z.object({ kind: z.literal('login'), profileId: z.string().min(1) }),
+]);
+export type CreateTerminalInput = z.input<typeof CreateTerminalInput>;
+
+export interface TerminalInfo {
+  id: string;
+  kind: 'shell' | 'login';
+  title: string;
+}
+
+// ---------------------------------------------------------------------------
+// Painel
+// ---------------------------------------------------------------------------
+
+export interface Metrics {
+  agents: { total: number; active: number };
+  runs: { total: number; running: number; queued: number; completed: number; failed: number; cancelled: number; interrupted: number };
+  tasks: { total: number; running: number; done: number; failed: number; pending: number };
+  missions: { total: number; active: number; completed: number; failed: number };
+  /** Só soma o que os CLIs informaram. Execuções sem esse dado não entram. */
+  tokens: { input: number; output: number; runsWithData: number };
+  averageRunMs: number | null;
+  system: { platform: string; cpuCount: number; cpuUsage: number | null; memoryTotal: number; memoryFree: number; processMemory: number; uptimeSeconds: number };
+}
+
+export interface TimelineItem {
+  id: string;
+  ts: number;
+  kind: 'run' | 'mission';
+  title: string;
+  detail: string | null;
+  status: string;
+}
+
+// ---------------------------------------------------------------------------
+// Git
+// ---------------------------------------------------------------------------
+
+export interface GitChange {
+  path: string;
+  /** M alterado, A novo, D apagado, R renomeado, ? ainda fora do Git, U em conflito. */
+  status: string;
+}
+
+export interface GitCommit {
+  hash: string;
+  subject: string;
+  author: string;
+  date: number;
+}
+
+export interface GitStatus {
+  isRepo: boolean;
+  branch: string | null;
+  hasCommits: boolean;
+  changes: GitChange[];
+  commits: GitCommit[];
+}
+
+export const CloneProjectInput = z.object({
+  url: z.string().trim().regex(/^(https?:\/\/|git@|ssh:\/\/)[^\s]+$/, 'Use um endereço https, ssh ou git@.').max(500),
+  path: z.string().trim().min(1),
+  name: z.string().trim().max(80).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Memória do projeto
+// ---------------------------------------------------------------------------
+
+export type MemoryKind = 'decision' | 'note';
+
+export interface MemoryItem {
+  id: string;
+  projectId: string;
+  kind: MemoryKind;
+  text: string;
+  /** Quem registrou: o nome do agente, ou null para o usuário. */
+  source: string | null;
+  missionId: string | null;
+  createdAt: number;
+}
+
+export const CreateMemoryInput = z.object({
+  kind: z.enum(['decision', 'note']).default('note'),
+  text: z.string().trim().min(1).max(4000),
+});
+
+// ---------------------------------------------------------------------------
+// Workflows
+// ---------------------------------------------------------------------------
+
+export const WorkflowNode = z.object({
+  id: z.string().min(1).max(60),
+  title: z.string().trim().min(1).max(120),
+  description: z.string().max(8000).default(''),
+  /** Quem faz: um agente específico, ou o primeiro da equipe com esta função. */
+  agentId: z.string().nullish(),
+  role: RoleId.default('developer'),
+  type: z.enum(['work', 'review']).default('work'),
+  /** Condição em relação à revisão da etapa anterior. */
+  runIf: z.enum(['always', 'approved', 'rejected']).default('always'),
+  maxAttempts: z.number().int().min(1).max(5).default(2),
+  x: z.number().default(0),
+  y: z.number().default(0),
+});
+export type WorkflowNode = z.infer<typeof WorkflowNode>;
+
+export const WorkflowEdge = z.object({ source: z.string(), target: z.string() });
+export type WorkflowEdge = z.infer<typeof WorkflowEdge>;
+
+export const SaveWorkflowInput = z.object({
+  name: z.string().trim().min(1).max(80),
+  description: z.string().max(1000).default(''),
+  nodes: z.array(WorkflowNode).min(1).max(40),
+  edges: z.array(WorkflowEdge).max(200).default([]),
+});
+export type SaveWorkflowInput = z.input<typeof SaveWorkflowInput>;
+
+export const RunWorkflowInput = z.object({
+  projectId: z.string().min(1),
+  goal: z.string().trim().min(1).max(50_000),
+  settings: MissionSettings.partial().default({}),
+});
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  /** Modelo que vem com o XinoIA: pode ser usado e copiado, não alterado. */
+  builtin: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Modos de execução
+// ---------------------------------------------------------------------------
+
+export const ExecutionMode = z.enum(['supervised', 'semi', 'autonomous']);
+export type ExecutionMode = z.infer<typeof ExecutionMode>;
+
+export const EXECUTION_MODES: Array<{ id: ExecutionMode; label: string; description: string }> = [
+  {
+    id: 'supervised',
+    label: 'Supervisionado',
+    description: 'Você aprova o plano e cada tarefa antes de começar. Nenhum agente recebe permissão total, e um comando destrutivo interrompe a execução.',
+  },
+  {
+    id: 'semi',
+    label: 'Semiautônomo',
+    description: 'Você aprova o plano e as tarefas seguem sozinhas. A permissão total fica limitada, e um comando destrutivo interrompe a execução e pede sua decisão.',
+  },
+  {
+    id: 'autonomous',
+    label: 'Autônomo controlado',
+    description: 'As tarefas seguem sozinhas com a permissão de cada agente, dentro dos limites de tempo. Comandos destrutivos ficam registrados como aviso.',
+  },
+];
+
+export const AppSettings = z.object({
+  executionMode: ExecutionMode.default('semi'),
+  /** Tempo máximo sem nenhuma saída antes de considerar o agente travado. */
+  stallMinutes: z.number().int().min(1).max(240).default(30),
+  /** Tempo máximo total de uma execução. */
+  maxRunMinutes: z.number().int().min(1).max(1440).default(180),
+});
+export type AppSettings = z.infer<typeof AppSettings>;
+
 /** Mensagens do servidor para a interface pelo WebSocket. */
 export type ServerMessage =
+  | { kind: 'chat_message'; data: ChatMessage }
   | { kind: 'hello'; lastEventId: number }
   | { kind: 'run_event'; data: StoredRunEvent }
   | { kind: 'run_updated'; data: Run }
   | { kind: 'profile_updated'; data: Profile }
   | { kind: 'mission_updated'; data: Mission }
   | { kind: 'task_updated'; data: Task }
+  /** O plano inteiro foi trocado, então as tarefas antigas deixam de existir. */
+  | { kind: 'tasks_replaced'; missionId: string; data: Task[] }
   | { kind: 'mission_event'; data: StoredMissionEvent }
   | { kind: 'agent_state'; data: AgentLiveState };

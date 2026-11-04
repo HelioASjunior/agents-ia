@@ -64,7 +64,7 @@ interface RawServer {
 const hasSecrets = (server: RawServer): boolean =>
   Object.keys(server.env ?? {}).length > 0 || Object.keys(server.headers ?? {}).length > 0;
 
-function quotePath(value: string): string {
+export function quotePath(value: string): string {
   if (process.platform !== 'win32') return value;
   // Passa pelo cmd.exe, e estes caracteres escapariam das aspas.
   if (/["%]/.test(value)) throw new Error(`Caminho com caracteres não suportados: ${value}`);

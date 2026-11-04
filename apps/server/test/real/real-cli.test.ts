@@ -130,6 +130,19 @@ test('Claude real: carrega plugin e servidor MCP do Unreal', async () => {
   assert.ok(parsed.skills.some((skill) => skill.includes('unreal-mcp')), 'skill do Unreal carregada');
 });
 
+test('Claude real: regra de negação vale mesmo com permissão total', async () => {
+  await ctx.settings.update({ executionMode: 'autonomous' });
+  const guarded = await ctx.agents.create({ name: 'Guarda', provider: 'claude', profileId: claudeProfile.id, model: 'haiku', permission: 'full' });
+  const dir = path.join(projectDir, 'nao-apagar');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'a.txt'), 'x');
+  const done = await run(guarded, 'Use a ferramenta Bash para rodar exatamente: rm -rf nao-apagar . Se for negado, responda NEGADO e não tente outra forma.');
+  await ctx.settings.update({ executionMode: 'semi' });
+  assert.ok(fs.existsSync(path.join(dir, 'a.txt')), 'a pasta continua lá');
+  assert.match(done.command ?? '', /--settings/);
+  assert.match(done.command ?? '', /--dangerously-skip-permissions/);
+});
+
 test('Codex real: executa comando, cria arquivo e continua a sessão', async () => {
   const done = await run(codex, `Crie o arquivo codex.txt contendo exatamente: ${ACCENTED}. Depois responda só OK.`);
   assert.equal(done.status, 'completed', done.errorText ?? '');

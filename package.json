@@ -14,11 +14,14 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:server": "node --disable-warning=ExperimentalWarning --watch apps/server/src/index.ts",
+    "dev:server": "node --disable-warning=ExperimentalWarning --watch scripts/dev-server.ts",
     "doctor": "node --disable-warning=ExperimentalWarning apps/server/src/doctor.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --disable-warning=ExperimentalWarning --test --test-timeout=60000 \"apps/server/test/*.test.ts\"",
-    "test:real": "node --disable-warning=ExperimentalWarning --test --test-timeout=600000 --test-concurrency=1 \"apps/server/test/real/*.test.ts\""
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-force-exit --test-timeout=60000 \"apps/server/test/*.test.ts\"",
+    "test:real": "node --disable-warning=ExperimentalWarning --test --test-force-exit --test-timeout=600000 --test-concurrency=1 \"apps/server/test/real/*.test.ts\"",
+    "dev:web": "npm run dev --workspace @xinoia/web",
+    "build:web": "npm run build --workspace @xinoia/web",
+    "start": "node --disable-warning=ExperimentalWarning apps/server/src/index.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

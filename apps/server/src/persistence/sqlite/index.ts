@@ -2,8 +2,10 @@ import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 import type {
   Agent,
   AgentEvent,
+  ChatMessage,
   CustomProvider,
   McpServer,
+  MemoryItem,
   Mission,
   MissionEventData,
   MissionStatus,
@@ -18,6 +20,7 @@ import type {
   StoredRunEvent,
   Task,
   Toolkit,
+  Workflow,
 } from '@xinoia/shared';
 import type { Persistence, RunFilter, SessionKey } from '../types.ts';
 import { backupDatabase, openDatabase, type OpenResult } from './connection.ts';
@@ -99,6 +102,23 @@ function toRun(r: Row): Run {
   };
 }
 
+function toMessage(r: Row): ChatMessage {
+  return {
+    id: String(r.id),
+    projectId: String(r.project_id),
+    channel: String(r.channel),
+    role: String(r.role) as ChatMessage['role'],
+    agentId: textOrNull(r.agent_id),
+    agentName: textOrNull(r.agent_name),
+    text: String(r.text),
+    runId: textOrNull(r.run_id),
+    status: String(r.status) as ChatMessage['status'],
+    error: textOrNull(r.error),
+    attachments: parse(r.attachments_json),
+    createdAt: Number(r.created_at),
+  };
+}
+
 function toMission(r: Row): Mission {
   return {
     id: String(r.id),
@@ -113,6 +133,11 @@ function toMission(r: Row): Mission {
     pauseReason: textOrNull(r.pause_reason),
     report: textOrNull(r.report),
     notes: parse(r.notes_json),
+    isolation: String(r.isolation) as Mission['isolation'],
+    baseBranch: textOrNull(r.base_branch),
+    integrationBranch: textOrNull(r.integration_branch),
+    mergeStatus: String(r.merge_status) as Mission['mergeStatus'],
+    workflowId: textOrNull(r.workflow_id),
     createdAt: Number(r.created_at),
     startedAt: numOrNull(r.started_at),
     endedAt: numOrNull(r.ended_at),
@@ -143,6 +168,35 @@ function toTask(r: Row): Task {
     errorText: textOrNull(r.error_text),
     startedAt: numOrNull(r.started_at),
     endedAt: numOrNull(r.ended_at),
+    runIf: String(r.run_if) as Task['runIf'],
+    maxAttempts: numOrNull(r.max_attempts),
+    mergeFrom: textOrNull(r.merge_from),
+    approvedAt: numOrNull(r.approved_at),
+  };
+}
+
+function toWorkflow(r: Row): Workflow {
+  return {
+    id: String(r.id),
+    name: String(r.name),
+    description: String(r.description),
+    nodes: parse(r.nodes_json),
+    edges: parse(r.edges_json),
+    builtin: false,
+    createdAt: Number(r.created_at),
+    updatedAt: Number(r.updated_at),
+  };
+}
+
+function toMemory(r: Row): MemoryItem {
+  return {
+    id: String(r.id),
+    projectId: String(r.project_id),
+    kind: String(r.kind) as MemoryItem['kind'],
+    text: String(r.text),
+    source: textOrNull(r.source),
+    missionId: textOrNull(r.mission_id),
+    createdAt: Number(r.created_at),
   };
 }
 
@@ -202,8 +256,8 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
 
   const insertTask = (t: Task): void => {
     run(
-      `INSERT INTO tasks (id, mission_id, position, title, description, assignee_id, assignee_name, type, priority, depends_on_json, status, round, is_fix, attempts, verdict, result, handoff, files_changed_json, error_kind, error_text, started_at, ended_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tasks (id, mission_id, position, title, description, assignee_id, assignee_name, type, priority, depends_on_json, status, round, is_fix, attempts, verdict, result, handoff, files_changed_json, error_kind, error_text, started_at, ended_at, run_if, max_attempts, merge_from, approved_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       t.id,
       t.missionId,
       t.position,
@@ -226,6 +280,10 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
       t.errorText,
       t.startedAt,
       t.endedAt,
+      t.runIf,
+      t.maxAttempts,
+      t.mergeFrom,
+      t.approvedAt,
     );
   };
 
@@ -571,17 +629,165 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
       async listAfter(afterId, limit = 2000) {
         return all('SELECT * FROM run_events WHERE id > ? ORDER BY id LIMIT ?', afterId, limit).map(toEvent);
       },
+      async listForProject(projectId, limit = 5000) {
+        const rows = all(
+          `SELECT e.* FROM run_events e JOIN runs r ON r.id = e.run_id
+           WHERE r.project_id = ? ORDER BY e.id DESC LIMIT ?`,
+          projectId,
+          limit,
+        );
+        return rows.reverse().map(toEvent);
+      },
       async lastId() {
         const row = one('SELECT coalesce(max(id), 0) AS last FROM run_events');
         return Number(row?.last ?? 0);
       },
     },
 
+    messages: {
+      async insert(m) {
+        run(
+          `INSERT INTO messages (id, project_id, channel, role, agent_id, agent_name, text, run_id, status, error, attachments_json, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          m.id,
+          m.projectId,
+          m.channel,
+          m.role,
+          m.agentId,
+          m.agentName,
+          m.text,
+          m.runId,
+          m.status,
+          m.error,
+          JSON.stringify(m.attachments),
+          m.createdAt,
+        );
+      },
+      async update(m) {
+        run('UPDATE messages SET text = ?, run_id = ?, status = ?, error = ? WHERE id = ?', m.text, m.runId, m.status, m.error, m.id);
+      },
+      async get(id) {
+        const row = one('SELECT * FROM messages WHERE id = ?', id);
+        return row ? toMessage(row) : null;
+      },
+      async list(projectId, channel, limit = 300) {
+        const rows = all(
+          'SELECT * FROM messages WHERE project_id = ? AND channel = ? ORDER BY created_at DESC, rowid DESC LIMIT ?',
+          projectId,
+          channel,
+          limit,
+        );
+        return rows.reverse().map(toMessage);
+      },
+      async search(projectId, query, limit = 50) {
+        const like = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+        return all(
+          `SELECT * FROM messages WHERE project_id = ? AND text LIKE ? ESCAPE '\\' ORDER BY created_at DESC LIMIT ?`,
+          projectId,
+          like,
+          limit,
+        ).map(toMessage);
+      },
+      async clearChannel(projectId, channel) {
+        run('DELETE FROM messages WHERE project_id = ? AND channel = ?', projectId, channel);
+      },
+      async markStreamingAsInterrupted() {
+        run(`UPDATE messages SET status = 'cancelled', error = 'O XinoIA foi fechado durante a resposta.' WHERE status = 'streaming'`);
+      },
+    },
+
+    metrics: {
+      async counts(projectId) {
+        const filter = projectId ? 'WHERE project_id = ?' : '';
+        const params = projectId ? [projectId] : [];
+        const group = (sql: string, ...values: SQLInputValue[]) =>
+          Object.fromEntries(all(sql, ...values).map((row) => [String(row.status), Number(row.total)]));
+        const tasks = projectId
+          ? group(`SELECT t.status, count(*) AS total FROM tasks t JOIN missions m ON m.id = t.mission_id WHERE m.project_id = ? GROUP BY t.status`, projectId)
+          : group('SELECT status, count(*) AS total FROM tasks GROUP BY status');
+        const usageRows = all(`SELECT usage_json FROM runs ${filter ? `${filter} AND` : 'WHERE'} usage_json IS NOT NULL`, ...params);
+        const tokens = { input: 0, output: 0, runsWithData: usageRows.length };
+        for (const row of usageRows) {
+          const usage = parse<{ inputTokens: number; outputTokens: number }>(row.usage_json);
+          tokens.input += usage.inputTokens;
+          tokens.output += usage.outputTokens;
+        }
+        const average = one(
+          `SELECT avg(ended_at - started_at) AS value FROM runs ${filter ? `${filter} AND` : 'WHERE'} started_at IS NOT NULL AND ended_at IS NOT NULL`,
+          ...params,
+        );
+        return {
+          runs: group(`SELECT status, count(*) AS total FROM runs ${filter} GROUP BY status`, ...params),
+          tasks,
+          missions: group(`SELECT status, count(*) AS total FROM missions ${filter} GROUP BY status`, ...params),
+          tokens,
+          averageRunMs: average?.value === null || average?.value === undefined ? null : Number(average.value),
+        };
+      },
+    },
+
+    workflows: {
+      async list() {
+        return all('SELECT * FROM workflows ORDER BY updated_at DESC').map(toWorkflow);
+      },
+      async get(id) {
+        const row = one('SELECT * FROM workflows WHERE id = ?', id);
+        return row ? toWorkflow(row) : null;
+      },
+      async insert(w) {
+        run(
+          'INSERT INTO workflows (id, name, description, nodes_json, edges_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          w.id,
+          w.name,
+          w.description,
+          JSON.stringify(w.nodes),
+          JSON.stringify(w.edges),
+          w.createdAt,
+          w.updatedAt,
+        );
+      },
+      async update(w) {
+        run(
+          'UPDATE workflows SET name = ?, description = ?, nodes_json = ?, edges_json = ?, updated_at = ? WHERE id = ?',
+          w.name,
+          w.description,
+          JSON.stringify(w.nodes),
+          JSON.stringify(w.edges),
+          w.updatedAt,
+          w.id,
+        );
+      },
+      async delete(id) {
+        run('DELETE FROM workflows WHERE id = ?', id);
+      },
+    },
+
+    memory: {
+      async list(projectId, limit = 100) {
+        return all('SELECT * FROM memory_items WHERE project_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?', projectId, limit).map(toMemory);
+      },
+      async insert(m) {
+        run(
+          'INSERT INTO memory_items (id, project_id, kind, text, source, mission_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          m.id,
+          m.projectId,
+          m.kind,
+          m.text,
+          m.source,
+          m.missionId,
+          m.createdAt,
+        );
+      },
+      async delete(id) {
+        run('DELETE FROM memory_items WHERE id = ?', id);
+      },
+    },
+
     missions: {
       async insert(m) {
         run(
-          `INSERT INTO missions (id, project_id, goal, status, mode, coordinator_id, agent_ids_json, settings_json, plan_summary, pause_reason, report, notes_json, created_at, started_at, ended_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO missions (id, project_id, goal, status, mode, coordinator_id, agent_ids_json, settings_json, plan_summary, pause_reason, report, notes_json, created_at, started_at, ended_at, isolation, base_branch, integration_branch, merge_status, workflow_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           m.id,
           m.projectId,
           m.goal,
@@ -597,11 +803,16 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
           m.createdAt,
           m.startedAt,
           m.endedAt,
+          m.isolation,
+          m.baseBranch,
+          m.integrationBranch,
+          m.mergeStatus,
+          m.workflowId,
         );
       },
       async update(m) {
         run(
-          `UPDATE missions SET status = ?, coordinator_id = ?, agent_ids_json = ?, settings_json = ?, plan_summary = ?, pause_reason = ?, report = ?, notes_json = ?, started_at = ?, ended_at = ? WHERE id = ?`,
+          `UPDATE missions SET status = ?, coordinator_id = ?, agent_ids_json = ?, settings_json = ?, plan_summary = ?, pause_reason = ?, report = ?, notes_json = ?, started_at = ?, ended_at = ?, isolation = ?, base_branch = ?, integration_branch = ?, merge_status = ? WHERE id = ?`,
           m.status,
           m.coordinatorId,
           JSON.stringify(m.agentIds),
@@ -612,6 +823,10 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
           JSON.stringify(m.notes),
           m.startedAt,
           m.endedAt,
+          m.isolation,
+          m.baseBranch,
+          m.integrationBranch,
+          m.mergeStatus,
           m.id,
         );
       },
@@ -643,7 +858,7 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
       },
       async update(t) {
         run(
-          `UPDATE tasks SET position = ?, title = ?, description = ?, assignee_id = ?, assignee_name = ?, type = ?, priority = ?, depends_on_json = ?, status = ?, round = ?, is_fix = ?, attempts = ?, verdict = ?, result = ?, handoff = ?, files_changed_json = ?, error_kind = ?, error_text = ?, started_at = ?, ended_at = ? WHERE id = ?`,
+          `UPDATE tasks SET position = ?, title = ?, description = ?, assignee_id = ?, assignee_name = ?, type = ?, priority = ?, depends_on_json = ?, status = ?, round = ?, is_fix = ?, attempts = ?, verdict = ?, result = ?, handoff = ?, files_changed_json = ?, error_kind = ?, error_text = ?, started_at = ?, ended_at = ?, run_if = ?, max_attempts = ?, merge_from = ?, approved_at = ? WHERE id = ?`,
           t.position,
           t.title,
           t.description,
@@ -664,6 +879,10 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
           t.errorText,
           t.startedAt,
           t.endedAt,
+          t.runIf,
+          t.maxAttempts,
+          t.mergeFrom,
+          t.approvedAt,
           t.id,
         );
       },

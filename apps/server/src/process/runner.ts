@@ -10,6 +10,8 @@ export interface RunRequest {
   env: Record<string, string>;
   options: BuildArgsOptions;
   inactivityMs: number;
+  /** Tempo total máximo, mesmo que o agente continue ativo. */
+  maxDurationMs?: number;
   onEvent: (event: AgentEvent) => void;
   /** Cada linha bruta da saída, para o log completo em arquivo. */
   onRawLine?: (stream: 'stdout' | 'stderr', line: string) => void;
@@ -38,7 +40,7 @@ export interface RunHandle {
 }
 
 export function startCliRun(request: RunRequest): RunHandle {
-  const { adapter, prompt, cwd, env, options, inactivityMs, onEvent, onRawLine } = request;
+  const { adapter, prompt, cwd, env, options, inactivityMs, maxDurationMs, onEvent, onRawLine } = request;
   const startedAt = Date.now();
   const parse = adapter.createParser();
   const outcome: RunOutcome = {
@@ -75,6 +77,13 @@ export function startCliRun(request: RunRequest): RunHandle {
     }
   };
   touch();
+  let overTime = false;
+  const hardLimit = maxDurationMs
+    ? setTimeout(() => {
+        overTime = true;
+        killTree(child);
+      }, maxDurationMs)
+    : undefined;
 
   const handle = (event: AgentEvent) => {
     switch (event.type) {
@@ -131,11 +140,16 @@ export function startCliRun(request: RunRequest): RunHandle {
     if (settled) return;
     settled = true;
     clearTimeout(watchdog);
+    clearTimeout(hardLimit);
     outcome.exitCode = code;
     outcome.durationMs = Date.now() - startedAt;
     if (spawnError) outcome.errorText = spawnError;
     if (timedOut) {
       outcome.errorText = `Sem atividade por ${Math.round(inactivityMs / 60_000)} min. A execução foi encerrada.`;
+      outcome.errorKind = 'timeout';
+    }
+    if (overTime) {
+      outcome.errorText = `A execução passou do limite de ${Math.round((maxDurationMs ?? 0) / 60_000)} min e foi encerrada.`;
       outcome.errorKind = 'timeout';
     }
     outcome.ok = code === 0 && !outcome.errorText && !outcome.cancelled;

@@ -2,7 +2,9 @@ import type {
   Agent,
   AgentEvent,
   AuthStatus,
+  ChatMessage,
   CustomProvider,
+  MemoryItem,
   Mission,
   MissionEventData,
   Profile,
@@ -16,6 +18,7 @@ import type {
   StoredRunEvent,
   Task,
   Toolkit,
+  Workflow,
 } from '@xinoia/shared';
 
 // Os serviços conhecem só estas interfaces, nunca SQL. São assíncronas mesmo com
@@ -101,6 +104,8 @@ export interface RunEventRepository {
   append(runId: string, ts: number, event: AgentEvent): Promise<StoredRunEvent>;
   listForRun(runId: string, afterId?: number): Promise<StoredRunEvent[]>;
   listAfter(afterId: number, limit?: number): Promise<StoredRunEvent[]>;
+  /** Eventos mais recentes de um projeto, em ordem, para refazer o terminal. */
+  listForProject(projectId: string, limit?: number): Promise<StoredRunEvent[]>;
   lastId(): Promise<number>;
 }
 
@@ -127,7 +132,46 @@ export interface MissionEventRepository {
   listForMission(missionId: string, afterId?: number): Promise<StoredMissionEvent[]>;
 }
 
+export interface MessageRepository {
+  insert(message: ChatMessage): Promise<void>;
+  update(message: ChatMessage): Promise<void>;
+  get(id: string): Promise<ChatMessage | null>;
+  list(projectId: string, channel: string, limit?: number): Promise<ChatMessage[]>;
+  search(projectId: string, query: string, limit?: number): Promise<ChatMessage[]>;
+  clearChannel(projectId: string, channel: string): Promise<void>;
+  /** Mensagens que estavam em andamento quando o app fechou. */
+  markStreamingAsInterrupted(): Promise<void>;
+}
+
+export interface MetricsRepository {
+  counts(projectId?: string): Promise<{
+    runs: Record<string, number>;
+    tasks: Record<string, number>;
+    missions: Record<string, number>;
+    tokens: { input: number; output: number; runsWithData: number };
+    averageRunMs: number | null;
+  }>;
+}
+
+export interface WorkflowRepository {
+  list(): Promise<Workflow[]>;
+  get(id: string): Promise<Workflow | null>;
+  insert(workflow: Workflow): Promise<void>;
+  update(workflow: Workflow): Promise<void>;
+  delete(id: string): Promise<void>;
+}
+
+export interface MemoryRepository {
+  list(projectId: string, limit?: number): Promise<MemoryItem[]>;
+  insert(item: MemoryItem): Promise<void>;
+  delete(id: string): Promise<void>;
+}
+
 export interface Persistence {
+  workflows: WorkflowRepository;
+  memory: MemoryRepository;
+  messages: MessageRepository;
+  metrics: MetricsRepository;
   missions: MissionRepository;
   tasks: TaskRepository;
   missionEvents: MissionEventRepository;

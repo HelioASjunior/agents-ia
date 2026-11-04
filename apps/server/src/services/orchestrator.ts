@@ -7,13 +7,17 @@ import type {
   Run,
   StoredMissionEvent,
   Task,
+  Workflow,
 } from '@xinoia/shared';
 import { ApproveMissionInput, CreateMissionInput, MissionSettings, ROLES } from '@xinoia/shared';
+import type { AppConfig } from '../config.ts';
 import { badRequest, conflict, notFound } from '../errors.ts';
 import { newId } from '../ids.ts';
 import type { Persistence } from '../persistence/types.ts';
 import { redact } from '../security/redact.ts';
 import type { EventHub } from '../ws/hub.ts';
+import * as gitOps from './git.ts';
+import { extractDecisions, type MemoryService } from './memory.ts';
 import { factualSummary, planCorrectionPrompt, planningPrompt, reportPrompt, taskPrompt } from './mission-prompts.ts';
 import {
   addFixRound,
@@ -25,24 +29,39 @@ import {
   pipelineTasks,
   readyTasks,
 } from './planning.ts';
+import type { SettingsService } from './policy.ts';
 import type { RunService } from './runs.ts';
+import { workflowToTasks } from './workflows.ts';
 
 const ACTIVE: MissionStatus[] = ['planning', 'awaiting_approval', 'running', 'paused', 'reporting'];
 
 export class Orchestrator {
+  private readonly config: AppConfig;
   private readonly db: Persistence;
   private readonly runs: RunService;
   private readonly hub: EventHub;
+  private readonly memory: MemoryService;
+  private readonly settings: SettingsService;
   /** Execuções em andamento por missão: tarefa (ou planejamento) e a execução dela. */
   private readonly inFlight = new Map<string, Map<string, string>>();
   /** Decisões de uma missão acontecem uma por vez, para não haver disputa de estado. */
   private readonly chains = new Map<string, Promise<unknown>>();
   private readonly idleWaiters = new Map<string, Array<() => void>>();
+  /** Pasta e ramo de cada tarefa isolada em andamento. */
+  private readonly workspaces = new Map<string, { dir: string; branch: string }>();
 
-  constructor(db: Persistence, runs: RunService, hub: EventHub) {
+  constructor(config: AppConfig, db: Persistence, runs: RunService, hub: EventHub, memory: MemoryService, settings: SettingsService) {
+    this.config = config;
     this.db = db;
     this.runs = runs;
     this.hub = hub;
+    this.memory = memory;
+    this.settings = settings;
+    runs.onDangerous = (event) => {
+      if (event.run.missionId) {
+        void this.onDangerousCommand(event.run.missionId, event.run, event.command, event.reason, event.blocked);
+      }
+    };
   }
 
   private serialize<T>(missionId: string, work: () => Promise<T>): Promise<T> {
@@ -71,6 +90,12 @@ export class Orchestrator {
     const task = await this.db.tasks.get(taskId);
     if (!task || task.missionId !== missionId) throw notFound('Tarefa');
     return task;
+  }
+
+  private async projectPath(mission: Mission): Promise<string> {
+    const project = await this.db.projects.get(mission.projectId);
+    if (!project) throw notFound('Projeto');
+    return project.path;
   }
 
   private async saveMission(mission: Mission): Promise<void> {
@@ -130,15 +155,65 @@ export class Orchestrator {
   // Criação e planejamento
   // -------------------------------------------------------------------------
 
+  private async assertNoActive(projectId: string): Promise<void> {
+    const current = await this.db.missions.list({ projectId, limit: 20 });
+    if (current.some((mission) => ACTIVE.includes(mission.status))) {
+      throw conflict('Este projeto já tem uma missão em andamento. Conclua ou cancele antes de começar outra.', 'mission_active');
+    }
+  }
+
+  private newMission(fields: Pick<Mission, 'projectId' | 'goal' | 'mode' | 'coordinatorId' | 'agentIds' | 'settings'> & { workflowId?: string | null }): Mission {
+    return {
+      id: newId('mission'),
+      status: 'planning',
+      planSummary: null,
+      pauseReason: null,
+      report: null,
+      notes: [],
+      isolation: 'none',
+      baseBranch: null,
+      integrationBranch: null,
+      mergeStatus: 'none',
+      createdAt: Date.now(),
+      startedAt: null,
+      endedAt: null,
+      ...fields,
+      workflowId: fields.workflowId ?? null,
+    };
+  }
+
+  /**
+   * Tarefas em paralelo não podem escrever na mesma pasta sem risco de uma apagar a
+   * outra. Com Git, cada uma ganha um worktree; sem Git, a missão roda uma por vez.
+   */
+  private async prepareIsolation(mission: Mission, projectPath: string): Promise<void> {
+    if (mission.settings.concurrency <= 1) return;
+    if (await gitOps.isGitRepo(projectPath) && await gitOps.hasCommits(projectPath)) {
+      const isolation = await gitOps.startIsolation(projectPath, this.config.dataDir, mission.id);
+      mission.isolation = 'worktree';
+      mission.baseBranch = isolation.baseBranch;
+      mission.integrationBranch = isolation.integrationBranch;
+      await this.db.missions.update(mission);
+      return;
+    }
+    mission.settings.concurrency = 1;
+    await this.db.missions.update(mission);
+    await this.log(mission, null, {
+      type: 'note',
+      text: 'Tarefas em paralelo exigem um repositório Git com ao menos um commit. Esta missão vai rodar uma tarefa por vez, para ninguém sobrescrever o trabalho de outro agente.',
+    });
+  }
+
+  private enforceMode(mission: Mission): void {
+    // Nos modos com supervisão, o plano sempre passa pelo usuário.
+    if (this.settings.get().executionMode !== 'autonomous') mission.settings.autoApprove = false;
+  }
+
   async start(input: CreateMissionInputType): Promise<Mission> {
     const data = CreateMissionInput.parse(input);
     const project = await this.db.projects.get(data.projectId);
     if (!project) throw notFound('Projeto');
-
-    const current = await this.db.missions.list({ projectId: project.id, limit: 20 });
-    if (current.some((mission) => ACTIVE.includes(mission.status))) {
-      throw conflict('Este projeto já tem uma missão em andamento. Conclua ou cancele antes de começar outra.', 'mission_active');
-    }
+    await this.assertNoActive(project.id);
 
     const team = await this.db.agents.list();
     const agents = data.agentIds.length
@@ -157,32 +232,58 @@ export class Orchestrator {
         ?? agents[0];
     if (!coordinator) throw badRequest('O coordenador escolhido não existe.');
 
-    const mission: Mission = {
-      id: newId('mission'),
+    const mission = this.newMission({
       projectId: project.id,
       goal: redact(data.goal),
-      status: 'planning',
       mode: data.mode,
       coordinatorId: coordinator.id,
       agentIds: agents.map((agent) => agent.id),
       settings: MissionSettings.parse(data.settings),
-      planSummary: null,
-      pauseReason: null,
-      report: null,
-      notes: [],
-      createdAt: Date.now(),
-      startedAt: null,
-      endedAt: null,
-    };
+    });
+    if (data.mode === 'auto') this.enforceMode(mission);
     await this.db.missions.insert(mission);
     this.hub.publish({ kind: 'mission_updated', data: { ...mission } });
     await this.log(mission, null, { type: 'mission_status', status: 'planning' });
+    await this.prepareIsolation(mission, project.path);
 
     if (mission.mode === 'pipeline') {
+      this.enforceMode(mission);
       await this.serialize(mission.id, () => this.acceptPlan(mission, null, pipelineTasks(mission.id, agents)));
     } else {
       void this.serialize(mission.id, () => this.plan(mission, agents)).catch((error) => this.crash(mission.id, error));
     }
+    return mission;
+  }
+
+  async startFromWorkflow(workflow: Workflow, projectId: string, goal: string, settings: Partial<MissionSettings>): Promise<Mission> {
+    const project = await this.db.projects.get(projectId);
+    if (!project) throw notFound('Projeto');
+    await this.assertNoActive(project.id);
+    const team = await this.db.agents.list();
+    if (!team.length) throw badRequest('A equipe está vazia. Crie ao menos um agente.', 'no_agents');
+
+    const missionId = newId('mission');
+    const tasks = workflowToTasks(workflow, missionId, team);
+    const coordinator = team.find((agent) => agent.role === 'coordinator') ?? team.find((agent) => agent.id === tasks[0]?.assigneeId) ?? team[0]!;
+    const mission: Mission = {
+      ...this.newMission({
+        projectId,
+        goal: redact(goal),
+        mode: 'workflow',
+        coordinatorId: coordinator.id,
+        agentIds: team.map((agent) => agent.id),
+        settings: MissionSettings.parse(settings),
+        workflowId: workflow.builtin ? null : workflow.id,
+      }),
+      id: missionId,
+      planSummary: `Workflow: ${workflow.name}`,
+    };
+    this.enforceMode(mission);
+    await this.db.missions.insert(mission);
+    this.hub.publish({ kind: 'mission_updated', data: { ...mission } });
+    await this.log(mission, null, { type: 'mission_status', status: 'planning' });
+    await this.prepareIsolation(mission, project.path);
+    await this.serialize(mission.id, () => this.acceptPlan(mission, mission.planSummary, tasks));
     return mission;
   }
 
@@ -206,7 +307,8 @@ export class Orchestrator {
       return done;
     };
 
-    let run = await execute(planningPrompt(mission, agents, feedback), false);
+    const memory = await this.memory.promptBlock(mission.projectId);
+    let run = await execute(planningPrompt(mission, agents, feedback, memory), false);
     if ((await this.requireMission(mission.id)).status === 'cancelled') return;
     if (run.status !== 'completed') {
       await this.setStatus(mission, 'failed', `O coordenador não conseguiu planejar: ${run.errorText ?? run.status}`);
@@ -231,7 +333,7 @@ export class Orchestrator {
 
   private async acceptPlan(mission: Mission, summary: string | null, tasks: Task[]): Promise<void> {
     await this.db.tasks.replaceForMission(mission.id, tasks);
-    for (const task of tasks) this.hub.publish({ kind: 'task_updated', data: task });
+    this.hub.publish({ kind: 'tasks_replaced', missionId: mission.id, data: tasks });
     mission.planSummary = summary;
     await this.log(mission, null, { type: 'plan_ready', summary, taskCount: tasks.length });
     if (mission.settings.autoApprove) {
@@ -249,7 +351,7 @@ export class Orchestrator {
       if (data.tasks) {
         const tasks = buildTasks(mission.id, data.tasks, await this.missionAgents(mission));
         await this.db.tasks.replaceForMission(mission.id, tasks);
-        for (const task of tasks) this.hub.publish({ kind: 'task_updated', data: task });
+        this.hub.publish({ kind: 'tasks_replaced', missionId: mission.id, data: tasks });
       }
       await this.beginRunning(mission);
       return mission;
@@ -275,23 +377,56 @@ export class Orchestrator {
   // Execução
   // -------------------------------------------------------------------------
 
+  /** Etapas com condição: se a revisão anterior não bate, a etapa é pulada. */
+  private async applyConditions(mission: Mission, tasks: Task[]): Promise<boolean> {
+    const byId = new Map(tasks.map((task) => [task.id, task]));
+    let changed = false;
+    for (const task of readyTasks(tasks)) {
+      if (task.runIf === 'always') continue;
+      const reviews = task.dependsOn.map((id) => byId.get(id)).filter((dep): dep is Task => dep?.type === 'review');
+      const expected = task.runIf === 'approved' ? 'APROVADO' : 'REPROVADO';
+      if (reviews.length && reviews.every((review) => review.verdict !== expected)) {
+        task.status = 'skipped';
+        task.endedAt = Date.now();
+        await this.saveTask(task);
+        await this.log(mission, task.id, {
+          type: 'task_skipped_by_condition',
+          title: task.title,
+          condition: task.runIf === 'approved' ? 'só se aprovado' : 'só se reprovado',
+        });
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   private async advance(missionId: string): Promise<void> {
     const mission = await this.requireMission(missionId);
     if (mission.status !== 'running') {
       this.notifyIfIdle(missionId, mission.status);
       return;
     }
-    const tasks = await this.db.tasks.listForMission(missionId);
+    let tasks = await this.db.tasks.listForMission(missionId);
+    while (await this.applyConditions(mission, tasks)) {
+      tasks = await this.db.tasks.listForMission(missionId);
+    }
     const flight = this.flight(missionId);
-    const busyAgents = new Set(
-      tasks.filter((task) => flight.has(task.id)).map((task) => task.assigneeId),
-    );
+    const busyAgents = new Set(tasks.filter((task) => flight.has(task.id)).map((task) => task.assigneeId));
+    const supervised = this.settings.get().executionMode === 'supervised';
 
     for (const task of readyTasks(tasks)) {
       if (flight.size >= mission.settings.concurrency) break;
       if (task.assigneeId && busyAgents.has(task.assigneeId)) continue;
+      if (supervised && !task.approvedAt) {
+        // No modo supervisionado, cada tarefa espera liberação, sem interromper as outras.
+        if (!flight.size) {
+          await this.setStatus(mission, 'paused', `Aprove para continuar: "${task.title}", por ${task.assigneeName}. Retome a missão quando quiser liberar esta tarefa.`);
+        }
+        return;
+      }
       busyAgents.add(task.assigneeId);
       await this.launch(mission, task, tasks);
+      if (mission.status !== 'running') return;
     }
 
     if (flight.size) return;
@@ -300,8 +435,8 @@ export class Orchestrator {
       await this.finish(mission, tasks);
       return;
     }
-    // Sem nada rodando e sem nada pronto: uma dependência impede o resto.
-    if (!readyTasks(tasks).length) {
+    const latest = await this.db.tasks.listForMission(missionId);
+    if (!readyTasks(latest).length && !latest.some((task) => task.status === 'running')) {
       await this.setStatus(mission, 'paused', 'Há tarefas bloqueadas por outras que não terminaram. Tente de novo ou pule a tarefa com problema.');
     }
   }
@@ -345,9 +480,18 @@ export class Orchestrator {
 
     let run: Run;
     try {
+      let cwd: string | undefined;
+      if (mission.isolation === 'worktree' && mission.integrationBranch) {
+        const projectPath = await this.projectPath(mission);
+        const workspace = await gitOps.createTaskWorktree(projectPath, this.config.dataDir, mission.id, task.id, mission.integrationBranch);
+        this.workspaces.set(task.id, workspace);
+        cwd = workspace.dir;
+        if (task.mergeFrom) await gitOps.startConflictingMerge(workspace.dir, task.mergeFrom);
+      }
+      const memory = await this.memory.promptBlock(mission.projectId);
       run = await this.runs.create(
-        { agentId: task.assigneeId, projectId: mission.projectId, prompt: taskPrompt(mission, task, tasks) },
-        { missionId: mission.id, taskId: task.id },
+        { agentId: task.assigneeId, projectId: mission.projectId, prompt: taskPrompt(mission, task, tasks, memory) },
+        { missionId: mission.id, taskId: task.id, cwd },
       );
     } catch (error) {
       flight.delete(task.id);
@@ -377,24 +521,116 @@ export class Orchestrator {
     task.filesChanged = [...new Set([...task.filesChanged, ...run.filesChanged])];
     task.endedAt = Date.now();
 
-    if (run.status === 'completed') {
+    const integrated = run.status === 'completed' ? await this.integrate(mission, task) : true;
+    if (run.status !== 'completed') await this.dropWorkspace(mission, task);
+
+    if (!integrated) {
+      // O conflito virou uma nova tarefa. Esta acabou, mas o que depende dela espera.
+    } else if (run.status === 'completed') {
       await this.onTaskCompleted(mission, task, run);
     } else if (run.status === 'cancelled') {
       // Em uma pausa a tarefa volta para a fila; em um cancelamento, fica cancelada.
-      task.status = mission.status === 'cancelled' ? 'cancelled' : 'pending';
+      const current = await this.requireMission(missionId);
+      task.status = current.status === 'cancelled' ? 'cancelled' : 'pending';
       await this.saveTask(task);
       await this.log(mission, task.id, { type: 'task_status', title: task.title, status: task.status, agentName: task.assigneeName, runId: run.id });
     } else {
       await this.onTaskFailed(mission, task, run);
     }
-    if (mission.status === 'running') await this.advance(missionId);
-    else this.notifyIfIdle(missionId, (await this.requireMission(missionId)).status);
+    const latest = await this.requireMission(missionId);
+    if (latest.status === 'running') await this.advance(missionId);
+    else this.notifyIfIdle(missionId, latest.status);
+  }
+
+  private async dropWorkspace(mission: Mission, task: Task): Promise<void> {
+    const workspace = this.workspaces.get(task.id);
+    if (!workspace) return;
+    this.workspaces.delete(task.id);
+    await gitOps.removeTaskWorktree(await this.projectPath(mission), workspace.dir, workspace.branch).catch(() => undefined);
+  }
+
+  /** Leva o trabalho isolado para o ramo da missão. Devolve false em caso de conflito. */
+  private async integrate(mission: Mission, task: Task): Promise<boolean> {
+    const workspace = this.workspaces.get(task.id);
+    if (!workspace || !mission.integrationBranch) return true;
+    const projectPath = await this.projectPath(mission);
+    const committed = await gitOps.commitAll(workspace.dir, `${task.assigneeName}: ${task.title}`);
+    if (committed) {
+      const changed = await gitOps.changedFilesBetween(projectPath, mission.integrationBranch, workspace.branch);
+      task.filesChanged = [...new Set([...task.filesChanged, ...changed])];
+    }
+    if (!committed) {
+      await this.dropWorkspace(mission, task);
+      return true;
+    }
+    const integration = gitOps.integrationPath(this.config.dataDir, mission.id);
+    const result = await gitOps.merge(integration, workspace.branch, `Integra: ${task.title}`);
+    if (result.ok) {
+      await this.dropWorkspace(mission, task);
+      return true;
+    }
+
+    // Duas tarefas mexeram no mesmo ponto. Ninguém é sobrescrito: quem fez a última
+    // resolve o conflito, em uma pasta nova, com as marcações no arquivo.
+    this.workspaces.delete(task.id);
+    await gitOps.git(projectPath, ['worktree', 'remove', '--force', workspace.dir]).catch(() => undefined);
+    const tasks = await this.db.tasks.listForMission(mission.id);
+    const following = tasks.map((item) => item.position).filter((position) => position > task.position);
+    const resolver: Task = {
+      ...task,
+      id: newId('task'),
+      position: task.position + ((following.length ? Math.min(...following) : task.position + 1) - task.position) / 2,
+      title: `Resolver conflito: ${task.title}`,
+      description: `Integrar o trabalho de "${task.title}" com o que outros agentes já entregaram. Arquivos em conflito: ${result.conflicts.join(', ')}.`,
+      status: 'pending',
+      dependsOn: [],
+      attempts: 0,
+      isFix: true,
+      type: 'work',
+      verdict: null,
+      result: null,
+      errorKind: null,
+      errorText: null,
+      startedAt: null,
+      endedAt: null,
+      runIf: 'always',
+      maxAttempts: null,
+      mergeFrom: workspace.branch,
+      approvedAt: Date.now(),
+    };
+    await this.db.tasks.insert(resolver);
+    this.hub.publish({ kind: 'task_updated', data: resolver });
+    for (const other of tasks) {
+      if (other.dependsOn.includes(task.id)) {
+        other.dependsOn = [...other.dependsOn, resolver.id];
+        await this.saveTask(other);
+      }
+    }
+    await this.log(mission, resolver.id, { type: 'conflict', title: task.title, files: result.conflicts, toAgentName: task.assigneeName });
+    return this.finishConflictedTask(task);
+  }
+
+  private async finishConflictedTask(task: Task): Promise<boolean> {
+    task.status = 'done';
+    task.result = task.result ?? 'Trabalho concluído, com conflito a resolver.';
+    await this.saveTask(task);
+    return false;
+  }
+
+  private async onDangerousCommand(missionId: string, run: Run, command: string, reason: string, blocked: boolean): Promise<void> {
+    const mission = await this.db.missions.get(missionId);
+    if (mission) {
+      await this.log(mission, run.taskId, { type: 'dangerous_command', agentName: run.agentName, command, reason, blocked });
+    }
   }
 
   private async onTaskCompleted(mission: Mission, task: Task, run: Run): Promise<void> {
     const text = run.finalText ?? '';
     task.result = text;
     task.handoff = extractHandoff(text);
+    for (const decision of extractDecisions(text)) {
+      await this.memory.add(mission.projectId, 'decision', decision, task.assigneeName, mission.id);
+    }
 
     if (task.type === 'review') {
       const verdict = extractVerdict(text);
@@ -418,6 +654,8 @@ export class Orchestrator {
 
   private async onRejected(mission: Mission, review: Task): Promise<void> {
     const tasks = await this.db.tasks.listForMission(mission.id);
+    // Um fluxo que já trata a reprovação com uma etapa própria segue o desenho dele.
+    if (tasks.some((task) => task.dependsOn.includes(review.id) && task.runIf === 'rejected')) return;
     if (review.round >= mission.settings.maxReviewRounds) {
       await this.setStatus(mission, 'paused', `"${review.title}" foi reprovada ${review.round + 1} vezes. Veja o motivo, depois tente de novo ou pule a tarefa.`);
       return;
@@ -446,8 +684,8 @@ export class Orchestrator {
     task.errorKind = run.errorKind;
     task.errorText = run.errorText;
 
-    // Limite ou login não se resolvem tentando de novo em seguida.
-    if (run.errorKind === 'limit' || run.errorKind === 'auth' || run.errorKind === 'missing') {
+    // Limite, login, ferramenta ausente ou bloqueio não se resolvem tentando de novo.
+    if (run.errorKind === 'limit' || run.errorKind === 'auth' || run.errorKind === 'missing' || run.errorKind === 'blocked') {
       if (run.errorKind === 'limit' && mission.settings.fallbackToOtherProvider && (await this.tryFallback(mission, task))) return;
       task.status = 'failed';
       await this.saveTask(task);
@@ -456,12 +694,13 @@ export class Orchestrator {
         limit: `${task.assigneeName} atingiu o limite de uso da conta. Espere renovar ou reatribua a tarefa a outro agente.`,
         auth: `A conta de ${task.assigneeName} precisa de login. Faça o login oficial e tente de novo.`,
         missing: `A ferramenta de ${task.assigneeName} não está instalada neste computador.`,
+        blocked: `${run.errorText ?? 'Um comando foi bloqueado.'} Decida se a tarefa deve tentar de novo ou ser pulada.`,
       }[run.errorKind];
       await this.setStatus(mission, 'paused', reason);
       return;
     }
 
-    if (task.attempts < mission.settings.maxAttempts) {
+    if (task.attempts < (task.maxAttempts ?? mission.settings.maxAttempts)) {
       task.status = 'pending';
       await this.saveTask(task);
       await this.log(mission, task.id, { type: 'retry', title: task.title, attempt: task.attempts + 1, reason: run.errorText ?? 'falhou' });
@@ -505,7 +744,10 @@ export class Orchestrator {
       try {
         const run = await this.runs.create(
           { agentId: mission.coordinatorId, projectId: mission.projectId, prompt: reportPrompt(mission, tasks), permission: 'read' },
-          { missionId: mission.id },
+          {
+            missionId: mission.id,
+            ...(mission.isolation === 'worktree' ? { cwd: gitOps.integrationPath(this.config.dataDir, mission.id) } : {}),
+          },
         );
         const flight = this.flight(mission.id);
         flight.set('relatorio', run.id);
@@ -519,7 +761,68 @@ export class Orchestrator {
     const latest = await this.requireMission(mission.id);
     if (latest.status === 'cancelled') return;
     mission.report = [narrative, facts].filter(Boolean).join('\n\n---\n\n');
+    if (mission.isolation === 'worktree') {
+      const projectPath = await this.projectPath(mission);
+      const changed = await gitOps.changedFilesBetween(projectPath, mission.baseBranch!, mission.integrationBranch!);
+      if (changed.length) {
+        mission.mergeStatus = 'pending';
+      } else {
+        await gitOps.finishIsolation(projectPath, this.config.dataDir, mission.id, mission.integrationBranch!);
+      }
+    }
     await this.setStatus(mission, 'completed');
+  }
+
+  // -------------------------------------------------------------------------
+  // Revisão antes do merge
+  // -------------------------------------------------------------------------
+
+  async reviewChanges(id: string): Promise<{ files: string[]; diff: string }> {
+    const mission = await this.requireMission(id);
+    if (!mission.integrationBranch || !mission.baseBranch) return { files: [], diff: '' };
+    const projectPath = await this.projectPath(mission);
+    return {
+      files: await gitOps.changedFilesBetween(projectPath, mission.baseBranch, mission.integrationBranch),
+      diff: await gitOps.diffBetween(projectPath, mission.baseBranch, mission.integrationBranch),
+    };
+  }
+
+  /** Só aqui o trabalho isolado chega à pasta e ao ramo do usuário. */
+  async mergeResult(id: string): Promise<Mission> {
+    return this.serialize(id, async () => {
+      const mission = await this.requireMission(id);
+      if (mission.mergeStatus !== 'pending') throw conflict('Não há resultado aguardando integração.');
+      const projectPath = await this.projectPath(mission);
+      const status = await gitOps.status(projectPath);
+      const blocking = status.changes.filter((change) => change.status !== '?');
+      if (blocking.length) {
+        throw conflict(`Há alterações sem commit em ${blocking.length} arquivo(s) do projeto. Faça commit ou guarde essas alterações antes de integrar.`, 'dirty_tree');
+      }
+      if (status.branch !== mission.baseBranch && mission.baseBranch) {
+        throw conflict(`O projeto está no ramo ${status.branch}, e a missão começou em ${mission.baseBranch}. Volte para ele antes de integrar.`, 'wrong_branch');
+      }
+      const files = await gitOps.changedFilesBetween(projectPath, mission.baseBranch!, mission.integrationBranch!);
+      const result = await gitOps.merge(projectPath, mission.integrationBranch!, `XinoIA: ${mission.goal.split('\n')[0]?.slice(0, 60)}`);
+      if (!result.ok) {
+        throw conflict(`A integração tem conflitos em: ${result.conflicts.join(', ')}. O projeto não foi alterado. O ramo ${mission.integrationBranch} continua disponível para você resolver.`, 'merge_conflict');
+      }
+      await gitOps.finishIsolation(projectPath, this.config.dataDir, mission.id, mission.integrationBranch!);
+      mission.mergeStatus = 'merged';
+      await this.saveMission(mission);
+      await this.log(mission, null, { type: 'merged', into: mission.baseBranch!, files: files.length });
+      return mission;
+    });
+  }
+
+  async discardResult(id: string): Promise<Mission> {
+    return this.serialize(id, async () => {
+      const mission = await this.requireMission(id);
+      if (mission.mergeStatus !== 'pending') throw conflict('Não há resultado aguardando integração.');
+      await gitOps.finishIsolation(await this.projectPath(mission), this.config.dataDir, mission.id, mission.integrationBranch!);
+      mission.mergeStatus = 'discarded';
+      await this.saveMission(mission);
+      return mission;
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -540,6 +843,14 @@ export class Orchestrator {
     return this.serialize(id, async () => {
       const mission = await this.requireMission(id);
       if (mission.status !== 'paused') throw conflict('A missão não está pausada.');
+      if (this.settings.get().executionMode === 'supervised') {
+        // Retomar libera a próxima tarefa que está esperando aprovação.
+        const [next] = readyTasks(await this.db.tasks.listForMission(id)).filter((task) => !task.approvedAt);
+        if (next) {
+          next.approvedAt = Date.now();
+          await this.saveTask(next);
+        }
+      }
       await this.setStatus(mission, 'running');
       await this.advance(id);
       return mission;
@@ -562,6 +873,9 @@ export class Orchestrator {
           await this.saveTask(task);
         }
       }
+      if (latest.integrationBranch) {
+        await gitOps.finishIsolation(await this.projectPath(latest), this.config.dataDir, id, latest.integrationBranch).catch(() => undefined);
+      }
       await this.setStatus(latest, 'cancelled');
       return latest;
     });
@@ -582,6 +896,7 @@ export class Orchestrator {
       task.attempts = 0;
       task.errorKind = null;
       task.errorText = null;
+      task.approvedAt = Date.now();
       await this.saveTask(task);
       if (mission.status === 'paused') await this.setStatus(mission, 'running');
       await this.advance(missionId);

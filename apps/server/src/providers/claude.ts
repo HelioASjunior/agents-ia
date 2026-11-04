@@ -90,7 +90,8 @@ export function createClaudeParser(): LineParser {
           events.push({ type: 'warning', text: `Usando credencial de API (${j.apiKeySource}), não a assinatura.` });
         }
         for (const server of j.mcp_servers ?? []) {
-          if (server.status !== 'connected') {
+          // Conectores da conta que pedem login não afetam o trabalho; falha de um servidor sim.
+          if (server.status === 'failed') {
             events.push({ type: 'warning', text: `MCP ${server.name}: ${server.status}` });
           }
         }
@@ -248,6 +249,10 @@ export const claudeAdapter: ProviderAdapter = {
       }
     }
     return { args, loadsPlugins: true };
+  },
+
+  policyArgs(policyFile, quotePath) {
+    return ['--settings', quotePath(policyFile)];
   },
 
   buildArgs({ model, effort, sessionId, permission, extraArgs = [] }) {

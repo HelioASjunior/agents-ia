@@ -90,6 +90,10 @@ export function buildTasks(missionId: string, rawTasks: unknown[], agents: Agent
       errorText: null,
       startedAt: null,
       endedAt: null,
+      runIf: 'always',
+      maxAttempts: null,
+      mergeFrom: null,
+      approvedAt: null,
     };
   });
 }
@@ -156,6 +160,10 @@ export function addFixRound(tasks: Task[], review: Task, fixer: Agent): { fix: T
     errorText: null,
     startedAt: null,
     endedAt: null,
+    runIf: 'always' as const,
+    maxAttempts: null,
+    mergeFrom: null,
+    approvedAt: null,
   };
   const fix: Task = {
     ...base,

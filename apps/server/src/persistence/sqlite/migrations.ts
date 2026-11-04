@@ -198,4 +198,63 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX idx_runs_mission ON runs(mission_id);
     `,
   },
+  {
+    version: 3,
+    name: 'conversas',
+    up: `
+      CREATE TABLE messages (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        channel TEXT NOT NULL,
+        role TEXT NOT NULL,
+        agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+        agent_name TEXT,
+        text TEXT NOT NULL,
+        run_id TEXT REFERENCES runs(id) ON DELETE SET NULL,
+        status TEXT NOT NULL,
+        error TEXT,
+        attachments_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      ) STRICT;
+      CREATE INDEX idx_messages_channel ON messages(project_id, channel, created_at);
+      CREATE INDEX idx_messages_run ON messages(run_id);
+    `,
+  },
+  {
+    version: 4,
+    name: 'workflows, memória e isolamento',
+    up: `
+      CREATE TABLE workflows (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        nodes_json TEXT NOT NULL,
+        edges_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      ) STRICT;
+
+      CREATE TABLE memory_items (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL,
+        text TEXT NOT NULL,
+        source TEXT,
+        mission_id TEXT REFERENCES missions(id) ON DELETE SET NULL,
+        created_at INTEGER NOT NULL
+      ) STRICT;
+      CREATE INDEX idx_memory_project ON memory_items(project_id, created_at DESC);
+
+      ALTER TABLE tasks ADD COLUMN run_if TEXT NOT NULL DEFAULT 'always';
+      ALTER TABLE tasks ADD COLUMN max_attempts INTEGER;
+      ALTER TABLE tasks ADD COLUMN merge_from TEXT;
+      ALTER TABLE tasks ADD COLUMN approved_at INTEGER;
+
+      ALTER TABLE missions ADD COLUMN isolation TEXT NOT NULL DEFAULT 'none';
+      ALTER TABLE missions ADD COLUMN base_branch TEXT;
+      ALTER TABLE missions ADD COLUMN integration_branch TEXT;
+      ALTER TABLE missions ADD COLUMN merge_status TEXT NOT NULL DEFAULT 'none';
+      ALTER TABLE missions ADD COLUMN workflow_id TEXT;
+    `,
+  },
 ];

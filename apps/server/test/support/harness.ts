@@ -54,6 +54,9 @@ export async function createHarness(options: { dataDir?: string; keep?: boolean;
   const config = createConfig({ dataDir, homeDir });
   const registry = new ProviderRegistry([fakeAdapter()]);
   const instance = await createApp({ config, providers: registry, logToFile: false, token: 'token-de-teste' });
+  // Os testes de orquestração controlam a aprovação por conta própria. Os de modos de
+  // execução mudam esta configuração explicitamente.
+  await instance.ctx.settings.update({ executionMode: 'autonomous' });
 
   return {
     ...instance,

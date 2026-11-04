@@ -8,7 +8,10 @@ import { createContext, type AppContext } from './context.ts';
 import { AppError } from './errors.ts';
 import type { ProviderRegistry } from './providers/registry.ts';
 import { registerCatalogRoutes } from './routes/catalog.ts';
+import { registerChatRoutes } from './routes/chat.ts';
 import { registerMissionRoutes } from './routes/missions.ts';
+import { registerProjectToolRoutes } from './routes/project-tools.ts';
+import { registerWebRoutes } from './routes/web.ts';
 import { registerRunRoutes } from './routes/runs.ts';
 import { registerSystemRoutes } from './routes/system.ts';
 import { installHttpGuard } from './security/http-guard.ts';
@@ -20,6 +23,8 @@ export interface CreateAppOptions {
   providers?: ProviderRegistry;
   allowedOrigins?: string[];
   logToFile?: boolean;
+  /** Pasta com a interface já compilada. */
+  webDir?: string;
 }
 
 export interface XinoiaApp {
@@ -71,6 +76,9 @@ export async function createApp(options: CreateAppOptions): Promise<XinoiaApp> {
   registerCatalogRoutes(app, ctx);
   registerRunRoutes(app, ctx);
   registerMissionRoutes(app, ctx);
+  registerChatRoutes(app, ctx);
+  registerProjectToolRoutes(app, ctx);
+  if (options.webDir) registerWebRoutes(app, options.webDir);
   registerWebSocket(app, ctx);
 
   app.addHook('onClose', async () => {

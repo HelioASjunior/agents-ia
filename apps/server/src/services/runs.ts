@@ -14,8 +14,9 @@ import { redact, redactDeep } from '../security/redact.ts';
 import type { EventHub } from '../ws/hub.ts';
 import { KeyedQueue } from './keyed-queue.ts';
 import { buildPersona } from './persona.ts';
+import { dangerousCommand, effectivePermission, writeClaudePolicy, type SettingsService } from './policy.ts';
 import type { ProfileService } from './profiles.ts';
-import type { ToolkitService } from './toolkits.ts';
+import { quotePath, type ToolkitService } from './toolkits.ts';
 
 const MAX_OUTPUT_CHARS = 64_000;
 const MAX_RAW_LOG_BYTES = 20 * 1024 * 1024;
@@ -118,7 +119,33 @@ class RawLog {
 interface ActiveRun {
   handle: RunHandle | null;
   cancelRequested: boolean;
+  blockedReason?: string;
   finished: Promise<void>;
+}
+
+interface RunContext {
+  agent: Agent;
+  project: Project;
+  adapter: ProviderAdapter;
+  profile: Profile | null;
+  prompt: string;
+  resume: boolean;
+  cwd: string;
+  notice: string | null;
+}
+
+export interface RunLink {
+  missionId?: string;
+  taskId?: string;
+  /** Pasta de trabalho, quando a tarefa roda isolada em um worktree. */
+  cwd?: string;
+}
+
+export interface DangerousCommandEvent {
+  run: Run;
+  command: string;
+  reason: string;
+  blocked: boolean;
 }
 
 export class RunService {
@@ -128,8 +155,12 @@ export class RunService {
   private readonly hub: EventHub;
   private readonly profiles: ProfileService;
   private readonly toolkits: ToolkitService;
+  private readonly settings: SettingsService;
   private readonly queue = new KeyedQueue();
   private readonly active = new Map<string, ActiveRun>();
+  private policyFile: string | null = null;
+  /** O orquestrador escuta para registrar na missão e pausar. */
+  onDangerous: ((event: DangerousCommandEvent) => void) | null = null;
 
   constructor(
     config: AppConfig,
@@ -138,6 +169,7 @@ export class RunService {
     hub: EventHub,
     profiles: ProfileService,
     toolkits: ToolkitService,
+    settings: SettingsService,
   ) {
     this.config = config;
     this.db = db;
@@ -145,9 +177,10 @@ export class RunService {
     this.hub = hub;
     this.profiles = profiles;
     this.toolkits = toolkits;
+    this.settings = settings;
   }
 
-  async create(input: unknown, link: { missionId?: string; taskId?: string } = {}): Promise<Run> {
+  async create(input: unknown, link: RunLink = {}): Promise<Run> {
     const data = CreateRunInput.parse(input);
     const agent = await this.db.agents.get(data.agentId);
     if (!agent) throw notFound('Agente');
@@ -162,7 +195,7 @@ export class RunService {
       throw badRequest(`${agent.name} não tem perfil conectado. Escolha um perfil de ${adapter.label}.`, 'no_profile');
     }
 
-    const permission = data.permission ?? agent.permission;
+    const allowed = effectivePermission(data.permission ?? agent.permission, this.settings.get().executionMode);
     const run: Run = {
       id: newId('run'),
       agentId: agent.id,
@@ -172,7 +205,7 @@ export class RunService {
       provider: agent.provider,
       status: 'queued',
       prompt: redact(data.prompt),
-      permission,
+      permission: allowed.permission,
       command: null,
       sessionId: null,
       model: agent.model,
@@ -182,7 +215,7 @@ export class RunService {
       finalText: null,
       usage: null,
       filesChanged: [],
-      logPath: path.join(this.config.logsDir, 'runs', `${new Date().toISOString().slice(0, 10)}`, `${newId('log')}.jsonl`),
+      logPath: path.join(this.config.logsDir, 'runs', new Date().toISOString().slice(0, 10), `${newId('log')}.jsonl`),
       missionId: link.missionId ?? null,
       taskId: link.taskId ?? null,
       queuedAt: Date.now(),
@@ -194,7 +227,16 @@ export class RunService {
 
     const entry: ActiveRun = { handle: null, cancelRequested: false, finished: Promise.resolve() };
     this.active.set(run.id, entry);
-    entry.finished = this.process(run, entry, { agent, project, adapter, profile, prompt: data.prompt, resume: data.resume })
+    entry.finished = this.process(run, entry, {
+      agent,
+      project,
+      adapter,
+      profile,
+      prompt: data.prompt,
+      resume: data.resume,
+      cwd: link.cwd ?? project.path,
+      notice: allowed.reason,
+    })
       .catch(async (error: unknown) => {
         run.status = 'failed';
         run.errorKind = 'unknown';
@@ -213,12 +255,8 @@ export class RunService {
     this.hub.publish({ kind: 'run_updated', data: { ...run } });
   }
 
-  private async process(
-    run: Run,
-    entry: ActiveRun,
-    context: { agent: Agent; project: Project; adapter: ProviderAdapter; profile: Profile | null; prompt: string; resume: boolean },
-  ): Promise<void> {
-    const { agent, project, adapter, profile, prompt, resume } = context;
+  private async process(run: Run, entry: ActiveRun, context: RunContext): Promise<void> {
+    const { agent, project, adapter, profile, resume } = context;
     const resolved = await this.toolkits.resolve(agent, adapter, profile, run.permission);
     const keys = [
       `agent:${agent.id}`,
@@ -239,6 +277,7 @@ export class RunService {
       run.status = 'running';
       run.startedAt = Date.now();
       await this.saveRun(run);
+      if (context.notice) writer.push({ type: 'warning', text: context.notice });
       for (const text of resolved.warnings) writer.push({ type: 'warning', text });
 
       const sessionKey = { agentId: agent.id, projectId: project.id, profileId: profile?.id ?? null };
@@ -264,7 +303,11 @@ export class RunService {
         run.usage = { inputTokens: outcome.inputTokens ?? 0, outputTokens: outcome.outputTokens ?? 0 };
       }
       run.endedAt = Date.now();
-      if (outcome.cancelled) {
+      if (entry.blockedReason) {
+        run.status = 'failed';
+        run.errorKind = 'blocked';
+        run.errorText = entry.blockedReason;
+      } else if (outcome.cancelled) {
         run.status = 'cancelled';
       } else if (outcome.ok) {
         run.status = 'completed';
@@ -288,18 +331,20 @@ export class RunService {
   private async attempt(
     run: Run,
     entry: ActiveRun,
-    { agent, project, adapter, profile, prompt }: { agent: Agent; project: Project; adapter: ProviderAdapter; profile: Profile | null; prompt: string },
+    context: RunContext,
     resolved: { args: string[]; promptNote: string },
     sessionId: string | null,
     writer: RunEventWriter,
     rawLog: RawLog,
   ): Promise<RunOutcome> {
+    const { agent, project, adapter, profile, prompt, cwd } = context;
+    const policyArgs = adapter.policyArgs?.((this.policyFile ??= writeClaudePolicy(this.config)), quotePath) ?? [];
     const options = {
       model: agent.model,
       effort: agent.effort,
       sessionId,
       permission: run.permission,
-      extraArgs: resolved.args,
+      extraArgs: [...resolved.args, ...policyArgs],
     };
     run.command = redact(`${adapter.command} ${adapter.buildArgs(options).join(' ')}`);
     await this.saveRun(run);
@@ -312,18 +357,20 @@ export class RunService {
     }
 
     const home = profile ? this.profiles.homeOf(profile) : null;
+    const { stallMinutes, maxRunMinutes } = this.settings.get();
     const handle = startCliRun({
       adapter,
       prompt: fullPrompt,
-      cwd: project.path,
+      cwd,
       env: buildEnv(adapter, home),
       options,
-      inactivityMs: this.config.inactivityMs,
+      inactivityMs: stallMinutes * 60_000,
+      maxDurationMs: maxRunMinutes * 60_000,
       onRawLine: (stream, line) => rawLog.write(stream, line),
       onEvent: (event) => {
         if (event.type === 'tool_start' && event.files?.length) {
           for (const file of event.files) {
-            const relative = path.isAbsolute(file) ? path.relative(project.path, file) : file;
+            const relative = (path.isAbsolute(file) ? path.relative(cwd, file) : file).replaceAll('\\', '/');
             if (!run.filesChanged.includes(relative)) run.filesChanged.push(relative);
           }
         }
@@ -336,11 +383,25 @@ export class RunService {
           });
         }
         writer.push(event);
+        if (event.type === 'tool_start' && event.command) this.checkCommand(run, entry, event.command);
       },
     });
     entry.handle = handle;
     if (entry.cancelRequested) handle.cancel();
     return handle.done;
+  }
+
+  /** Comando perigoso: em modos com supervisão, para antes de causar mais estrago. */
+  private checkCommand(run: Run, entry: ActiveRun, command: string): void {
+    const reason = dangerousCommand(command);
+    if (!reason) return;
+    const blocked = this.settings.get().executionMode !== 'autonomous';
+    const clean = redact(command);
+    this.onDangerous?.({ run, command: clean, reason, blocked });
+    if (blocked) {
+      entry.blockedReason = `Comando interrompido por segurança (${reason}): ${clean.slice(0, 200)}`;
+      entry.handle?.cancel();
+    }
   }
 
   async cancel(id: string): Promise<Run> {
