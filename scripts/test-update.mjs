@@ -35,6 +35,17 @@ function installedVersion() {
 }
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** O que o Windows lista em Aplicativos instalados para o XinoIA. */
+function uninstallEntry() {
+  try {
+    const output = execFileSync('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall', '/s', '/f', 'XinoIA', '/d'], { encoding: 'utf8' });
+    return output.split(/\r?\n/).filter((line) => /DisplayName/.test(line)).map((line) => line.trim()).join(' | ') || null;
+  } catch {
+    // O reg termina com erro quando não encontra nada.
+    return null;
+  }
+}
 const step = (text) => process.stdout.write(`\n▶ ${text}\n`);
 
 function running() {
@@ -145,6 +156,10 @@ try {
   }
   assert.ok(updated, `o programa foi atualizado para ${expected} e reabriu`);
   process.stdout.write('  atualizado e reaberto\n');
+  // Uma atualização não pode tirar o programa de Aplicativos instalados.
+  const registered = uninstallEntry();
+  process.stdout.write(`  registro no Windows: ${registered ?? 'ausente'}\n`);
+  assert.ok(registered, 'continua em Aplicativos instalados depois de atualizar');
 
   // A reabertura automática usa a pasta normal de dados: fecha e abre na pasta do teste.
   await wait(4000);

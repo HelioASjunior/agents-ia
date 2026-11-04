@@ -60,6 +60,8 @@ O histórico foi reescrito antes de publicar, para os commits usarem o endereço
 
 **O que uma missão real mostrou:** em "editar", o build do Unreal falha, porque a área protegida nega escrever em `%LOCALAPPDATA%\UnrealBuildTool`. Em "total", no modo Autônomo controlado, os comandos rodam. Isso é uma limitação conhecida, não um defeito: a escolha fica com quem usa.
 
+**Publicação real:** a 0.1.1 saiu pelo workflow `Release` com o novo fluxo de dois passos, e os arquivos baixados do GitHub passaram em `npm run verify -- --release`. O dono atualizou da 0.1.0 para a 0.1.1 pelo próprio app, e a versão instalada foi conferida: é a primeira atualização real pelo GitHub.
+
 **Não medido:** o consumo real de placa de vídeo do 3D, porque os testes rodam sem placa. Para isso, a cena é limitada a 30 quadros por segundo, e a visão Compacta não a desenha.
 
 ## Preparação da assinatura de código
@@ -76,7 +78,7 @@ Um teste de instalação rodou enquanto a primeira cópia real estava sendo inst
 
 ## Limitações e testes pendentes
 
-- Uma atualização real pelo GitHub ainda não aconteceu, porque só existe uma versão publicada. O caminho completo foi testado contra um servidor local, e o teste pelo GitHub vem com a próxima versão.
+- A verificação das versões novas depende do GitHub. Sem internet, ou com o site fora do ar, o app só avisa que não conseguiu verificar.
 - Exigem pessoa e conta real: ferramentas MCP com o Unreal Editor aberto, Gemini CLI e o aviso do SmartScreen ao baixar pelo navegador.
 - O teste de instalação no CI roda em uma máquina limpa, mas o Windows de lá tem Node.js. Falta uma execução em um Windows sem ele.
 - macOS e Linux estão configurados, mas sem testes nem publicação.
