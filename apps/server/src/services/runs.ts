@@ -147,7 +147,7 @@ export class RunService {
     this.toolkits = toolkits;
   }
 
-  async create(input: unknown): Promise<Run> {
+  async create(input: unknown, link: { missionId?: string; taskId?: string } = {}): Promise<Run> {
     const data = CreateRunInput.parse(input);
     const agent = await this.db.agents.get(data.agentId);
     if (!agent) throw notFound('Agente');
@@ -183,6 +183,8 @@ export class RunService {
       usage: null,
       filesChanged: [],
       logPath: path.join(this.config.logsDir, 'runs', `${new Date().toISOString().slice(0, 10)}`, `${newId('log')}.jsonl`),
+      missionId: link.missionId ?? null,
+      taskId: link.taskId ?? null,
       queuedAt: Date.now(),
       startedAt: null,
       endedAt: null,

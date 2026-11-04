@@ -12,3 +12,5 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 - Perfis isolados por provedor, com login no fluxo oficial de cada CLI.
 - Execução real com streaming, cancelamento, continuação de sessão e mascaramento de segredos.
 - Integrações por agente: plugins, skills e MCP, incluindo Unreal Engine.
+- Orquestrador de missões: plano, dependências, execução paralela, handoff automático, revisão com volta para correção, retentativas, pausa e retomada, e relatório final.
+- Estados dos agentes derivados de eventos reais.

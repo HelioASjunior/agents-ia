@@ -18,7 +18,7 @@
     "doctor": "node --disable-warning=ExperimentalWarning apps/server/src/doctor.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --disable-warning=ExperimentalWarning --test --test-timeout=60000 \"apps/server/test/*.test.ts\"",
-    "test:real": "node --disable-warning=ExperimentalWarning --test --test-timeout=240000 --test-concurrency=1 \"apps/server/test/real/*.test.ts\""
+    "test:real": "node --disable-warning=ExperimentalWarning --test --test-timeout=600000 --test-concurrency=1 \"apps/server/test/real/*.test.ts\""
   },
   "devDependencies": {
     "@types/node": "24.19.2",

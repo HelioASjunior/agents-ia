@@ -108,7 +108,7 @@ Agentes podem ler e alterar arquivos na pasta do projeto e, nos níveis mais alt
 | Fase | Escopo | Situação |
 | --- | --- | --- |
 | 1 | Backend, banco de dados, integração real com CLIs | **Concluída e testada** |
-| 2 | Orquestrador, tarefas, revisão entre agentes | Planejada |
+| 2 | Orquestrador, tarefas, revisão entre agentes | **Concluída e testada** |
 | 3 | Chat, terminal, monitoramento | Planejada |
 | 4 | Projetos, workflows, Git worktrees | Planejada |
 | 5 | Escritório virtual e identidade visual | Planejada |

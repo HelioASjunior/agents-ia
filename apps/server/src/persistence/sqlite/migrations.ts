@@ -131,4 +131,71 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX idx_run_events_run ON run_events(run_id, id);
     `,
   },
+  {
+    version: 2,
+    name: 'missões e tarefas',
+    up: `
+      CREATE TABLE missions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        goal TEXT NOT NULL,
+        status TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        coordinator_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+        agent_ids_json TEXT NOT NULL,
+        settings_json TEXT NOT NULL,
+        plan_summary TEXT,
+        pause_reason TEXT,
+        report TEXT,
+        notes_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        started_at INTEGER,
+        ended_at INTEGER
+      ) STRICT;
+      CREATE INDEX idx_missions_project_time ON missions(project_id, created_at DESC);
+      CREATE INDEX idx_missions_status ON missions(status);
+
+      CREATE TABLE tasks (
+        id TEXT PRIMARY KEY,
+        mission_id TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+        position REAL NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        assignee_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+        assignee_name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        priority INTEGER NOT NULL,
+        depends_on_json TEXT NOT NULL,
+        status TEXT NOT NULL,
+        round INTEGER NOT NULL,
+        is_fix INTEGER NOT NULL,
+        attempts INTEGER NOT NULL,
+        verdict TEXT,
+        result TEXT,
+        handoff TEXT,
+        files_changed_json TEXT NOT NULL,
+        error_kind TEXT,
+        error_text TEXT,
+        started_at INTEGER,
+        ended_at INTEGER
+      ) STRICT;
+      CREATE INDEX idx_tasks_mission ON tasks(mission_id, position);
+      CREATE INDEX idx_tasks_status ON tasks(status);
+
+      CREATE TABLE mission_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        mission_id TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+        task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+        ts INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        payload_json TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX idx_mission_events_mission ON mission_events(mission_id, id);
+
+      ALTER TABLE runs ADD COLUMN mission_id TEXT REFERENCES missions(id) ON DELETE SET NULL;
+      ALTER TABLE runs ADD COLUMN task_id TEXT REFERENCES tasks(id) ON DELETE SET NULL;
+      CREATE INDEX idx_runs_task ON runs(task_id);
+      CREATE INDEX idx_runs_mission ON runs(mission_id);
+    `,
+  },
 ];

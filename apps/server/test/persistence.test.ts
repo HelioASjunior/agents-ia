@@ -181,6 +181,8 @@ const run: Run = {
   agentName: 'Ana',
   profileId: 'p1',
   logPath: null,
+  missionId: null,
+  taskId: null,
   projectId: 'pr1',
   provider: 'claude',
   status: 'running',

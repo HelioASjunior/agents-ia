@@ -3,6 +3,8 @@ import type {
   AgentEvent,
   AuthStatus,
   CustomProvider,
+  Mission,
+  MissionEventData,
   Profile,
   ProfileTotals,
   ProfileUsage,
@@ -10,7 +12,9 @@ import type {
   ProjectInfo,
   Run,
   RunStatus,
+  StoredMissionEvent,
   StoredRunEvent,
+  Task,
   Toolkit,
 } from '@xinoia/shared';
 
@@ -100,7 +104,33 @@ export interface RunEventRepository {
   lastId(): Promise<number>;
 }
 
+export interface MissionRepository {
+  insert(mission: Mission): Promise<void>;
+  update(mission: Mission): Promise<void>;
+  get(id: string): Promise<Mission | null>;
+  list(filter?: { projectId?: string; limit?: number }): Promise<Mission[]>;
+  /** Missões que estavam em andamento, para retomar depois de fechar o app. */
+  listUnfinished(): Promise<Mission[]>;
+}
+
+export interface TaskRepository {
+  /** Substitui o plano inteiro de uma missão, de forma atômica. */
+  replaceForMission(missionId: string, tasks: Task[]): Promise<void>;
+  insert(task: Task): Promise<void>;
+  update(task: Task): Promise<void>;
+  get(id: string): Promise<Task | null>;
+  listForMission(missionId: string): Promise<Task[]>;
+}
+
+export interface MissionEventRepository {
+  append(missionId: string, taskId: string | null, ts: number, data: MissionEventData): Promise<StoredMissionEvent>;
+  listForMission(missionId: string, afterId?: number): Promise<StoredMissionEvent[]>;
+}
+
 export interface Persistence {
+  missions: MissionRepository;
+  tasks: TaskRepository;
+  missionEvents: MissionEventRepository;
   settings: SettingsRepository;
   profiles: ProfileRepository;
   agents: AgentRepository;

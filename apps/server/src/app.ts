@@ -8,6 +8,7 @@ import { createContext, type AppContext } from './context.ts';
 import { AppError } from './errors.ts';
 import type { ProviderRegistry } from './providers/registry.ts';
 import { registerCatalogRoutes } from './routes/catalog.ts';
+import { registerMissionRoutes } from './routes/missions.ts';
 import { registerRunRoutes } from './routes/runs.ts';
 import { registerSystemRoutes } from './routes/system.ts';
 import { installHttpGuard } from './security/http-guard.ts';
@@ -69,6 +70,7 @@ export async function createApp(options: CreateAppOptions): Promise<XinoiaApp> {
   registerSystemRoutes(app, ctx);
   registerCatalogRoutes(app, ctx);
   registerRunRoutes(app, ctx);
+  registerMissionRoutes(app, ctx);
   registerWebSocket(app, ctx);
 
   app.addHook('onClose', async () => {

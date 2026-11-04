@@ -108,7 +108,7 @@ Agents can read and change files in the project folder, and they can run command
 | Phase | Scope | Status |
 | --- | --- | --- |
 | 1 | Backend, database, real CLI integration | **Done and tested** |
-| 2 | Orchestrator, tasks, review between agents | Planned |
+| 2 | Orchestrator, tasks, review between agents | **Done and tested** |
 | 3 | Chat, terminal, monitoring | Planned |
 | 4 | Projects, workflows, Git worktrees | Planned |
 | 5 | Virtual office and visual identity | Planned |

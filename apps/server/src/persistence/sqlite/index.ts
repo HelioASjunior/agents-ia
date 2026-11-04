@@ -4,6 +4,9 @@ import type {
   AgentEvent,
   CustomProvider,
   McpServer,
+  Mission,
+  MissionEventData,
+  MissionStatus,
   PermissionLevel,
   Profile,
   Project,
@@ -13,6 +16,7 @@ import type {
   ErrorKind,
   Skill,
   StoredRunEvent,
+  Task,
   Toolkit,
 } from '@xinoia/shared';
 import type { Persistence, RunFilter, SessionKey } from '../types.ts';
@@ -87,7 +91,56 @@ function toRun(r: Row): Run {
     usage: parseOrNull(r.usage_json),
     filesChanged: parse(r.files_changed_json),
     logPath: textOrNull(r.log_path),
+    missionId: textOrNull(r.mission_id),
+    taskId: textOrNull(r.task_id),
     queuedAt: Number(r.queued_at),
+    startedAt: numOrNull(r.started_at),
+    endedAt: numOrNull(r.ended_at),
+  };
+}
+
+function toMission(r: Row): Mission {
+  return {
+    id: String(r.id),
+    projectId: String(r.project_id),
+    goal: String(r.goal),
+    status: String(r.status) as MissionStatus,
+    mode: String(r.mode) as Mission['mode'],
+    coordinatorId: textOrNull(r.coordinator_id),
+    agentIds: parse(r.agent_ids_json),
+    settings: parse(r.settings_json),
+    planSummary: textOrNull(r.plan_summary),
+    pauseReason: textOrNull(r.pause_reason),
+    report: textOrNull(r.report),
+    notes: parse(r.notes_json),
+    createdAt: Number(r.created_at),
+    startedAt: numOrNull(r.started_at),
+    endedAt: numOrNull(r.ended_at),
+  };
+}
+
+function toTask(r: Row): Task {
+  return {
+    id: String(r.id),
+    missionId: String(r.mission_id),
+    position: Number(r.position),
+    title: String(r.title),
+    description: String(r.description),
+    assigneeId: textOrNull(r.assignee_id),
+    assigneeName: String(r.assignee_name),
+    type: String(r.type) as Task['type'],
+    priority: Number(r.priority),
+    dependsOn: parse(r.depends_on_json),
+    status: String(r.status) as Task['status'],
+    round: Number(r.round),
+    isFix: Number(r.is_fix) === 1,
+    attempts: Number(r.attempts),
+    verdict: textOrNull(r.verdict) as Task['verdict'],
+    result: textOrNull(r.result),
+    handoff: textOrNull(r.handoff),
+    filesChanged: parse(r.files_changed_json),
+    errorKind: textOrNull(r.error_kind) as ErrorKind | null,
+    errorText: textOrNull(r.error_text),
     startedAt: numOrNull(r.started_at),
     endedAt: numOrNull(r.ended_at),
   };
@@ -146,6 +199,35 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
     toolkitIds: toolkitIds(String(r.id)),
     createdAt: Number(r.created_at),
   });
+
+  const insertTask = (t: Task): void => {
+    run(
+      `INSERT INTO tasks (id, mission_id, position, title, description, assignee_id, assignee_name, type, priority, depends_on_json, status, round, is_fix, attempts, verdict, result, handoff, files_changed_json, error_kind, error_text, started_at, ended_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      t.id,
+      t.missionId,
+      t.position,
+      t.title,
+      t.description,
+      t.assigneeId,
+      t.assigneeName,
+      t.type,
+      t.priority,
+      JSON.stringify(t.dependsOn),
+      t.status,
+      t.round,
+      t.isFix ? 1 : 0,
+      t.attempts,
+      t.verdict,
+      t.result,
+      t.handoff,
+      JSON.stringify(t.filesChanged),
+      t.errorKind,
+      t.errorText,
+      t.startedAt,
+      t.endedAt,
+    );
+  };
 
   const setAgentToolkits = (agent: Agent): void => {
     run('DELETE FROM agent_toolkits WHERE agent_id = ?', agent.id);
@@ -393,8 +475,8 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
     runs: {
       async insert(r) {
         run(
-          `INSERT INTO runs (id, agent_id, agent_name, profile_id, project_id, provider, status, prompt, permission, command, session_id, model, exit_code, error_kind, error_text, final_text, usage_json, files_changed_json, log_path, queued_at, started_at, ended_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO runs (id, agent_id, agent_name, profile_id, project_id, provider, status, prompt, permission, command, session_id, model, exit_code, error_kind, error_text, final_text, usage_json, files_changed_json, log_path, mission_id, task_id, queued_at, started_at, ended_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           r.id,
           r.agentId,
           r.agentName,
@@ -414,6 +496,8 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
           r.usage ? JSON.stringify(r.usage) : null,
           JSON.stringify(r.filesChanged),
           r.logPath,
+          r.missionId,
+          r.taskId,
           r.queuedAt,
           r.startedAt,
           r.endedAt,
@@ -490,6 +574,128 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
       async lastId() {
         const row = one('SELECT coalesce(max(id), 0) AS last FROM run_events');
         return Number(row?.last ?? 0);
+      },
+    },
+
+    missions: {
+      async insert(m) {
+        run(
+          `INSERT INTO missions (id, project_id, goal, status, mode, coordinator_id, agent_ids_json, settings_json, plan_summary, pause_reason, report, notes_json, created_at, started_at, ended_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          m.id,
+          m.projectId,
+          m.goal,
+          m.status,
+          m.mode,
+          m.coordinatorId,
+          JSON.stringify(m.agentIds),
+          JSON.stringify(m.settings),
+          m.planSummary,
+          m.pauseReason,
+          m.report,
+          JSON.stringify(m.notes),
+          m.createdAt,
+          m.startedAt,
+          m.endedAt,
+        );
+      },
+      async update(m) {
+        run(
+          `UPDATE missions SET status = ?, coordinator_id = ?, agent_ids_json = ?, settings_json = ?, plan_summary = ?, pause_reason = ?, report = ?, notes_json = ?, started_at = ?, ended_at = ? WHERE id = ?`,
+          m.status,
+          m.coordinatorId,
+          JSON.stringify(m.agentIds),
+          JSON.stringify(m.settings),
+          m.planSummary,
+          m.pauseReason,
+          m.report,
+          JSON.stringify(m.notes),
+          m.startedAt,
+          m.endedAt,
+          m.id,
+        );
+      },
+      async get(id) {
+        const row = one('SELECT * FROM missions WHERE id = ?', id);
+        return row ? toMission(row) : null;
+      },
+      async list(filter = {}) {
+        const limit = filter.limit ?? 50;
+        const rows = filter.projectId
+          ? all('SELECT * FROM missions WHERE project_id = ? ORDER BY created_at DESC LIMIT ?', filter.projectId, limit)
+          : all('SELECT * FROM missions ORDER BY created_at DESC LIMIT ?', limit);
+        return rows.map(toMission);
+      },
+      async listUnfinished() {
+        return all(`SELECT * FROM missions WHERE status IN ('planning', 'running', 'reporting')`).map(toMission);
+      },
+    },
+
+    tasks: {
+      async replaceForMission(missionId, tasks) {
+        transaction(() => {
+          run('DELETE FROM tasks WHERE mission_id = ?', missionId);
+          for (const task of tasks) insertTask(task);
+        });
+      },
+      async insert(task) {
+        insertTask(task);
+      },
+      async update(t) {
+        run(
+          `UPDATE tasks SET position = ?, title = ?, description = ?, assignee_id = ?, assignee_name = ?, type = ?, priority = ?, depends_on_json = ?, status = ?, round = ?, is_fix = ?, attempts = ?, verdict = ?, result = ?, handoff = ?, files_changed_json = ?, error_kind = ?, error_text = ?, started_at = ?, ended_at = ? WHERE id = ?`,
+          t.position,
+          t.title,
+          t.description,
+          t.assigneeId,
+          t.assigneeName,
+          t.type,
+          t.priority,
+          JSON.stringify(t.dependsOn),
+          t.status,
+          t.round,
+          t.isFix ? 1 : 0,
+          t.attempts,
+          t.verdict,
+          t.result,
+          t.handoff,
+          JSON.stringify(t.filesChanged),
+          t.errorKind,
+          t.errorText,
+          t.startedAt,
+          t.endedAt,
+          t.id,
+        );
+      },
+      async get(id) {
+        const row = one('SELECT * FROM tasks WHERE id = ?', id);
+        return row ? toTask(row) : null;
+      },
+      async listForMission(missionId) {
+        return all('SELECT * FROM tasks WHERE mission_id = ? ORDER BY position', missionId).map(toTask);
+      },
+    },
+
+    missionEvents: {
+      async append(missionId, taskId, ts, data) {
+        const inserted = run(
+          'INSERT INTO mission_events (mission_id, task_id, ts, type, payload_json) VALUES (?, ?, ?, ?, ?)',
+          missionId,
+          taskId,
+          ts,
+          data.type,
+          JSON.stringify(data),
+        );
+        return { id: Number(inserted.lastInsertRowid), missionId, taskId, ts, data };
+      },
+      async listForMission(missionId, afterId = 0) {
+        return all('SELECT * FROM mission_events WHERE mission_id = ? AND id > ? ORDER BY id', missionId, afterId).map((r) => ({
+          id: Number(r.id),
+          missionId: String(r.mission_id),
+          taskId: textOrNull(r.task_id),
+          ts: Number(r.ts),
+          data: parse<MissionEventData>(r.payload_json),
+        }));
       },
     },
 

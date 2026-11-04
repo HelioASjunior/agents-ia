@@ -357,6 +357,8 @@ export interface Run {
   profileId: string | null;
   /** Saída bruta do CLI, guardada em arquivo fora do banco. */
   logPath: string | null;
+  missionId: string | null;
+  taskId: string | null;
   projectId: string;
   provider: string;
   status: RunStatus;
@@ -399,9 +401,162 @@ export interface StoredRunEvent {
   event: AgentEvent;
 }
 
+// ---------------------------------------------------------------------------
+// Missões e tarefas
+// ---------------------------------------------------------------------------
+
+export type MissionStatus =
+  | 'planning'
+  | 'awaiting_approval'
+  | 'running'
+  | 'paused'
+  | 'reporting'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type TaskStatus = 'pending' | 'running' | 'done' | 'failed' | 'skipped' | 'cancelled';
+export type TaskType = 'work' | 'review';
+export type Verdict = 'APROVADO' | 'REPROVADO';
+
+export const MissionSettings = z.object({
+  /** Tarefas ao mesmo tempo. Acima de 1, só tarefas sem dependência entre si. */
+  concurrency: z.number().int().min(1).max(8).default(1),
+  /** Quantas vezes uma reprovação pode voltar para correção. */
+  maxReviewRounds: z.number().int().min(0).max(10).default(2),
+  /** Tentativas de uma tarefa que falhou por erro comum. */
+  maxAttempts: z.number().int().min(1).max(5).default(2),
+  /** Começa sem esperar a aprovação do plano. */
+  autoApprove: z.boolean().default(false),
+  /**
+   * Passa a tarefa para um agente de OUTRO provedor quando um limite é atingido.
+   * Nunca para outra conta do mesmo provedor, o que seria contornar o limite.
+   */
+  fallbackToOtherProvider: z.boolean().default(false),
+});
+export type MissionSettings = z.infer<typeof MissionSettings>;
+
+export const CreateMissionInput = z.object({
+  projectId: z.string().min(1),
+  goal: z.string().trim().min(1).max(50_000),
+  /** auto: o coordenador monta o plano. pipeline: a sequência é a ordem de agentIds. */
+  mode: z.enum(['auto', 'pipeline']).default('auto'),
+  coordinatorId: z.string().nullish(),
+  agentIds: z.array(z.string()).default([]),
+  settings: MissionSettings.partial().default({}),
+});
+export type CreateMissionInput = z.input<typeof CreateMissionInput>;
+
+export const PlanTaskInput = z.object({
+  id: z.string().optional(),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(20_000).default(''),
+  assignee: z.string().min(1),
+  type: z.enum(['work', 'review']).default('work'),
+  priority: z.number().int().min(1).max(3).default(2),
+  dependsOn: z.array(z.string()).default([]),
+});
+export type PlanTaskInput = z.input<typeof PlanTaskInput>;
+
+export const ApproveMissionInput = z.object({
+  /** Plano editado pelo usuário. Sem isso, aprova o plano do coordenador como está. */
+  tasks: z.array(PlanTaskInput).min(1).optional(),
+});
+
+export const ReplanMissionInput = z.object({ feedback: z.string().trim().min(1).max(20_000) });
+export const ReassignTaskInput = z.object({ agentId: z.string().min(1) });
+export const MissionNoteInput = z.object({ text: z.string().trim().min(1).max(20_000) });
+
+export interface Mission {
+  id: string;
+  projectId: string;
+  goal: string;
+  status: MissionStatus;
+  mode: 'auto' | 'pipeline';
+  coordinatorId: string | null;
+  agentIds: string[];
+  settings: MissionSettings;
+  planSummary: string | null;
+  /** Por que parou, em linguagem clara. */
+  pauseReason: string | null;
+  report: string | null;
+  /** Orientações do usuário durante a missão, repassadas às próximas tarefas. */
+  notes: string[];
+  createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+}
+
+export interface Task {
+  id: string;
+  missionId: string;
+  position: number;
+  title: string;
+  description: string;
+  assigneeId: string | null;
+  assigneeName: string;
+  type: TaskType;
+  priority: number;
+  dependsOn: string[];
+  status: TaskStatus;
+  /** Rodada de correção: 0 no trabalho original. */
+  round: number;
+  isFix: boolean;
+  attempts: number;
+  verdict: Verdict | null;
+  result: string | null;
+  /** O que o agente passou adiante para quem vem depois. */
+  handoff: string | null;
+  filesChanged: string[];
+  errorKind: ErrorKind | null;
+  errorText: string | null;
+  startedAt: number | null;
+  endedAt: number | null;
+}
+
+export type MissionEventData =
+  | { type: 'mission_status'; status: MissionStatus; reason?: string | null }
+  | { type: 'plan_ready'; summary: string | null; taskCount: number }
+  | { type: 'task_status'; title: string; status: TaskStatus; agentName: string; runId?: string | null; error?: string | null }
+  | { type: 'handoff'; fromAgentId: string | null; fromAgentName: string; toAgentId: string | null; toAgentName: string; taskTitle: string; summary: string }
+  | { type: 'review'; reviewerName: string; verdict: Verdict; taskTitle: string; summary: string }
+  | { type: 'fix_requested'; fromAgentName: string; toAgentName: string; round: number; summary: string }
+  | { type: 'retry'; title: string; attempt: number; reason: string }
+  | { type: 'reassigned'; title: string; fromAgentName: string; toAgentName: string; reason: string }
+  | { type: 'note'; text: string };
+
+export interface StoredMissionEvent {
+  id: number;
+  missionId: string;
+  taskId: string | null;
+  ts: number;
+  data: MissionEventData;
+}
+
+// ---------------------------------------------------------------------------
+// Estado dos agentes, sempre derivado de eventos reais
+// ---------------------------------------------------------------------------
+
+export type AgentActivity = 'available' | 'thinking' | 'executing' | 'waiting' | 'reviewing' | 'error' | 'finished';
+
+export interface AgentLiveState {
+  agentId: string;
+  activity: AgentActivity;
+  /** O que está fazendo agora, como `npm test` ou "Editando app.ts". */
+  detail: string | null;
+  runId: string | null;
+  taskId: string | null;
+  missionId: string | null;
+  since: number;
+}
+
 /** Mensagens do servidor para a interface pelo WebSocket. */
 export type ServerMessage =
   | { kind: 'hello'; lastEventId: number }
   | { kind: 'run_event'; data: StoredRunEvent }
   | { kind: 'run_updated'; data: Run }
-  | { kind: 'profile_updated'; data: Profile };
+  | { kind: 'profile_updated'; data: Profile }
+  | { kind: 'mission_updated'; data: Mission }
+  | { kind: 'task_updated'; data: Task }
+  | { kind: 'mission_event'; data: StoredMissionEvent }
+  | { kind: 'agent_state'; data: AgentLiveState };

@@ -3,9 +3,11 @@ import type { AppConfig } from './config.ts';
 import { createSqlitePersistence } from './persistence/sqlite/index.ts';
 import type { Persistence } from './persistence/types.ts';
 import { ProviderRegistry } from './providers/registry.ts';
+import { AgentStateService } from './services/agent-state.ts';
 import { AgentService } from './services/agents.ts';
 import { CustomProviderService } from './services/custom-providers.ts';
 import { DetectionService } from './services/detection.ts';
+import { Orchestrator } from './services/orchestrator.ts';
 import { ProfileService } from './services/profiles.ts';
 import { ProjectService } from './services/projects.ts';
 import { RunService } from './services/runs.ts';
@@ -26,6 +28,8 @@ export interface AppContext {
   toolkits: ToolkitService;
   customProviders: CustomProviderService;
   runs: RunService;
+  orchestrator: Orchestrator;
+  agentState: AgentStateService;
   /** Dados restaurados de uma cópia de segurança ao abrir, se houve dano. */
   recoveredFrom: string | null;
   /** Execuções que estavam ativas quando o app fechou da última vez. */
@@ -47,8 +51,11 @@ export async function createContext(config: AppConfig, registry = new ProviderRe
   const toolkits = new ToolkitService(config, db);
   const customProviders = new CustomProviderService(db, registry);
   const runs = new RunService(config, db, registry, hub, profiles, toolkits);
+  const agentState = new AgentStateService(hub);
+  const orchestrator = new Orchestrator(db, runs, hub);
 
   const interruptedOnStart = await db.runs.markUnfinishedAsInterrupted(Date.now());
+  await orchestrator.recover();
   await customProviders.load();
 
   const lastBackup = (await db.settings.get<number>('last_backup_at')) ?? 0;
@@ -69,9 +76,12 @@ export async function createContext(config: AppConfig, registry = new ProviderRe
     toolkits,
     customProviders,
     runs,
+    orchestrator,
+    agentState,
     recoveredFrom: sqlite.opened.recoveredFrom,
     interruptedOnStart,
     async close() {
+      agentState.close();
       await runs.shutdown();
       await db.close();
     },

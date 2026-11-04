@@ -5,7 +5,7 @@ const isWindows = process.platform === 'win32';
 
 // Remove variáveis que fariam o CLI cobrar por API, usar outro servidor ou herdar
 // a sessão de quem abriu o XinoIA. Sobra só o login do perfil escolhido.
-const STRIPPED = /^(ANTHROPIC_|CLAUDE|OPENAI_|CODEX_|GEMINI_|GOOGLE_API_KEY|GOOGLE_GENAI_|AWS_BEARER_TOKEN_BEDROCK)/i;
+const STRIPPED = /^(ANTHROPIC_|CLAUDE|OPENAI_|CODEX_|GEMINI_|GOOGLE_API_KEY|GOOGLE_GENAI_|AWS_BEARER_TOKEN_BEDROCK|NODE_TEST_CONTEXT)/i;
 const HOME_VARIABLES = new Set(['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'GEMINI_CLI_HOME']);
 
 export function buildEnv(
