@@ -75,7 +75,7 @@ function build(version) {
   const testConfig = path.join(desktop, 'electron-builder.teste.yml');
   fs.writeFileSync(testConfig, config);
   try {
-    run('npx electron-builder --config electron-builder.teste.yml --publish never --win --dir', desktop);
+    run('npx electron-builder --config electron-builder.teste.yml --publish never --win nsis', desktop);
     const program = path.join(release, 'win-unpacked', 'XinoIA.exe');
     checkMetadata(program, `${version.split('-')[0]}.0`);
     authenticode(program);

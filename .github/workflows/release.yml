@@ -41,9 +41,11 @@ jobs:
           full="${GITHUB_REF_NAME#v}"
           echo "full=$full" >> "$GITHUB_OUTPUT"
           echo "product=${full%%-*}" >> "$GITHUB_OUTPUT"
+      # Com o alvo nsis, e não --dir: só assim sai o app-update.yml, sem o qual o programa
+      # não consegue verificar atualizações. O instalador deste passo é refeito no seguinte.
       - name: Gerar o programa
         working-directory: apps/desktop
-        run: npx electron-builder --config electron-builder.yml --publish never --win --dir
+        run: npx electron-builder --config electron-builder.yml --publish never --win nsis
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Enviar o programa para assinar

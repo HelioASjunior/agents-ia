@@ -153,6 +153,8 @@ try {
   const exe = path.join(installDir, 'XinoIA.exe');
   assert.ok(fs.existsSync(exe), 'XinoIA.exe instalado');
   assert.ok(fs.existsSync(path.join(installDir, 'Uninstall XinoIA.exe')), 'desinstalador presente');
+  // Sem este arquivo o programa abre normalmente, mas nunca consegue se atualizar.
+  assert.ok(fs.existsSync(path.join(installDir, 'resources', 'app-update.yml')), 'configuração de atualização presente');
   const shipped = execFileSync('powershell', ['-NoProfile', '-Command', `(Get-Item '${exe}').VersionInfo | Select-Object -ExpandProperty ProductName`], { encoding: 'utf8' }).trim();
   assert.equal(shipped, 'XinoIA', 'nome nas propriedades do executável');
   process.stdout.write(`  instalado em ${installDir}\n`);

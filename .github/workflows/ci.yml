@@ -38,9 +38,11 @@ jobs:
       - run: npm ci
       - run: npm run build:desktop
       # Em dois passos, como na publicação, em que o programa é assinado antes de empacotar.
+      # Com o alvo nsis, e não --dir: só assim sai o app-update.yml, sem o qual o programa
+      # não consegue verificar atualizações. O instalador deste passo é refeito no seguinte.
       - name: Gerar o programa
         working-directory: apps/desktop
-        run: npx electron-builder --config electron-builder.yml --publish never --win --dir
+        run: npx electron-builder --config electron-builder.yml --publish never --win nsis
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Gerar instalador e versão portátil
