@@ -35,7 +35,7 @@
     <li><a href="#c13">Moving a project into XinoIA</a></li>
     <li><a href="#c14">Security and privacy</a></li>
     <li><a href="#c15">Troubleshooting</a></li>
-    <li><a href="#c16">Hands-on path and quiz with answers</a></li>
+    <li><a href="#c16">Hands-on path: from zero to a team</a></li>
   </ol>
 </div>
 
@@ -357,8 +357,7 @@
 </section>
 
 <section class="chapter" id="c16">
-<h1>16. Hands-on path and quiz</h1>
-<h2>Path: from zero to a team</h2>
+<h1>16. Hands-on path: from zero to a team</h1>
 <ol>
 <li>Connect one AI through the browser and check it in Contas.</li>
 <li>Create a project with <b>Pasta nova</b> and make the first commit in <b>Shell</b>: <code>git init</code>, <code>git add -A</code>, <code>git commit -m start --allow-empty</code>.</li>
@@ -369,40 +368,6 @@
 <li>Save a copy of a workflow, change a step and run it.</li>
 <li>Run a mission with <b>Tarefas ao mesmo tempo</b> at 2, and merge the result.</li>
 <li>Open the dashboard, and compare the tokens of each run.</li>
-</ol>
-<h2>Quiz</h2>
-<ol>
-<li>Does XinoIA include the AI tools?</li>
-<li>What's the billing difference between browser sign-in and an API key?</li>
-<li>What should you check in the browser when adding a second account?</li>
-<li>Can a read-only reviewer run <code>git diff</code>?</li>
-<li>Why doesn't Claude on "edit" work for running tests?</li>
-<li>In which mode does the "full" permission apply?</li>
-<li>Why can <b>Retomar</b> make a mission stop again?</li>
-<li>What happens to a task interrupted by an update?</li>
-<li>When does your folder change in a parallel mission?</li>
-<li>Why keep <b>Tarefas ao mesmo tempo</b> at 1 with Unreal?</li>
-<li>Why write a <code>XINOIA_HANDOFF.md</code> when bringing a project in?</li>
-<li>Which rule file does Codex read?</li>
-<li>How do you reduce XinoIA's graphics card usage?</li>
-<li>Does XinoIA switch accounts by itself at a limit?</li>
-</ol>
-<h2>Answers</h2>
-<ol class="answers">
-<li>No: it drives the ones you install, with your own accounts.</li>
-<li>Through the browser, usage counts against your plan's limits. With a key, each use is billed by the vendor.</li>
-<li>That the right account is open: if it's on the first one, both profiles may end up on the same account.</li>
-<li>No: put the output in the task, or have an earlier step gather it.</li>
-<li>At that level, it changes files, but terminal commands stay blocked. Use Codex on "edit".</li>
-<li>Only in Autônomo controlado. In the others, it falls back to "edit", with a warning.</li>
-<li>A review was rejected at the fix limit. You must choose Tentar de novo or Pular on that task.</li>
-<li>The mission is paused, and the task starts over on resume. What it changed stays in the files.</li>
-<li>Only when you choose Integrar at the end.</li>
-<li>MCP acts on the open editor, in the original folder, and binary maps and assets can't be merged in a conflict.</li>
-<li>Because conversations don't move: the file is the only memory that does.</li>
-<li><code>AGENTS.md</code>. Claude Code reads <code>CLAUDE.md</code>.</li>
-<li>Choose the Compacto view and collapse the Escritório ao vivo panel.</li>
-<li>No. At most, if you turn the option on, it passes the task to an agent from another provider.</li>
 </ol>
 </section>
 

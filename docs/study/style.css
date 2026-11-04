@@ -39,4 +39,3 @@ figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 1mm; }
 .box.lab { border-color: #4a6fa5; background: #eaf0f8; }
 .box > b:first-child { display: block; margin-bottom: 0.6mm; }
 .box > :last-child { margin-bottom: 0; }
-.answers li { margin-bottom: 1.4mm; }

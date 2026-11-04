@@ -6,7 +6,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ### Adicionado
 
-- Guia de estudo em PDF, em português e inglês, com exercícios e prova com gabarito.
+- Guia de estudo em PDF, em português e inglês, para aprender como o sistema funciona e como usá-lo.
 
 ## [0.1.2] - 2026-11-04
 

@@ -126,7 +126,7 @@ O carregamento do plugin e a configuração têm testes. As chamadas de ferramen
 | Objetivo | Comece por |
 | --- | --- |
 | Instalar e usar, perguntas frequentes e problemas comuns | [Guia de uso](docs/USER_GUIDE.md) |
-| Aprender o sistema inteiro, com exercícios e prova | [Guia de estudo (PDF)](docs/study/XinoIA-Guia-de-Estudo-pt-BR.pdf) |
+| Aprender como o sistema funciona e como usá-lo | [Guia de estudo (PDF)](docs/study/XinoIA-Guia-de-Estudo-pt-BR.pdf) |
 | O que funciona por assinatura, e termos dos fornecedores | [Suporte a provedores](docs/PROVIDERS.md) |
 | Entender o desenho | [Arquitetura](docs/ARCHITECTURE.md) · [Roteiro](docs/ROADMAP.md) |
 | Publicar uma versão | [Publicação](docs/RELEASING.md) |
