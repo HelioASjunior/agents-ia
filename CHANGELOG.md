@@ -11,6 +11,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ### Corrigido
 
+- O Codex em um perfil separado não rodava nenhum comando no Windows ("blocked by policy"), porque o perfil não tinha a área protegida definida. Agora o XinoIA usa a opção que não pede administrador, a menos que a configuração do Codex já escolha outra.
+
 - Os testes de instalação se recusam a rodar em um computador com o XinoIA instalado ou aberto. Antes, podiam encerrar o programa e apagar o registro da instalação.
 
 - `SHA256SUMS.txt` não lista mais um arquivo interno do empacotador, que não é publicado. O arquivo da versão 0.1.0 foi corrigido no próprio GitHub, e os outros arquivos dela não mudaram.

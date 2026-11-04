@@ -63,6 +63,8 @@ export interface ProviderAdapter {
   statusFromHome?(homeDir: string): StatusResult;
   prepareHome?(homeDir: string): void;
   buildArgs(options: BuildArgsOptions): string[];
+  /** Argumentos que dependem de como o CLI está configurado neste computador. */
+  sandboxArgs?(homeDir: string | null, permission: PermissionLevel, platform?: NodeJS.Platform): string[];
   toolArgs?(options: ToolArgsOptions): ToolArgsResult;
   /** Regras de segurança que o próprio CLI aplica antes de executar. */
   policyArgs?(policyFile: string, quotePath: (value: string) => string): string[];

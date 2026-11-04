@@ -23,6 +23,14 @@ Um perfil de **chave de API** tem pasta própria, e a chave é a única variáve
 
 Consumir a assinatura não é o mesmo que ter acesso ilimitado: os limites do plano continuam valendo. O XinoIA mostra uso e renovação somente quando o CLI informa. Hoje só o Claude Code expõe esses dados em cada execução, e o custo em dólar que ele calcula **não** é exibido, porque não é o que uma assinatura paga.
 
+## Área protegida do Codex no Windows
+
+Em "somente leitura" e "editar", o Codex precisa de uma área protegida no Windows. Sem nenhuma definida, ele rejeita todo comando com `blocked by policy`.
+
+Se o `config.toml` do perfil tiver `[windows] sandbox`, vale essa escolha. O login do computador costuma ter uma, definida pelo app do Codex. Um perfil separado começa sem, e aí o XinoIA usa `unelevated`, que não pede administrador. A documentação da OpenAI indica `elevated` como preferida, por isolar melhor a rede, mas ela exige um pedido de administrador, que uma execução automática não teria como responder. Quem quiser pode definir `elevated` no `config.toml` do perfil.
+
+O primeiro comando em um perfil novo pode demorar, enquanto o Codex prepara a área protegida.
+
 ## Termos dos fornecedores
 
 Este resumo não é aconselhamento jurídico. Quem distribui e quem usa o XinoIA deve ler os termos de cada fornecedor.

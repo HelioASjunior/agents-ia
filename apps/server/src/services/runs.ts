@@ -340,12 +340,13 @@ export class RunService {
   ): Promise<RunOutcome> {
     const { agent, project, adapter, profile, prompt, cwd } = context;
     const policyArgs = adapter.policyArgs?.((this.policyFile ??= writeClaudePolicy(this.config)), quotePath) ?? [];
+    const sandboxArgs = adapter.sandboxArgs?.(profile ? this.profiles.homeOf(profile) : null, run.permission) ?? [];
     const options = {
       model: agent.model,
       effort: agent.effort,
       sessionId,
       permission: run.permission,
-      extraArgs: [...resolved.args, ...policyArgs],
+      extraArgs: [...resolved.args, ...policyArgs, ...sandboxArgs],
     };
     run.command = redact(`${adapter.command} ${adapter.buildArgs(options).join(' ')}`);
     await this.saveRun(run);

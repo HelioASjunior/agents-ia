@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import type { AgentEvent } from '@xinoia/shared';
 import { baseName, classifyError, clip, parseJsonLine, safeArg } from './common.ts';
@@ -95,6 +96,16 @@ export function createCodexParser(): LineParser {
   };
 }
 
+/** A configuração do Codex já escolhe a área protegida do Windows? */
+export function definesWindowsSandbox(toml: string): boolean {
+  if (/^\s*windows\.sandbox\s*=/m.test(toml)) return true;
+  const section = /^\s*\[windows\]\s*(?:#.*)?$/m.exec(toml);
+  if (!section) return false;
+  const rest = toml.slice(section.index + section[0].length);
+  const next = /^\s*\[/m.exec(rest);
+  return /^\s*sandbox\s*=/m.test(next ? rest.slice(0, next.index) : rest);
+}
+
 export const codexAdapter: ProviderAdapter = {
   id: 'codex',
   label: 'Codex CLI',
@@ -164,6 +175,21 @@ export const codexAdapter: ProviderAdapter = {
     if (s) args.push('resume', s);
     args.push('-');
     return args;
+  },
+
+  // No Windows, sem a área protegida definida, o Codex rejeita todo comando ("blocked by
+  // policy"). A configuração de cada pessoa manda, e nunca é alterada aqui. Sem nenhuma
+  // escolha, usa a opção que não pede administrador, já que ninguém responderia a esse pedido.
+  sandboxArgs(homeDir, permission, platform = process.platform) {
+    if (platform !== 'win32' || permission === 'full') return [];
+    const home = homeDir ?? process.env.CODEX_HOME ?? path.join(os.homedir(), '.codex');
+    let toml = '';
+    try {
+      toml = fs.readFileSync(path.join(home, 'config.toml'), 'utf8');
+    } catch {
+      // Sem arquivo, não há escolha feita.
+    }
+    return definesWindowsSandbox(toml) ? [] : ['-c', 'windows.sandbox=unelevated'];
   },
 
   // A saída de erro traz muito ruído de servidores MCP configurados pelo usuário.

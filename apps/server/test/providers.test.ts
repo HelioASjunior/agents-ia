@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import type { AgentEvent, Toolkit } from '@xinoia/shared';
 import { claudeAdapter, createClaudeParser } from '../src/providers/claude.ts';
@@ -220,4 +223,32 @@ test('Agente personalizado: mantém variáveis e trata saída como texto', () =>
   assert.deepEqual(adapter.buildArgs({ permission: 'edit' }), ['--modo', 'rapido']);
   assert.deepEqual(adapter.createParser()('olá'), [{ type: 'text', text: 'olá\n' }]);
   assert.equal(adapter.requiresProfile, false);
+});
+
+test('Codex no Windows: perfil sem área protegida recebe uma, e a escolha da pessoa é respeitada', () => {
+  const { sandboxArgs } = codexAdapter;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xinoia-codex-'));
+  const write = (text: string) => fs.writeFileSync(path.join(dir, 'config.toml'), text);
+  const unelevated = ['-c', 'windows.sandbox=unelevated'];
+
+  // É o que o XinoIA escreve em um perfil novo: sem isto, todo comando era rejeitado.
+  write('cli_auth_credentials_store = "file"\n');
+  assert.deepEqual(sandboxArgs!(dir, 'edit', 'win32'), unelevated);
+  assert.deepEqual(sandboxArgs!(dir, 'read', 'win32'), unelevated);
+  fs.rmSync(path.join(dir, 'config.toml'));
+  assert.deepEqual(sandboxArgs!(dir, 'edit', 'win32'), unelevated, 'sem arquivo');
+
+  for (const chosen of ['[windows]\nsandbox = "elevated"\n', 'model = "x"\n\n[windows]\n# escolha\nsandbox = "unelevated"\n\n[features]\nx = true\n', 'windows.sandbox = "mxc"\n']) {
+    write(chosen);
+    assert.deepEqual(sandboxArgs!(dir, 'edit', 'win32'), [], chosen);
+  }
+  // Outra opção dentro de [windows], ou "sandbox" em outra seção, não é uma escolha.
+  write('[windows]\noutra = 1\n\n[features]\nsandbox = true\n');
+  assert.deepEqual(sandboxArgs!(dir, 'edit', 'win32'), unelevated);
+
+  // Permissão total não usa área protegida, e fora do Windows a opção não existe.
+  write('');
+  assert.deepEqual(sandboxArgs!(dir, 'full', 'win32'), []);
+  assert.deepEqual(sandboxArgs!(dir, 'edit', 'linux'), []);
+  fs.rmSync(dir, { recursive: true, force: true });
 });
