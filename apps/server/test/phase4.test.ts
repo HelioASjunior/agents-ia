@@ -108,6 +108,31 @@ async function isolatedMission(h: Harness, projectId: string, coordinatorId: str
   return h.ctx.orchestrator.waitForIdle(mission.id);
 }
 
+test('Em um worktree, o agente recebe a pasta isolada e o aviso para não mexer na original', async () => {
+  const h = await createHarness();
+  const { projectId, anaId } = await team(h);
+  const isolated = tempDir('xinoia-isolada-');
+  const run = await h.ctx.runs.create({ agentId: anaId, projectId, prompt: 'oi' }, { cwd: isolated });
+  await h.ctx.runs.waitFor(run.id);
+  const prompt = fs.readFileSync(path.join(isolated, 'prompt-recebido.txt'), 'utf8');
+  assert.ok(prompt.includes(`Sua pasta de trabalho: ${isolated}`));
+  assert.match(prompt, /cópia isolada do projeto/);
+  assert.ok(prompt.includes(`não altere ${h.projectDir}`));
+
+  // Fora de um worktree, nada de aviso.
+  const normal = await h.ctx.runs.create({ agentId: anaId, projectId, prompt: 'oi' });
+  await h.ctx.runs.waitFor(normal.id);
+  assert.doesNotMatch(fs.readFileSync(path.join(h.projectDir, 'prompt-recebido.txt'), 'utf8'), /cópia isolada/);
+  removeDir(isolated);
+  await h.cleanup();
+});
+
+test('O plano pede caminhos relativos', async () => {
+  const { planningPrompt } = await import('../src/services/mission-prompts.ts');
+  const mission = { goal: 'x', notes: [] } as never;
+  assert.match(planningPrompt(mission, []), /caminho relativo/);
+});
+
 test('Revisão antes do merge: o projeto só muda quando o usuário aprova', async () => {
   const h = await createHarness();
   const { projectId, anaId, biaId } = await team(h);

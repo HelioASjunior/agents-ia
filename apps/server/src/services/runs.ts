@@ -353,7 +353,7 @@ export class RunService {
     let fullPrompt = prompt;
     if (!sessionId) {
       const team = await this.db.agents.list();
-      fullPrompt = [buildPersona(agent, project, team), resolved.promptNote, prompt].filter(Boolean).join('\n\n');
+      fullPrompt = [buildPersona(agent, project, team, cwd), resolved.promptNote, prompt].filter(Boolean).join('\n\n');
     }
 
     const home = profile ? this.profiles.homeOf(profile) : null;

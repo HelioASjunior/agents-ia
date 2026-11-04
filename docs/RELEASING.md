@@ -64,6 +64,8 @@ Sem certificado, o Windows mostra o aviso do SmartScreen. Nada neste projeto rem
 
 Confira preços e requisitos atuais com os fornecedores. Com um certificado em PFX, defina os segredos `WIN_CSC_LINK` (o arquivo em base64) e `WIN_CSC_KEY_PASSWORD`. O workflow já os usa.
 
+Só defina `win.signtoolOptions.publisherName` em `electron-builder.yml` depois de publicar ao menos uma versão assinada. Com essa opção, o app passa a recusar qualquer atualização sem o certificado.
+
 ## macOS e Linux
 
 `electron-builder.yml` já descreve os pacotes. Para distribuir, é preciso adicionar as plataformas ao workflow, testar e, no macOS, ter uma conta Apple Developer para assinar e notarizar. O teste `test:dist` hoje é só para Windows.

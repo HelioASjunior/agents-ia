@@ -29,8 +29,8 @@ win:
   icon: build/icon.ico
   executableName: XinoIA
   # A assinatura Authenticode entra sozinha quando CSC_LINK estiver definido no CI.
-  signtoolOptions:
-    publisherName: HelioASjunior
+  # Só defina signtoolOptions.publisherName depois disso: com ele, o atualizador exige
+  # o certificado, e toda atualização sem assinatura Authenticode passa a ser recusada.
 nsis:
   artifactName: XinoIA-Setup-v${version}.${ext}
   oneClick: false

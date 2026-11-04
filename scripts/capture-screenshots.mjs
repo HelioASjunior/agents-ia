@@ -47,7 +47,8 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const page = await browser.newPage({ viewport: { width: 1600, height: 950 } });
 page.on('pageerror', (error) => log(`ERRO NA PÁGINA: ${error.message}`));
 const shot = async (name) => {
-  await page.screenshot({ path: path.join(out, `${name}.png`) });
+  // Sem isto, uma animação de entrada pode sair congelada no primeiro quadro.
+  await page.screenshot({ path: path.join(out, `${name}.png`), animations: 'disabled' });
   log(`captura: ${name}`);
 };
 const go = (label) => page.locator('nav[aria-label="Navegação principal"] button', { hasText: label }).click();
@@ -101,7 +102,13 @@ try {
       await wait(700);
       await shot('escritorio');
       await go('Tarefas');
-      await wait(700);
+      await wait(1500);
+      const cards = await page.locator('section[aria-label] button.rise').evaluateAll((items) => items.map((item) => ({
+        text: item.innerText.split('\n')[0],
+        opacity: getComputedStyle(item).opacity,
+        height: item.getBoundingClientRect().height,
+      })));
+      log(`cartões na tela: ${JSON.stringify(cards)}`);
       await shot('tarefas');
       await go('Escritório');
       captured = true;

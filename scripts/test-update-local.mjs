@@ -36,7 +36,18 @@ function build(version) {
   run(`node scripts/set-version.mjs ${version}`);
   fs.rmSync(release, { recursive: true, force: true });
   run('npm run --silent build:desktop', root, { XINOIA_TEST_RELEASE_BASE: `${BASE}/release` });
-  run(`npx electron-builder --config electron-builder.yml --publish never --win nsis -c.publish.provider=generic -c.publish.url=${BASE}/`, path.join(root, 'apps/desktop'));
+  // Mesma configuração do pacote oficial, só que atualizando do servidor local.
+  const desktop = path.join(root, 'apps/desktop');
+  const config = fs.readFileSync(path.join(desktop, 'electron-builder.yml'), 'utf8')
+    .replace(/publish:\n  provider: github\n  owner: \S+\n  repo: \S+/, `publish:\n  provider: generic\n  url: ${BASE}/`);
+  if (!config.includes('provider: generic')) throw new Error('não foi possível ajustar a configuração');
+  const testConfig = path.join(desktop, 'electron-builder.teste.yml');
+  fs.writeFileSync(testConfig, config);
+  try {
+    run('npx electron-builder --config electron-builder.teste.yml --publish never --win nsis', desktop);
+  } finally {
+    fs.rmSync(testConfig, { force: true });
+  }
   const name = `XinoIA-Setup-v${version}.exe`;
   fs.copyFileSync(path.join(release, name), path.join(setups, name));
   return name;
@@ -100,7 +111,7 @@ try {
   log('\n✔ Atualização comprovada: a válida foi instalada, e a adulterada, recusada.');
 } catch (error) {
   failed = true;
-  process.stderr.write(`\n✖ ${error.message}\n`);
+  process.stderr.write(`\n✖ ${error.message}\n${error.stdout ?? ''}\n${error.stderr ?? ''}\n`);
 } finally {
   server.close();
   server.closeAllConnections();

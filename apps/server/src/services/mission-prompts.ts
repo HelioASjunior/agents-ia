@@ -28,6 +28,7 @@ export function planningPrompt(mission: Mission, agents: Agent[], feedback?: str
       '- Use "dependsOn" para a ordem. Tarefas sem dependência entre si podem rodar ao mesmo tempo, então não deixe duas assim mexerem nos mesmos arquivos.',
       '- Quando houver código, inclua ao menos uma tarefa "review" de um agente diferente de quem implementou.',
       '- "priority" vai de 1 (mais urgente) a 3.',
+      '- Cite arquivos por caminho relativo à pasta do projeto, nunca absoluto: as tarefas podem rodar em cópias isoladas.',
     ].join('\n'),
     [
       'Termine a resposta com um único bloco neste formato exato:',

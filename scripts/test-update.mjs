@@ -7,7 +7,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { chromium } from 'playwright-core';
+
+const { extractFile } = createRequire(import.meta.url)('@electron/asar');
 
 const [setup, newVersion, mode] = process.argv.slice(2);
 const forged = mode === '--forged';
@@ -21,11 +24,26 @@ let port = 9500;
 
 class Finished extends Error {}
 
+// A reabertura depois de atualizar usa as pastas normais: o que ela criar sai no fim.
+const defaultData = path.join(process.env.APPDATA, 'XinoIA');
+const defaultCache = path.join(process.env.LOCALAPPDATA, 'xinoia-updater');
+const hadDefaultData = fs.existsSync(defaultData);
+
+/** Versão de dentro do pacote instalado. */
+function installedVersion() {
+  return JSON.parse(extractFile(path.join(installDir, 'resources', 'app.asar'), 'package.json').toString()).version;
+}
+
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const step = (text) => process.stdout.write(`\n▶ ${text}\n`);
 
 function running() {
   return /XinoIA/i.test(execFileSync('tasklist', ['/FI', 'IMAGENAME eq XinoIA*', '/NH'], { encoding: 'utf8' }));
+}
+
+/** O próprio programa, e não o instalador, que também começa com XinoIA. */
+function appRunning() {
+  return /^XinoIA\.exe/im.test(execFileSync('tasklist', ['/FI', 'IMAGENAME eq XinoIA.exe', '/NH'], { encoding: 'utf8' }).trim());
 }
 
 async function launch() {
@@ -103,8 +121,7 @@ try {
     assert.equal(state.status, 'error', 'um pacote com assinatura falsa não pode ficar pronto');
     assert.match(state.error, /assinatura do pacote é inválida/);
     assert.equal(state.currentVersion, before.currentVersion);
-    const untouched = execFileSync('powershell', ['-NoProfile', '-Command', `(Get-Item '${exe}').VersionInfo.ProductVersion`], { encoding: 'utf8' }).trim();
-    assert.equal(untouched, before.currentVersion, 'o programa instalado não mudou');
+    assert.equal(installedVersion(), before.currentVersion, 'o programa instalado não mudou');
     process.stdout.write(`  recusado: ${state.error}\n`);
     await close(app);
     process.stdout.write('\n✔ Pacote adulterado foi recusado.\n');
@@ -121,9 +138,7 @@ try {
   for (let i = 0; i < 240 && !updated; i += 1) {
     await wait(1000);
     try {
-      const raw = fs.readFileSync(path.join(installDir, 'resources', 'app-update.yml'), 'utf8');
-      const version = execFileSync('powershell', ['-NoProfile', '-Command', `(Get-Item '${exe}').VersionInfo.ProductVersion`], { encoding: 'utf8' }).trim();
-      updated = version === newVersion && raw.length > 0 && running();
+      updated = installedVersion() === newVersion && appRunning();
     } catch {
       updated = false;
     }
@@ -133,10 +148,20 @@ try {
 
   // A reabertura automática usa a pasta normal de dados: fecha e abre na pasta do teste.
   await wait(4000);
-  execFileSync('taskkill', ['/IM', 'XinoIA.exe', '/T'], { stdio: 'ignore' });
-  for (let i = 0; i < 40 && running(); i += 1) await wait(500);
-  if (running()) execFileSync('taskkill', ['/IM', 'XinoIA.exe', '/T', '/F'], { stdio: 'ignore' });
-  await wait(1000);
+  try {
+    execFileSync('taskkill', ['/IM', 'XinoIA.exe', '/T'], { stdio: 'ignore' });
+  } catch {
+    // Sem janela para receber o pedido: a etapa abaixo encerra.
+  }
+  for (let i = 0; i < 20 && running(); i += 1) await wait(500);
+  if (running()) {
+    try {
+      execFileSync('taskkill', ['/IM', 'XinoIA.exe', '/T', '/F'], { stdio: 'ignore' });
+    } catch {
+      // Já encerrado.
+    }
+  }
+  await wait(1500);
 
   step('Conferir versão e dados depois da atualização');
   app = await launch();
@@ -168,6 +193,8 @@ try {
       process.stderr.write('Não foi possível desinstalar ao final do teste.\n');
     }
   }
+  if (!hadDefaultData) fs.rmSync(defaultData, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
+  fs.rmSync(defaultCache, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   fs.rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
 }
 process.exit(0);
