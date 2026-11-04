@@ -46,10 +46,10 @@ Pedidos feitos ao avaliar a entrega:
 
 ## O que depende do dono do repositório
 
-1. **Enviar a chave de assinatura ao GitHub.** O ambiente bloqueou esta gravação, com razão:
+1. **Enviar a chave de assinatura ao GitHub.** O ambiente bloqueou esta gravação, com razão No PowerShell ou no Prompt de Comando, rode:
 
    ```bash
-   gh secret set XINOIA_SIGNING_KEY --repo HelioASjunior/agents-ia < ~/.xinoia-release/update-signing-key.pem
+   cmd /c "gh secret set XINOIA_SIGNING_KEY --repo HelioASjunior/agents-ia < %USERPROFILE%\.xinoia-release\update-signing-key.pem"
    ```
 
 2. **Publicar a primeira versão.** Publicar uma Release pública também foi bloqueado para decisão humana. Depois do passo 1, siga [Como publicar](../RELEASING.md).

@@ -2,10 +2,10 @@
 
 ## Antes da primeira publicação
 
-1. Envie a chave de assinatura como segredo do repositório. Sem ela, o workflow para antes de publicar:
+1. Envie a chave de assinatura como segredo do repositório. Sem ela, o workflow para antes de publicar No PowerShell ou no Prompt de Comando, rode:
 
    ```bash
-   gh secret set XINOIA_SIGNING_KEY --repo HelioASjunior/agents-ia < ~/.xinoia-release/update-signing-key.pem
+   cmd /c "gh secret set XINOIA_SIGNING_KEY --repo HelioASjunior/agents-ia < %USERPROFILE%\.xinoia-release\update-signing-key.pem"
    ```
 
 2. Remova dos dois READMEs o aviso de que a primeira versão ainda não foi publicada.
