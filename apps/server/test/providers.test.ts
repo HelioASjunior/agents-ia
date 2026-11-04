@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import type { AgentEvent, Toolkit } from '@xinoia/shared';
+import { startCliRun, type RunOutcome } from '../src/process/runner.ts';
+import type { BuildArgsOptions } from '../src/providers/types.ts';
 import { claudeAdapter, createClaudeParser } from '../src/providers/claude.ts';
 import { codexAdapter, createCodexParser, parseCodexModels } from '../src/providers/codex.ts';
 import { classifyError, safeArg } from '../src/providers/common.ts';
@@ -88,6 +90,69 @@ test('Codex: sessão, comando, mensagem e consumo', () => {
 test('Codex: falha de turno vira erro', () => {
   const events = feed(createCodexParser(), [{ type: 'turn.failed', error: { message: 'usage limit reached' } }]);
   assert.deepEqual(events, [{ type: 'error', text: 'usage limit reached' }]);
+});
+
+test('Codex: reconexão é aviso, e só vira falha se o turno não for concluído', () => {
+  const reconnect = { type: 'error', message: 'Reconnecting... 1/5 (stream disconnected before completion: Unable to verify model access right now. Please retry.)' };
+  const parser = createCodexParser();
+  const events = feed(parser, [reconnect]);
+  assert.deepEqual(events, [{ type: 'warning', text: reconnect.message }]);
+  assert.equal(parser.pendingError?.(), reconnect.message);
+
+  feed(parser, [{ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }]);
+  assert.equal(parser.pendingError?.(), null);
+});
+
+/** Roda o executor de verdade contra um processo que imprime exatamente estas linhas. */
+async function runCodexScript(lines: unknown[], exitCode: number): Promise<RunOutcome> {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xinoia-codex-'));
+  const script = path.join(dir, 'cli.mjs');
+  fs.writeFileSync(script, `for (const line of ${JSON.stringify(lines)}) console.log(JSON.stringify(line));\nprocess.exitCode = ${exitCode};\n`);
+  try {
+    return await startCliRun({
+      adapter: { ...codexAdapter, command: process.execPath, noShell: true, buildArgs: () => [script] },
+      prompt: 'oi',
+      cwd: dir,
+      env: {},
+      options: {} as BuildArgsOptions,
+      inactivityMs: 30_000,
+      onEvent: () => {},
+    }).done;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('Codex: a execução vale pelo fim do turno, não pelos avisos do caminho', async () => {
+  const reconnect = (attempt: number) => ({ type: 'error', message: `Reconnecting... ${attempt}/5 (stream disconnected before completion: websocket closed by server before response.completed)` });
+  const answer = { type: 'item.completed', item: { id: 'i1', type: 'agent_message', text: 'Feito.\n<verdict>REPROVADO</verdict>' } };
+  const completed = { type: 'turn.completed', usage: { input_tokens: 132025, output_tokens: 491 } };
+
+  // A sequência real: reconecta, continua trabalhando, e termina com código 0.
+  const recovered = await runCodexScript([{ type: 'thread.started', thread_id: 't' }, reconnect(1), reconnect(2), answer, reconnect(1), answer, completed], 0);
+  assert.equal(recovered.ok, true, recovered.errorText ?? '');
+  assert.equal(recovered.errorText, null);
+  assert.match(recovered.finalText, /<verdict>REPROVADO<\/verdict>/);
+  assert.equal(recovered.inputTokens, 132025);
+
+  // Sem o fim do turno, não há como dizer que deu certo, mesmo com código 0.
+  const unfinished = await runCodexScript([reconnect(5), answer], 0);
+  assert.equal(unfinished.ok, false);
+  assert.match(unfinished.errorText ?? '', /Reconnecting\.\.\. 5\/5/);
+
+  // Erro depois do fim do turno também não passa como sucesso.
+  const after = await runCodexScript([completed, reconnect(1)], 0);
+  assert.equal(after.ok, false);
+
+  // O motivo continua valendo quando o processo falha, e o tipo do erro é reconhecido.
+  const limit = await runCodexScript([{ type: 'error', message: 'usage limit reached' }], 1);
+  assert.equal(limit.ok, false);
+  assert.equal(limit.errorText, 'usage limit reached');
+  assert.equal(limit.errorKind, 'limit');
+
+  const failedTurn = await runCodexScript([reconnect(5), { type: 'turn.failed', error: { message: 'stream disconnected' } }], 1);
+  assert.equal(failedTurn.ok, false);
+  assert.equal(failedTurn.errorText, 'stream disconnected');
 });
 
 test('Gemini: eventos documentados', () => {

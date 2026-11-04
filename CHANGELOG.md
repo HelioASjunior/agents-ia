@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+### Corrigido
+
+- Uma reconexão do Codex marcava como falha uma execução que depois terminava normalmente, com código 0 e entrega completa. O veredito era ignorado e o trabalho era repetido. Agora a reconexão aparece como aviso, e só conta como falha se o turno não for concluído.
+
 ## [0.1.3] - 2026-11-04
 
 ### Adicionado

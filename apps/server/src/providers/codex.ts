@@ -72,7 +72,8 @@ function parseItem(phase: string, item: Record<string, any>, state: { hasText: b
 
 export function createCodexParser(): LineParser {
   const state = { hasText: false };
-  return (line) => {
+  let pending: string | null = null;
+  const parse = (line: string): AgentEvent[] => {
     const parsed = parseJsonLine(line);
     if (parsed.kind === 'empty') return [];
     if (parsed.kind === 'text') return [{ type: 'raw', text: parsed.text }];
@@ -81,11 +82,15 @@ export function createCodexParser(): LineParser {
       case 'thread.started':
         return [{ type: 'session', sessionId: j.thread_id ?? null }];
       case 'turn.completed':
+        pending = null;
         return [{ type: 'usage', inputTokens: j.usage?.input_tokens ?? 0, outputTokens: j.usage?.output_tokens ?? 0 }];
       case 'turn.failed':
         return [{ type: 'error', text: j.error?.message ?? 'O turno falhou.' }];
       case 'error':
-        return [{ type: 'error', text: j.message ?? 'Erro desconhecido.' }];
+        // Este evento não encerra o turno: o Codex o usa até para avisar de uma reconexão,
+        // e depois continua trabalhando. Quem decide o resultado é o fim do turno.
+        pending = j.message ?? 'Erro desconhecido.';
+        return [{ type: 'warning', text: pending! }];
       case 'item.started':
       case 'item.updated':
       case 'item.completed':
@@ -94,6 +99,7 @@ export function createCodexParser(): LineParser {
         return [];
     }
   };
+  return Object.assign(parse, { pendingError: () => pending });
 }
 
 /** Catálogo de `codex debug models`, sem os modelos que o próprio Codex esconde. */

@@ -143,6 +143,7 @@ export function startCliRun(request: RunRequest): RunHandle {
     clearTimeout(hardLimit);
     outcome.exitCode = code;
     outcome.durationMs = Date.now() - startedAt;
+    outcome.errorText ??= parse.pendingError?.() ?? null;
     if (spawnError) outcome.errorText = spawnError;
     if (timedOut) {
       outcome.errorText = `Sem atividade por ${Math.round(inactivityMs / 60_000)} min. A execução foi encerrada.`;

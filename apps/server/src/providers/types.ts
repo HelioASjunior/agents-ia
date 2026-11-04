@@ -22,7 +22,10 @@ export interface ToolArgsResult {
   loadsPlugins: boolean;
 }
 
-export type LineParser = (line: string) => AgentEvent[];
+export type LineParser = ((line: string) => AgentEvent[]) & {
+  /** Erro que só conta se a execução acabar sem o CLI confirmar que se recuperou dele. */
+  pendingError?: () => string | null;
+};
 
 export interface StatusResult {
   loggedIn: boolean;
