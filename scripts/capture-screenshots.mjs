@@ -58,10 +58,7 @@ try {
   await page.getByText('Bem-vindo ao Xino').waitFor();
   await wait(400);
   await shot('boas-vindas');
-  await page.getByRole('button', { name: 'Começar' }).click();
-  await page.getByText('Escolha a sua IA').waitFor();
-  await wait(4000);
-  await shot('sua-ia');
+  // A tela de escolha da IA tem script próprio, sem as contas de quem roda: capture-sua-ia.mjs.
   await page.getByRole('button', { name: 'Pular a configuração' }).click();
 
   const claude = await api('POST', '/api/profiles', { provider: 'claude', label: 'Principal', useSystemDefault: true });

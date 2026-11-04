@@ -4,6 +4,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+## [0.1.0] - 2026-11-04
+
 Primeira versão de testes do XinoIA.
 
 ### Adicionado

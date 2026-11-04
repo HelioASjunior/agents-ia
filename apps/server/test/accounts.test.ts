@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -161,4 +162,26 @@ test('Planta do escritório: cada função tem sala, e quem senta não fica atr�
     const behind = SEATS.find((other) => other.kind === 'desk' && other.x === seat.x && other.y - 1 === seat.y + 1);
     assert.equal(behind, undefined, `monitor cobre quem senta em ${seat.x},${seat.y}`);
   }
+});
+
+test('Uma instalação nova começa sem nenhuma conta, agente, projeto ou histórico', async () => {
+  const h = await createHarness();
+  assert.deepEqual(await h.ctx.profiles.list(), []);
+  assert.deepEqual(await h.ctx.agents.list(), []);
+  assert.deepEqual(await h.ctx.projects.list(), []);
+  assert.deepEqual(await h.db().runs.list(), []);
+  await h.cleanup();
+});
+
+test('O repositório não guarda login, configuração nem dados locais de ninguém', () => {
+  const root = new URL('../../../', import.meta.url);
+  const files = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean);
+  assert.ok(files.length > 50, 'lista de arquivos do Git');
+  const forbidden = /(^|\/)(\.claude|\.codex|\.gemini|\.xinoia|\.xinoia-dev|release)\/|(^|\/)\.env|\.credentials|(^|\/)auth\.json$|oauth_creds|settings\.local\.json|\.(db|sqlite|sqlite3|db-wal|db-shm)$/i;
+  assert.deepEqual(files.filter((file) => forbidden.test(file)), []);
+  // A única chave no repositório é a pública, que precisa ir junto com o app.
+  assert.deepEqual(files.filter((file) => /\.(pem|key|pfx|p12)$/i.test(file)), ['apps/desktop/build/update-public-key.pem']);
+  const key = fs.readFileSync(new URL('apps/desktop/build/update-public-key.pem', root), 'utf8');
+  assert.match(key, /BEGIN PUBLIC KEY/);
+  assert.doesNotMatch(key, /PRIVATE/);
 });

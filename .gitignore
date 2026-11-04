@@ -23,6 +23,8 @@ data/
 .DS_Store
 Thumbs.db
 .claude/
+.codex/
+.gemini/
 .vscode/
 
 # A chave pública de atualização faz parte do programa. A privada nunca entra aqui.

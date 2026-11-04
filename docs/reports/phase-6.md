@@ -13,7 +13,7 @@
 
 | Teste | Onde | Resultado |
 | --- | --- | --- |
-| `npm run typecheck` e `npm test` (136 testes) | Local e CI | Passaram |
+| `npm run typecheck` e `npm test` (138 testes) | Local e CI | Passaram |
 | `npm run test:dist` | Local e **Windows limpo do GitHub** | Passou |
 | Atualização real com servidor local (`scripts/test-update-local.mjs`) | Local | Passou |
 | `npm run test:real` (15 testes) | Local, com contas reais | Passou |

@@ -5,7 +5,7 @@ Valem para qualquer pessoa ou agente que trabalhe aqui.
 ## Commits e pull requests
 
 - **Nunca** coloque Claude ou outra IA como colaborador. Sem `Co-Authored-By`, sem "Generated with" em commits, PRs ou releases.
-- Nunca faça commit de credenciais, dados pessoais ou da pasta de dados do app.
+- Nunca faça commit de credenciais, dados pessoais ou da pasta de dados do app. Nada de contas de quem desenvolve: cada pessoa conecta as próprias contas, na própria máquina. Capturas de tela não podem mostrar e-mail nem plano.
 
 ## README
 
