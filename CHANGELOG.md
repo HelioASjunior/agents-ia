@@ -4,6 +4,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+## [0.1.3] - 2026-11-04
+
 ### Adicionado
 
 - Guia de estudo em PDF, em português e inglês, para aprender como o sistema funciona e como usá-lo.

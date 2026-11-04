@@ -85,8 +85,6 @@ Desenhe etapas e ligações, escolha quem faz cada uma, e defina condições com
 
 ## Fila de objetivos
 
-*Chega na próxima versão.*
-
 Em **Fila**, dê uma lista de objetivos a um workflow. Cada objetivo vira uma missão, e o próximo começa quando ela termina.
 
 | Opção | O que faz |

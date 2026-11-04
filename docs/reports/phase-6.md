@@ -75,6 +75,14 @@ Defeitos encontrados no primeiro uso real, em um projeto de verdade, e confirmad
 
 O teste de instalação e o de atualização também passaram a exigir o registro em Aplicativos instalados.
 
+## Versão 0.1.3
+
+Veio do uso real em um projeto com uma fila montada só por configuração:
+
+- **Aprovar e iniciar** apagava as condições e as tentativas das etapas, porque a tela sempre reenvia o plano. Uma reprovação abria correção em vez de seguir pela etapa "só se reprovar".
+- O tipo **Trabalho** para quem testa ou revisa virava revisão na aprovação, e a tarefa falhava sem veredito.
+- **Fila de objetivos:** testada com o CLI de teste, nos testes automáticos e na tela em um navegador. Falta o uso com contas reais, principalmente saber se cada ferramenta informa o consumo.
+
 ## Preparação da assinatura de código
 
 Os passos da SignPath estão no workflow, desligados, com a política em `README.md` e `PRIVACY.md`. O pedido ainda não foi feito: a decisão foi ganhar usuários antes, porque o formulário pede provas de reputação. O caminho completo, com um certificado descartável, roda no workflow **Teste de atualização**. A assinatura real pela SignPath só pode ser testada depois da aprovação, inclusive as regras de metadados de `.signpath/artifact-configurations/`.
