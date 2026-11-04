@@ -28,7 +28,8 @@
     "build:icons": "electron scripts/build-icons.cjs",
     "start:desktop": "npm run build:desktop && npm start --workspace xinoia",
     "test:dist": "node scripts/test-installer.mjs",
-    "verify": "node --disable-warning=ExperimentalWarning scripts/verify.mjs"
+    "verify": "node --disable-warning=ExperimentalWarning scripts/verify.mjs",
+    "build:guide": "node scripts/build-study-guide.mjs"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

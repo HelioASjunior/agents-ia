@@ -1,0 +1,42 @@
+@page { size: A4; margin: 20mm 18mm 20mm 18mm; }
+:root { --ink: #16202a; --soft: #43505c; --muted: #6b7782; --line: #d9dfe4; --accent: #0d8f80; --accent-soft: #e4f5f2; --amber: #9a6a07; --amber-soft: #fbf3df; --danger: #b23a3a; --danger-soft: #fbeaea; --panel: #f5f7f8; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; color: var(--ink); font: 10.5pt/1.5 'Segoe UI', system-ui, sans-serif; }
+.cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+.cover img { width: 34mm; height: 34mm; }
+.cover h1 { margin: 8mm 0 2mm; font-size: 34pt; line-height: 1.1; border: 0; padding: 0; }
+.cover .accent { color: var(--accent); }
+.cover .sub { font-size: 14pt; color: var(--soft); margin: 0 0 12mm; }
+.cover .meta { font-size: 10pt; color: var(--muted); line-height: 1.7; border-top: 1px solid var(--line); padding-top: 5mm; }
+.toc { page-break-after: always; }
+.toc ol { list-style: none; counter-reset: c; padding: 0; margin: 4mm 0 0; }
+.toc li { counter-increment: c; padding: 1.7mm 0; border-bottom: 1px solid var(--line); }
+.toc li::before { content: counter(c) ". "; color: var(--accent); font-weight: 700; }
+.toc a { color: var(--ink); text-decoration: none; }
+h1 { font-size: 21pt; line-height: 1.2; margin: 0 0 4mm; padding-bottom: 2mm; border-bottom: 2.5px solid var(--accent); }
+section.chapter { page-break-before: always; }
+h2 { font-size: 13.5pt; margin: 6mm 0 2mm; page-break-after: avoid; }
+h3 { font-size: 11pt; margin: 4mm 0 1mm; page-break-after: avoid; }
+p { margin: 0 0 2.4mm; }
+ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+li { margin-bottom: 1mm; }
+code { font: 9pt 'Cascadia Mono', Consolas, monospace; background: var(--panel); padding: 0.2mm 1mm; border-radius: 2px; word-break: break-word; }
+pre { font: 8.8pt/1.45 'Cascadia Mono', Consolas, monospace; background: #101820; color: #e7edf2; padding: 3mm 3.5mm; border-radius: 4px; white-space: pre-wrap; word-break: break-word; page-break-inside: avoid; margin: 0 0 3mm; }
+table { width: 100%; border-collapse: collapse; margin: 1mm 0 4mm; font-size: 9.5pt; page-break-inside: avoid; }
+th { text-align: left; background: var(--panel); border-bottom: 1.5px solid #b7c1c9; padding: 1.5mm 2mm; }
+td { border-bottom: 1px solid var(--line); padding: 1.5mm 2mm; vertical-align: top; }
+figure { margin: 2mm 0 4mm; page-break-inside: avoid; }
+figure img { max-width: 100%; max-height: 70mm; margin: 0 auto; border: 1px solid var(--line); border-radius: 4px; display: block; }
+/* A captura da escolha da IA é uma janela no meio de uma tela escura: mostra só a janela. */
+figure.crop { height: 74mm; overflow: hidden; border: 1px solid var(--line); border-radius: 4px; }
+figure.crop img { max-width: none; max-height: none; width: 130%; margin: -18.5% 0 0 -15%; border: 0; }
+figure.crop + .caption { font-size: 8.8pt; color: var(--muted); margin: -2mm 0 4mm; }
+figcaption { font-size: 8.8pt; color: var(--muted); margin-top: 1mm; }
+.box { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 2.2mm 3mm; margin: 2mm 0 4mm; border-radius: 0 4px 4px 0; page-break-inside: avoid; }
+.box.warn { border-color: var(--amber); background: var(--amber-soft); }
+.box.stop { border-color: var(--danger); background: var(--danger-soft); }
+.box.lab { border-color: #4a6fa5; background: #eaf0f8; }
+.box > b:first-child { display: block; margin-bottom: 0.6mm; }
+.box > :last-child { margin-bottom: 0; }
+.answers li { margin-bottom: 1.4mm; }

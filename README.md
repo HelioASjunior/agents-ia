@@ -128,6 +128,7 @@ Plugin loading and configuration are tested. Tool calls against a running editor
 | Goal | Start here |
 | --- | --- |
 | Install and use it, FAQ and troubleshooting | [User guide](docs/USER_GUIDE.md) |
+| Learn the whole system, with exercises and a quiz | [Study guide (PDF)](docs/study/XinoIA-Study-Guide-en.pdf) |
 | What works with subscriptions, and vendor terms | [Provider support](docs/PROVIDERS.md) |
 | Understand the design | [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) |
 | Publish a version | [Releasing](docs/RELEASING.md) |

@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>XinoIA: guia de estudo</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="cover">
+  <img src="../assets/logo.svg" alt="">
+  <h1>Xino<span class="accent">IA</span></h1>
+  <p class="sub">Guia de estudo: como configurar, o que dá para fazer e como trabalhar com uma equipe de agentes de IA</p>
+  <p class="meta">Descreve a versão 0.1.2, para Windows 10 e 11.<br>
+  Projeto: github.com/HelioASjunior/agents-ia<br>
+  O XinoIA é um projeto independente, sem vínculo com Anthropic, OpenAI, Google ou Epic Games, e sem o endosso delas.</p>
+</div>
+
+<div class="toc">
+  <h1>Sumário</h1>
+  <ol>
+    <li><a href="#c1">O que é o XinoIA e os conceitos principais</a></li>
+    <li><a href="#c2">Instalar, atualizar e desinstalar</a></li>
+    <li><a href="#c3">Conectar as IAs: navegador, chave de API e várias contas</a></li>
+    <li><a href="#c4">Projetos e memória do projeto</a></li>
+    <li><a href="#c5">Agentes e permissões</a></li>
+    <li><a href="#c6">Chat</a></li>
+    <li><a href="#c7">Missões</a></li>
+    <li><a href="#c8">Workflows</a></li>
+    <li><a href="#c9">Modos de execução</a></li>
+    <li><a href="#c10">Acompanhar o trabalho: escritório, terminal, histórico e painel</a></li>
+    <li><a href="#c11">Integrações, MCP e Unreal Engine</a></li>
+    <li><a href="#c12">Consumo: como gastar menos do seu limite</a></li>
+    <li><a href="#c13">Levar um projeto para o XinoIA</a></li>
+    <li><a href="#c14">Segurança e privacidade</a></li>
+    <li><a href="#c15">Problemas comuns</a></li>
+    <li><a href="#c16">Trilha prática e prova com gabarito</a></li>
+  </ol>
+</div>
+
+<section class="chapter" id="c1">
+<h1>1. O que é o XinoIA e os conceitos principais</h1>
+<p>O XinoIA coloca ferramentas de IA para programar, como o Claude Code e o Codex CLI, para trabalhar como uma equipe no seu computador. Você passa um objetivo. Um coordenador planeja, cada agente faz uma tarefa e entrega o resultado para o próximo, e outro agente revisa.</p>
+<p>Ele não é uma IA e não inclui nenhuma: <b>ele conduz as ferramentas oficiais</b> que você instala, com as suas contas. Não existe servidor do XinoIA, cadastro nem telemetria.</p>
+<figure><img src="../assets/screens/escritorio.png" alt=""><figcaption>Uma missão real: o escritório em 3D à esquerda e o terminal ao vivo à direita.</figcaption></figure>
+<h2>Vocabulário</h2>
+<table>
+<tr><th style="width:24%">Termo</th><th>O que é</th></tr>
+<tr><td><b>Ferramenta</b></td><td>O CLI oficial de um fornecedor, como Claude Code ou Codex CLI.</td></tr>
+<tr><td><b>Conta (perfil)</b></td><td>Um login ou uma chave de API de uma ferramenta. Cada perfil separado tem pasta própria.</td></tr>
+<tr><td><b>Projeto</b></td><td>A pasta em que os agentes trabalham.</td></tr>
+<tr><td><b>Agente</b></td><td>Um membro da equipe: combina função, ferramenta, conta, modelo e permissão.</td></tr>
+<tr><td><b>Execução</b></td><td>Uma rodada de trabalho de um agente, com tudo o que ele fez registrado.</td></tr>
+<tr><td><b>Missão</b></td><td>Um objetivo dividido em tarefas, com dependências, revisões e relatório final.</td></tr>
+<tr><td><b>Workflow</b></td><td>Um processo desenhado por você, que pode ser executado quantas vezes quiser.</td></tr>
+<tr><td><b>Integração</b></td><td>Skills, plugins e servidores MCP que um agente pode usar.</td></tr>
+</table>
+<div class="box warn"><b>Assinatura não é acesso ilimitado</b><p>Os limites do seu plano continuam valendo. Uma equipe gasta mais do que uma conversa só, porque cada tarefa é um trabalho inteiro.</p></div>
+</section>
+
+<section class="chapter" id="c2">
+<h1>2. Instalar, atualizar e desinstalar</h1>
+<h2>Instalar</h2>
+<ol>
+<li>Abra <code>github.com/HelioASjunior/agents-ia/releases</code> e baixe <code>XinoIA-Setup-vX.X.X.exe</code>.</li>
+<li>Execute. O instalador ainda não tem certificado da Microsoft, então o Windows pode mostrar o aviso do SmartScreen: clique em <b>Mais informações</b> e em <b>Executar assim mesmo</b>.</li>
+<li>Abra o <b>XinoIA</b> pelo menu Iniciar. O assistente mostra as IAs, conecta a sua conta, escolhe a pasta, cria a equipe inicial e faz um teste real.</li>
+</ol>
+<p><b>Versão portátil:</b> <code>XinoIA-Portable-vX.X.X.exe</code> roda sem instalar e guarda os dados em <code>XinoIA-dados</code>, ao lado dela. Ela não se atualiza sozinha.</p>
+<h2>Atualizar</h2>
+<p>Em <b>Configurações &gt; Atualizações</b>, o XinoIA verifica ao abrir e a cada 4 horas, se a verificação automática estiver ligada. Nada é instalado sem você pedir. Antes de instalar, ele confere a assinatura do pacote e faz uma cópia dos dados.</p>
+<table>
+<tr><th style="width:30%">Com trabalho em andamento</th><th>O que acontece</th></tr>
+<tr><td><b>Instalar quando terminar</b></td><td>Espera o trabalho acabar, inclusive entre as tarefas de uma missão, e só então reinicia.</td></tr>
+<tr><td><b>Interromper e reiniciar</b></td><td>Encerra o agente na hora. A missão fica pausada, e ao retomar a tarefa recomeça do início, gastando cota de novo. O que ela já mudou nos arquivos continua lá. Uma missão em planejamento precisa ser criada de novo.</td></tr>
+<tr><td><b>Lembrar depois</b></td><td>Não faz nada agora.</td></tr>
+</table>
+<h2>Onde ficam os dados</h2>
+<p>Em <code>%APPDATA%\XinoIA</code>, fora da pasta do programa. Atualizar ou desinstalar não apaga nada. Para apagar tudo, remova essa pasta depois de desinstalar. Backups ficam em <code>backups</code>, e os logs, em <code>logs</code>. Em Configurações &gt; Dados, dá para criar uma cópia na hora.</p>
+<div class="box lab"><b>Pratique</b><p>Abra Configurações &gt; Dados e encontre a pasta de dados. Depois, em Atualizações, clique em <b>Verificar atualizações</b> e veja a versão instalada.</p></div>
+</section>
+
+<section class="chapter" id="c3">
+<h1>3. Conectar as IAs</h1>
+<figure class="crop"><img src="../assets/screens/sua-ia.png" alt=""></figure><p class="caption">A escolha da IA no assistente, como uma pessoa nova vê.</p>
+<h2>Instalar a ferramenta</h2>
+<p>O botão <b>Instalar</b> roda o instalador oficial à sua vista. O do Claude Code não precisa de Node.js. Os do Codex CLI e do Gemini CLI precisam. Instalou por fora? Clique em <b>Verificar tudo</b> em Contas.</p>
+<h2>Entrar pelo navegador (assinatura)</h2>
+<p>Clique em <b>Entrar pelo navegador</b>. A página oficial abre, e você entra como sempre, inclusive com o Google, se a sua conta usar. A janela fecha sozinha quando o login termina. Se o navegador não abrir, use <b>Abrir a página de novo</b>. Se a ferramenta perguntar algo, ou o navegador mostrar um código, clique em <b>Ver terminal</b>.</p>
+<h2>Usar uma chave de API</h2>
+<p>É para quem prefere pagar por uso: cada uso é cobrado pelo fornecedor, à parte da assinatura. A chave fica em um perfil próprio, cifrada pelo Windows e presa ao seu usuário, e não volta para a tela. Por enquanto, isso só funciona no Windows. Uma cópia de segurança restaurada em outro computador não consegue ler a chave.</p>
+<h2>Várias contas</h2>
+<p>Em Contas, use <b>Adicionar conta</b> e <b>Entrar em outra conta pelo navegador</b>. Confira no navegador se a conta certa está aberta antes de confirmar: se ele já estiver logado na primeira, os dois perfis podem acabar na mesma conta.</p>
+<div class="box warn"><b>Use só contas suas</b><p>Respeite os termos de cada fornecedor. O XinoIA nunca troca de conta sozinho para contornar um limite: cada agente fica fixo na conta dele. A única troca automática opcional é passar a tarefa a um agente de <b>outro provedor</b>.</p></div>
+<table>
+<tr><th>Ferramenta</th><th>Assinatura</th><th>Chave de API</th><th>Situação</th></tr>
+<tr><td>Claude Code</td><td>Sim</td><td>Sim</td><td>Testado com conta real</td></tr>
+<tr><td>Codex CLI</td><td>Sim</td><td>Sim</td><td>Testado com conta real</td></tr>
+<tr><td>Gemini CLI</td><td>Login Google</td><td>Sim</td><td><b>Ainda não testado</b></td></tr>
+<tr><td>Outras (Contas &gt; Outras ferramentas)</td><td colspan="2">Depende da ferramenta</td><td>Precisa ler o pedido pela entrada padrão</td></tr>
+</table>
+</section>
+
+<section class="chapter" id="c4">
+<h1>4. Projetos e memória do projeto</h1>
+<p>Em <b>Projetos</b>, adicione uma <b>Pasta existente</b>, uma <b>Pasta nova</b>, ou use <b>Clonar do Git</b>. Os agentes trabalham nessa pasta, e na branch que estiver aberta nela.</p>
+<div class="box stop"><b>Confira o projeto antes de executar</b><p>O seletor no topo da tela indica em qual projeto você está. Olhe para ele antes de começar uma missão. Em projetos reais, use Git e faça um commit antes: é o que permite desfazer qualquer coisa.</p></div>
+<h2>Memória do projeto</h2>
+<p>No ícone <b>Memória do projeto</b>, registre notas e decisões curtas. Tudo o que está ali é passado aos agentes neste projeto, e decisões marcadas por eles também entram. Use para o que vale sempre, como "todo texto da interface é em português".</p>
+<h2>Arquivos de regras</h2>
+<p>Cada ferramenta lê o próprio arquivo na pasta do projeto: o Claude Code lê <code>CLAUDE.md</code>, e o Codex lê <code>AGENTS.md</code>. Se você só tiver um deles, crie o outro apontando para o primeiro, ou parte da equipe não verá as regras.</p>
+<div class="box lab"><b>Pratique</b><p>Crie um projeto com <b>Pasta nova</b>, abra a Memória do projeto e registre uma decisão. Depois pergunte a um agente qual é essa regra.</p></div>
+</section>
+
+<section class="chapter" id="c5">
+<h1>5. Agentes e permissões</h1>
+<p>Em <b>Agentes</b>, cada um tem nome, cor, função, ferramenta, conta, modelo, esforço, permissão, instruções extras e integrações.</p>
+<ul>
+<li><b>Função:</b> Coordenação, Arquitetura, Desenvolvimento, Frontend, Backend, Unreal Engine, Revisão de código, Testes, Design, Documentação ou Personalizado. Ela define a sala no escritório e como o agente recebe o trabalho.</li>
+<li><b>Modelo:</b> vazio usa o padrão da ferramenta. No Codex, a lista vem do catálogo da versão instalada, com os esforços que cada modelo aceita. Nem toda conta tem acesso a todos. Em <b>Outro…</b>, dá para digitar um nome fora da lista.</li>
+<li><b>Instruções extras:</b> regras só deste agente.</li>
+</ul>
+<h2>Permissões: a decisão mais importante</h2>
+<table>
+<tr><th style="width:20%">Nível</th><th>O que pode</th><th style="width:34%">Na prática</th></tr>
+<tr><td><b>Somente leitura</b></td><td>Lê o projeto. Não altera arquivos, não roda comandos e não usa ferramentas MCP.</td><td>Ideal para coordenar e revisar. Não consegue rodar <code>git status</code> nem <code>git diff</code>: entregue essas informações na descrição da tarefa.</td></tr>
+<tr><td><b>Editar</b></td><td>Altera arquivos do projeto. No Codex, roda comandos na área protegida. No Claude, comandos de terminal continuam bloqueados.</td><td>Para rodar testes, use o Codex. A área protegida não grava fora da pasta do projeto.</td></tr>
+<tr><td><b>Total</b></td><td>Roda qualquer comando, com o acesso da sua conta no computador.</td><td>Só vale no modo Autônomo controlado. Use só no agente que precisa, com Git limpo antes.</td></tr>
+</table>
+<div class="box warn"><b>Quando "editar" não basta</b><p>Programas que gravam fora da pasta do projeto falham em "editar". Em um projeto real, o build do Unreal parou ao tentar gravar em <code>%LOCALAPPDATA%\UnrealBuildTool</code>. A área protegida também pode negar comandos como <code>tasklist</code>. A saída é "total", e essa decisão é sua.</p></div>
+<h2>Uma equipe para começar</h2>
+<table>
+<tr><th>Agente</th><th>Função</th><th>Ferramenta</th><th>Permissão</th></tr>
+<tr><td>Coordenação</td><td>Coordenação</td><td>Claude Code</td><td>Somente leitura</td></tr>
+<tr><td>Implementação</td><td>Desenvolvimento</td><td>Codex</td><td>Editar</td></tr>
+<tr><td>Testes</td><td>Testes</td><td>Codex</td><td>Editar</td></tr>
+<tr><td>Revisão</td><td>Revisão de código</td><td>Claude Code</td><td>Somente leitura</td></tr>
+</table>
+<p>Quem revisa em outra ferramenta traz um segundo olhar: um erro que uma IA não vê, a outra pode ver.</p>
+</section>
+
+<section class="chapter" id="c6">
+<h1>6. Chat</h1>
+<figure><img src="../assets/screens/chat.png" alt=""><figcaption>O chat da equipe, com a telinha do escritório acima do terminal.</figcaption></figure>
+<table>
+<tr><th style="width:32%">Como escrever</th><th>Quem responde</th></tr>
+<tr><td>Sem menção, no canal Equipe</td><td>O coordenador.</td></tr>
+<tr><td><code>@nome</code></td><td>Esse agente.</td></tr>
+<tr><td>Começando com <code>Equipe, ...</code></td><td>Todos analisam em modo leitura, e o coordenador decide por último. Consome mais do seu limite.</td></tr>
+<tr><td>No canal de um agente</td><td>Conversa direta, que continua de onde parou, inclusive depois de reiniciar.</td></tr>
+</table>
+<p>Dá para anexar arquivos, buscar nas conversas e ligar <b>Missão</b> no chat da equipe, para o pedido virar uma missão. Com uma missão pausada, o que você escreve entra na linha do tempo dela como orientação.</p>
+<div class="box lab"><b>Pratique</b><p>Pergunte <code>@Revisão o que você olharia primeiro neste projeto?</code> e veja a execução aparecer no terminal ao lado.</p></div>
+</section>
+
+<section class="chapter" id="c7">
+<h1>7. Missões</h1>
+<p>Uma missão transforma um objetivo em tarefas. Ela é o coração do XinoIA.</p>
+<h2>Criar</h2>
+<p>Em <b>Tarefas &gt; Nova missão</b>, escreva o <b>Objetivo</b>, marque a equipe e escolha:</p>
+<ul>
+<li><b>Coordenador decide:</b> monta um plano para você aprovar. <b>Sequência fixa:</b> cada agente, na ordem marcada.</li>
+<li><b>Tarefas ao mesmo tempo:</b> acima de 1, em um projeto Git com ao menos um commit, cada tarefa trabalha em um worktree próprio. Sem Git, roda uma por vez.</li>
+<li><b>Rodadas de correção após reprovação:</b> quantas vezes o trabalho volta antes de parar e chamar você.</li>
+<li><b>Passar a tarefa a outro provedor:</b> opcional, se uma conta atingir o limite. Nunca troca para outra conta do mesmo provedor.</li>
+</ul>
+<h2>Aprovar o plano</h2>
+<figure><img src="../assets/screens/plano.png" alt=""><figcaption>Um plano real. Você pode editar cada tarefa, pedir outro plano ou aprovar.</figcaption></figure>
+<p>Edite título, descrição, responsável, tipo e prioridade. Use <b>Pedir outro plano</b> dizendo o que mudar, ou <b>Aprovar e iniciar</b>.</p>
+<h2>Durante a execução</h2>
+<figure><img src="../assets/screens/tarefas.png" alt=""><figcaption>O quadro de tarefas: a fazer, em execução, concluídas e com problema.</figcaption></figure>
+<table>
+<tr><th style="width:26%">Ação</th><th>Para quê</th></tr>
+<tr><td><b>Pausar</b></td><td>Para de iniciar tarefas. O que já está rodando termina normalmente.</td></tr>
+<tr><td><b>Retomar</b></td><td>Continua a missão pausada. No modo supervisionado, libera a próxima tarefa.</td></tr>
+<tr><td><b>Tentar de novo</b></td><td>Na tarefa: refaz uma que falhou, ou uma revisão reprovada no limite de correções.</td></tr>
+<tr><td><b>Pular</b></td><td>Na tarefa: segue sem ela. A decisão é sua, e as seguintes passam a poder rodar.</td></tr>
+<tr><td><b>Reatribuir</b></td><td>Passa uma tarefa ainda não concluída a outro agente.</td></tr>
+<tr><td><b>Orientar a equipe</b></td><td>Sua mensagem vale para as próximas tarefas.</td></tr>
+<tr><td><b>Cancelar</b></td><td>Encerra a missão e as execuções em andamento.</td></tr>
+</table>
+<h2>Revisão e reprovação</h2>
+<p>A revisão termina com um veredito: aprovado ou reprovado. Reprovada, o XinoIA cria sozinho uma tarefa de correção e uma nova revisão, e o que vinha depois passa a depender dela. Ao atingir o limite de rodadas, a missão pausa.</p>
+<div class="box warn"><b>Retomar não aprova</b><p>Uma revisão reprovada no limite segura o que vem depois: <b>Retomar</b> faz a missão parar de novo, com a explicação. Abra a tarefa e escolha <b>Tentar de novo</b> ou <b>Pular</b>. Uma revisão sem veredito claro conta como falha, nunca como aprovada.</p></div>
+<h2>Trabalho em paralelo</h2>
+<p>Em paralelo, sua pasta só muda quando você escolhe <b>Integrar</b> no fim, ou <b>Descartar</b>. Se duas tarefas mexerem no mesmo ponto, uma tarefa nova resolve o conflito. Um worktree começa sem <code>node_modules</code>, então o agente precisa instalar as dependências para rodar testes nele. Integrar pede que não haja alterações suas sem commit, para nada do que é seu ser sobrescrito.</p>
+<h2>Relatório</h2>
+<p>No fim, o coordenador escreve um relatório com o que foi feito, as decisões e as pendências.</p>
+<div class="box lab"><b>Pratique</b><p>Em uma pasta de teste, peça: "Crie uma função que converte Celsius em Fahrenheit, com testes". Aprove o plano e acompanhe a passagem de trabalho no escritório.</p></div>
+</section>
+
+<section class="chapter" id="c8">
+<h1>8. Workflows</h1>
+<figure><img src="../assets/screens/workflows.png" alt=""><figcaption>O editor visual de workflows e os modelos prontos.</figcaption></figure>
+<p>Um workflow é um processo que você desenha uma vez e usa quantas vezes quiser. Os modelos prontos são <b>Desenvolvimento de software</b>, <b>Revisão de código</b>, <b>Correção de bug</b> e <b>Análise de projeto</b>. Para alterar um modelo, use <b>Salvar cópia</b>.</p>
+<table>
+<tr><th style="width:30%">Em cada etapa</th><th>Significado</th></tr>
+<tr><td><b>Título</b> e <b>O que fazer</b></td><td>O pedido. Seja específico, e diga como saber que terminou.</td></tr>
+<tr><td><b>Função</b></td><td>Quem executa é o primeiro agente da equipe com esta função.</td></tr>
+<tr><td><b>Agente específico</b></td><td>Fixa um agente, em vez de escolher pela função.</td></tr>
+<tr><td><b>Tipo</b></td><td>Trabalho, ou Revisão, que aprova ou reprova.</td></tr>
+<tr><td><b>Condição</b></td><td>Sempre, Só se a revisão aprovar ou Só se a revisão reprovar.</td></tr>
+<tr><td><b>Tentativas em caso de falha</b></td><td>Quantas vezes tentar antes de parar.</td></tr>
+</table>
+<p>Ligue as etapas arrastando entre elas. Uma etapa só começa depois das que estão ligadas a ela.</p>
+<div class="box"><b>Dica</b><p>Quem revisa em somente leitura não roda comandos. Faça uma etapa anterior reunir o resultado de <code>git diff</code> e dos testes, para o revisor ter o que avaliar.</p></div>
+</section>
+
+<section class="chapter" id="c9">
+<h1>9. Modos de execução</h1>
+<p>Em <b>Configurações</b>. Em execução automática, as ferramentas não conseguem parar no meio para perguntar, então a proteção vem de limites definidos antes.</p>
+<table>
+<tr><th>Modo</th><th>Plano</th><th>Tarefas</th><th>Permissão total</th><th>Comando destrutivo</th></tr>
+<tr><td><b>Supervisionado</b></td><td>Você aprova</td><td>Você libera cada uma</td><td>Limitada a editar</td><td>Interrompe e pede decisão</td></tr>
+<tr><td><b>Semiautônomo</b> (padrão)</td><td>Você aprova</td><td>Seguem sozinhas</td><td>Limitada a editar</td><td>Interrompe e pede decisão</td></tr>
+<tr><td><b>Autônomo controlado</b></td><td>Pode ser automático</td><td>Seguem sozinhas</td><td>Permitida</td><td>Só registra um aviso</td></tr>
+</table>
+<p>Também em Configurações ficam dois limites: <b>Agente travado depois de</b> (minutos sem saída) e <b>Tempo máximo de uma execução</b>.</p>
+<div class="box stop"><b>A detecção é uma rede de proteção, não uma garantia</b><p>Ela procura padrões como apagar pastas inteiras ou descartar alterações do Git, mas não vê tudo. O isolamento por worktree separa o trabalho no Git e não é uma caixa de areia do sistema: um agente em "total" alcança o resto do computador.</p></div>
+<h2>Qual escolher</h2>
+<ul>
+<li><b>Aprendendo, ou em projeto importante:</b> Supervisionado.</li>
+<li><b>No dia a dia:</b> Semiautônomo.</li>
+<li><b>Quando precisa de "total":</b> Autônomo controlado, por pouco tempo, com commit antes, e depois volte ao anterior.</li>
+</ul>
+</section>
+
+<section class="chapter" id="c10">
+<h1>10. Acompanhar o trabalho</h1>
+<h2>Escritório</h2>
+<figure><img src="../assets/screens/escritorio-claro.png" alt=""><figcaption>O escritório no tema claro, com os agentes disponíveis na copa.</figcaption></figure>
+<p>Tudo o que aparece vem de eventos reais: quem recebe trabalho vai a pé até a mesa e começa a digitar, o monitor acende, o balão mostra o comando real, e quem entrega uma tarefa leva o documento até o colega. Quem está disponível fica na copa.</p>
+<ul>
+<li><b>Clique em um agente</b> para ver tarefa, terminal e histórico, e usar <b>Conversar</b> ou <b>Interromper</b>.</li>
+<li><b>Arraste</b> para mover, use a <b>roda do mouse</b> para aproximar e clique duas vezes para recentrar.</li>
+<li>O <b>placar</b> mostra a missão, as tarefas e os contadores reais. O quadro branco da sala mostra a missão em andamento.</li>
+<li><b>Escritório ao vivo:</b> a telinha acima do terminal, nas outras telas.</li>
+</ul>
+<div class="box"><b>Poupar a placa de vídeo</b><p>A cena usa WebGL, com no máximo 30 quadros por segundo. Ao lado de um programa pesado em 3D, escolha <b>Compacto</b> e recolha a telinha: a cena deixa de ser desenhada, e as mesmas informações aparecem em uma tabela. O consumo real de placa de vídeo ainda não foi medido.</p></div>
+<h2>Painel da direita</h2>
+<table>
+<tr><th style="width:22%">Aba</th><th>O que mostra</th></tr>
+<tr><td><b>Terminal</b></td><td>A saída real de cada ferramenta, da equipe ou de um agente, com busca.</td></tr>
+<tr><td><b>Comandos</b></td><td>Os comandos executados, e quais falharam.</td></tr>
+<tr><td><b>Arquivos</b></td><td>Os arquivos alterados, e por quem.</td></tr>
+<tr><td><b>Agentes</b></td><td>Estado de cada um, e os tokens informados pelas ferramentas.</td></tr>
+<tr><td><b>Shell</b></td><td>Um terminal de verdade na pasta do projeto, para os seus comandos.</td></tr>
+</table>
+<h2>Outras telas</h2>
+<ul>
+<li><b>Arquivos:</b> veja e edite os arquivos do projeto, e o que mudou desde o último commit.</li>
+<li><b>Histórico:</b> todas as execuções do projeto, com filtro por agente e estado.</li>
+<li><b>Painel:</b> números reais do projeto e do computador.</li>
+</ul>
+<figure><img src="../assets/screens/painel.png" alt=""><figcaption>O painel, com execuções, tempos e tokens informados.</figcaption></figure>
+</section>
+
+<section class="chapter" id="c11">
+<h1>11. Integrações, MCP e Unreal Engine</h1>
+<p>Em <b>Contas &gt; Integrações</b>, adicione skills, plugins e servidores MCP. Depois, ligue a integração em cada agente que for usá-la. O XinoIA mostra o que encontrou neste computador. Configurações com segredos não são copiadas, e continuam disponíveis para o login do computador.</p>
+<h2>Unreal Engine</h2>
+<ol>
+<li>No Unreal Editor, habilite os plugins <b>ModelContextProtocol</b> e <b>AllToolsets</b>, e rode <code>ModelContextProtocol.StartServer</code> no console.</li>
+<li>No Claude Code, instale o plugin oficial de skills.</li>
+<li>Em Contas &gt; Integrações, use <b>Adicionar Unreal Engine</b> e confira a indicação "Respondendo". O endereço padrão é <code>http://127.0.0.1:8000/mcp</code>.</li>
+<li>Em Agentes, ligue a integração, em "editar" ou "total".</li>
+</ol>
+<table>
+<tr><th style="width:36%">Regra</th><th>Por quê</th></tr>
+<tr><td><b>Tarefas ao mesmo tempo: 1</b></td><td>O MCP age no editor aberto, que fica na pasta original, não no worktree. Mapas e assets são binários, e um conflito entre eles não tem como ser juntado por um agente.</td></tr>
+<tr><td><b>Um agente por vez no editor</b></td><td>A integração já funciona assim. Mais agentes não deixam esse trabalho mais rápido.</td></tr>
+<tr><td><b>Compilar pede "total"</b></td><td>O build grava em <code>%LOCALAPPDATA%</code>, fora da área protegida do "editar".</td></tr>
+<tr><td><b>Veja se o editor precisa estar fechado</b></td><td>Alguns builds e testes não rodam com ele aberto. Nesse caso, deixe a integração desligada nessas tarefas.</td></tr>
+<tr><td><b>Salve antes de trocar de sessão</b></td><td>Salve os mapas no editor e confira com <code>git status</code>.</td></tr>
+</table>
+<div class="box warn"><b>Limite conhecido</b><p>O carregamento do plugin e a configuração têm testes, mas as chamadas de ferramenta com o editor aberto ainda não foram testadas pelo XinoIA. Comece por uma alteração pequena e fácil de desfazer.</p></div>
+</section>
+
+<section class="chapter" id="c12">
+<h1>12. Consumo: como gastar menos do seu limite</h1>
+<p>O XinoIA mostra uso e limites apenas quando a ferramenta informa, e nunca inventa números. Veja em <b>Contas</b> (janelas de limite, quando o CLI informa) e em <b>tokens informados</b>, no Painel e no terminal.</p>
+<p>O consumo varia muito. Em um projeto real, cada tarefa do Codex gastou de 30 mil a quase 600 mil tokens de entrada: a maior parte é o agente lendo o projeto para ter contexto.</p>
+<ul>
+<li><b>Tarefas pequenas</b> com critério claro de "pronto" gastam menos que um pedido vago.</li>
+<li><b>Diga onde olhar:</b> indicar os arquivos evita que o agente vasculhe o projeto.</li>
+<li><b>Escolha modelo e esforço:</b> tarefas simples não precisam do maior nível.</li>
+<li><b>Limite as rodadas de correção</b> e use <code>Equipe, ...</code> só quando precisar ouvir todos.</li>
+<li><b>Pause</b> se a missão seguir por um caminho errado, e oriente a equipe.</li>
+</ul>
+<div class="box"><b>O que fazer ao atingir um limite</b><p>A tarefa para com uma mensagem clara. Espere renovar, troque a conta do agente ou reatribua a tarefa. Com a opção ligada, ela pode passar a um agente de outro provedor.</p></div>
+</section>
+
+<section class="chapter" id="c13">
+<h1>13. Levar um projeto para o XinoIA</h1>
+<p>Os arquivos ficam onde estão, e o login é o mesmo do computador. <b>As conversas não passam</b>: o XinoIA abre sessões novas, então tudo o que importa precisa estar escrito em um arquivo.</p>
+<ol>
+<li><b>Pare o trabalho atual.</b> Nunca deixe outra sessão e o XinoIA alterando a mesma pasta ao mesmo tempo.</li>
+<li><b>Salve um ponto no Git.</b> Decida o que fazer com as alterações pendentes.</li>
+<li><b>Escreva <code>XINOIA_HANDOFF.md</code></b> na raiz: objetivo, estado atual, o que está em andamento, próximos passos, decisões, como compilar e testar, ambiente e armadilhas. Nunca inclua senhas nem chaves.</li>
+<li><b>Confira as regras:</b> o Codex lê <code>AGENTS.md</code>, não <code>CLAUDE.md</code>.</li>
+<li><b>No XinoIA:</b> confira as contas, adicione o projeto, registre a memória, adicione as integrações e crie a equipe.</li>
+<li><b>Teste sem alterar nada:</b></li>
+</ol>
+<pre>@Coordenação leia o XINOIA_HANDOFF.md e me diga, em cinco linhas, o estado do projeto e o próximo passo. Não altere nenhum arquivo.</pre>
+<p>Depois, crie uma missão pequena, com <b>Tarefas ao mesmo tempo</b> em 1:</p>
+<pre>Leia o XINOIA_HANDOFF.md e continue pelo primeiro item de "Próximos passos". Faça só esse item, comprove que funciona como o arquivo indica, e atualize o XINOIA_HANDOFF.md com o que mudou.</pre>
+<p>Outra IA pode preparar isso seguindo <code>docs/GUIA_PARA_IAS.md</code>, no repositório. O app instalado não pode ser controlado por outra IA, por segurança: os cliques são seus. Em <code>npm run verify</code>, ela confere o sistema sem usar contas nem cota.</p>
+</section>
+
+<section class="chapter" id="c14">
+<h1>14. Segurança e privacidade</h1>
+<h2>O que o XinoIA faz</h2>
+<ul>
+<li>O servidor local escuta só em <code>127.0.0.1</code>, e exige um token novo a cada abertura.</li>
+<li>O login acontece no fluxo oficial de cada ferramenta. Ele não lê os arquivos de acesso.</li>
+<li>Uma chave de API fica cifrada pelo Windows, e nunca volta para a tela.</li>
+<li>Os pedidos vão pela entrada padrão, nunca por argumento de linha de comando.</li>
+<li>Segredos conhecidos e a pasta pessoal são mascarados em eventos e logs.</li>
+<li>Atualizações só são instaladas depois de conferir uma assinatura Ed25519.</li>
+</ul>
+<h2>O que ele não faz</h2>
+<ul>
+<li>No nível "total", um agente roda comandos com o mesmo acesso da sua conta.</li>
+<li>O conteúdo que um agente lê pode tentar enganá-lo (injeção de prompt). Tenha cuidado com projetos de origem desconhecida.</li>
+<li>Os dados locais ficam protegidos pela sua conta do sistema, sem criptografia própria.</li>
+</ul>
+<h2>Para onde os dados vão</h2>
+<table>
+<tr><th>O quê</th><th>Para onde</th><th>Quando</th></tr>
+<tr><td>Pedidos e arquivos lidos pelo agente</td><td>O fornecedor da ferramenta escolhida</td><td>Quando um agente trabalha</td></tr>
+<tr><td>Verificação de atualizações</td><td>GitHub</td><td>Ao abrir e a cada 4 horas. Pode ser desligada</td></tr>
+<tr><td>Instalador e login</td><td>Sites oficiais dos fornecedores</td><td>Só quando você clica</td></tr>
+</table>
+<div class="box stop"><b>Três hábitos que evitam quase todo problema</b><p>Use Git e faça um commit antes de uma missão. Comece com permissões baixas. Revise antes de integrar.</p></div>
+</section>
+
+<section class="chapter" id="c15">
+<h1>15. Problemas comuns</h1>
+<table>
+<tr><th style="width:38%">Mensagem ou sintoma</th><th>O que fazer</th></tr>
+<tr><td>"A conta precisa de login"</td><td>Em Contas, <b>Entrar pelo navegador</b>. O login oficial pode expirar.</td></tr>
+<tr><td>"O provedor recusou a chave de API"</td><td>Chave revogada, errada ou sem crédito. Use <b>Trocar chave</b>.</td></tr>
+<tr><td>"Limite de uso da conta"</td><td>Espere renovar, troque a conta do agente ou reatribua a tarefa.</td></tr>
+<tr><td>"Permissão negada para: Bash"</td><td>O agente tentou um comando sem permissão. Reveja o capítulo 5.</td></tr>
+<tr><td>Comando rejeitado com "blocked by policy" no Codex</td><td>Ocorria em perfil separado na versão 0.1.0. Atualize. Em um perfil novo, o primeiro comando pode demorar.</td></tr>
+<tr><td>Build falha com acesso negado em <code>AppData</code></td><td>A área protegida não grava fora do projeto. Veja "Quando editar não basta", no capítulo 5.</td></tr>
+<tr><td>"A ferramenta não está instalada", mas está</td><td>Feche e abra o XinoIA, ou reinicie o Windows, para o <code>PATH</code> atualizar.</td></tr>
+<tr><td>Integrar diz que há alterações sem commit</td><td>Faça commit ou guarde suas alterações. Isso protege o que é seu.</td></tr>
+<tr><td>O agente diz que não consegue rodar testes</td><td>Use um agente com permissão para isso. Em worktrees, ele também precisa instalar as dependências.</td></tr>
+<tr><td>Retomar faz a missão parar de novo</td><td>Há uma revisão reprovada. Abra a tarefa: <b>Tentar de novo</b> ou <b>Pular</b>.</td></tr>
+<tr><td>O MCP do Unreal aparece "Sem resposta"</td><td>Abra o editor, inicie o servidor e confira o endereço.</td></tr>
+<tr><td>Escritório não abre em 3D</td><td>O computador não oferece WebGL. Use a visão <b>Compacto</b>.</td></tr>
+<tr><td>"O banco é de uma versão mais nova"</td><td>Você abriu dados de uma versão mais nova em uma antiga. Instale a mais recente.</td></tr>
+<tr><td>Banco danificado</td><td>O XinoIA guarda o arquivo ao lado, restaura a cópia mais recente e avisa em Configurações &gt; Dados.</td></tr>
+</table>
+</section>
+
+<section class="chapter" id="c16">
+<h1>16. Trilha prática e prova</h1>
+<h2>Trilha: do zero à equipe</h2>
+<ol>
+<li>Conecte uma IA pelo navegador e confira em Contas.</li>
+<li>Crie um projeto com <b>Pasta nova</b> e faça o primeiro commit no <b>Shell</b>: <code>git init</code>, <code>git add -A</code>, <code>git commit -m inicio --allow-empty</code>.</li>
+<li>Crie a equipe do capítulo 5.</li>
+<li>Converse com um agente, e veja a execução no terminal.</li>
+<li>Crie uma missão pequena, edite o plano e aprove.</li>
+<li>Deixe uma revisão reprovar, e veja a correção automática.</li>
+<li>Salve uma cópia de um workflow, altere uma etapa e execute.</li>
+<li>Rode uma missão com <b>Tarefas ao mesmo tempo</b> em 2, e integre o resultado.</li>
+<li>Abra o Painel, e compare os tokens de cada execução.</li>
+</ol>
+<h2>Prova</h2>
+<ol>
+<li>O XinoIA inclui as ferramentas de IA?</li>
+<li>Qual a diferença de cobrança entre entrar pelo navegador e usar chave de API?</li>
+<li>O que deve ser conferido no navegador ao adicionar uma segunda conta?</li>
+<li>Um revisor em "somente leitura" consegue rodar <code>git diff</code>?</li>
+<li>Por que o Claude em "editar" não serve para rodar testes?</li>
+<li>Em qual modo a permissão "total" vale?</li>
+<li>Por que <b>Retomar</b> pode fazer a missão parar de novo?</li>
+<li>O que acontece com a tarefa interrompida por uma atualização?</li>
+<li>Quando a sua pasta muda em uma missão em paralelo?</li>
+<li>Por que manter <b>Tarefas ao mesmo tempo</b> em 1 no Unreal?</li>
+<li>Por que escrever um <code>XINOIA_HANDOFF.md</code> ao trazer um projeto?</li>
+<li>Qual arquivo de regras o Codex lê?</li>
+<li>Como reduzir o gasto da placa de vídeo do XinoIA?</li>
+<li>O XinoIA troca de conta sozinho ao atingir um limite?</li>
+</ol>
+<h2>Gabarito</h2>
+<ol class="answers">
+<li>Não: ele conduz as que você instala, com as suas contas.</li>
+<li>Pelo navegador, o uso entra nos limites do plano. Com chave, cada uso é cobrado pelo fornecedor.</li>
+<li>Se a conta certa está aberta: se ele estiver na primeira, os dois perfis podem ficar na mesma conta.</li>
+<li>Não: entregue o resultado na tarefa, ou faça uma etapa anterior reuni-lo.</li>
+<li>Nesse nível, ele altera arquivos, mas os comandos de terminal continuam bloqueados. Use o Codex em "editar".</li>
+<li>Só no Autônomo controlado. Nos outros, cai para "editar", com um aviso.</li>
+<li>Há uma revisão reprovada no limite de correções. É preciso escolher Tentar de novo ou Pular nessa tarefa.</li>
+<li>A missão fica pausada, e a tarefa recomeça do início ao retomar. O que ela mudou continua nos arquivos.</li>
+<li>Só quando você escolhe Integrar, no fim.</li>
+<li>O MCP age no editor aberto, na pasta original, e mapas e assets binários não se juntam em um conflito.</li>
+<li>Porque as conversas não passam: o arquivo é a única memória que passa.</li>
+<li><code>AGENTS.md</code>. O Claude Code lê <code>CLAUDE.md</code>.</li>
+<li>Escolha a visão Compacto e recolha a telinha Escritório ao vivo.</li>
+<li>Não. O máximo é, se você ligar a opção, passar a tarefa a um agente de outro provedor.</li>
+</ol>
+</section>
+
+</body>
+</html>
