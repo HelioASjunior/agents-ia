@@ -223,6 +223,14 @@ test('Missão: reprovações além do limite pausam e pedem decisão; pular conc
   let tasks = await h.ctx.orchestrator.tasks(mission.id);
   assert.equal(tasks.find((task) => task.title === 'Documentar')?.status, 'pending', 'não seguiu sem aprovação');
 
+  // Retomar não passa por cima da reprovação: a missão para de novo, dizendo o que fazer.
+  await h.ctx.orchestrator.resume(mission.id);
+  state = await h.ctx.orchestrator.waitForIdle(mission.id);
+  assert.equal(state.status, 'paused');
+  assert.match(state.pauseReason ?? '', /foi reprovada.*Tentar de novo ou Pular/);
+  tasks = await h.ctx.orchestrator.tasks(mission.id);
+  assert.equal(tasks.find((task) => task.title === 'Documentar')?.status, 'pending', 'retomar não seguiu sem aprovação');
+
   // A última revisão foi reprovada. O usuário decide seguir mesmo assim: pula a etapa.
   const blocked = tasks.find((task) => task.title === 'Documentar')!;
   await h.ctx.orchestrator.skipTask(mission.id, blocked.id);

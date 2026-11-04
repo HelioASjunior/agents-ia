@@ -130,9 +130,22 @@ export function extractVerdict(text: string): Verdict | null {
 
 export function readyTasks(tasks: Task[]): Task[] {
   const finished = new Set(tasks.filter((t) => t.status === 'done' || t.status === 'skipped').map((t) => t.id));
+  const rejected = new Set(rejectedReviews(tasks).map((t) => t.id));
   return tasks
     .filter((t) => t.status === 'pending' && t.dependsOn.every((dep) => finished.has(dep)))
+    // Uma reprovação não libera o que vem depois: só a correção, ou uma etapa com condição.
+    .filter((t) => t.isFix || t.runIf !== 'always' || !t.dependsOn.some((dep) => rejected.has(dep)))
     .sort((a, b) => a.priority - b.priority || a.position - b.position);
+}
+
+/** Revisões reprovadas de que alguma tarefa ainda depende. */
+export function blockingRejections(tasks: Task[]): Task[] {
+  const rejected = rejectedReviews(tasks);
+  return rejected.filter((review) => tasks.some((t) => t.status === 'pending' && !t.isFix && t.runIf === 'always' && t.dependsOn.includes(review.id)));
+}
+
+function rejectedReviews(tasks: Task[]): Task[] {
+  return tasks.filter((t) => t.status === 'done' && t.verdict === 'REPROVADO');
 }
 
 const stripPrefix = (title: string) => title.replace(/^(Corrigir|Revisar de novo): /, '');

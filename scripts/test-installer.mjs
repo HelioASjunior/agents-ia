@@ -183,11 +183,14 @@ try {
   const project = await exercise(app, 'instalado', dataDir);
 
   // -------------------------------------------------------------------------
-  step('Fechar e reabrir: os dados continuam');
+  step('Fechar e reabrir: os dados e as preferências continuam');
+  await app.page.evaluate(() => localStorage.setItem('xinoia.teste', 'mantido'));
   await close(app);
   app = await launch(exe, dataDir);
   const projects = await app.api('GET', '/api/projects');
   assert.ok(projects.body.some((item) => item.id === project.id), 'o projeto continua lá');
+  // Tema, projeto escolhido e layout ficam no navegador, e não podem se perder ao reabrir.
+  assert.equal(await app.page.evaluate(() => localStorage.getItem('xinoia.teste')), 'mantido', 'as preferências continuam lá');
   process.stdout.write('  dados preservados, sem processos para trás\n');
   await close(app);
 

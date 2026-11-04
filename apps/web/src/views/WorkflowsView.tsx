@@ -148,7 +148,7 @@ function Inspector({ node, onChange, onRemove, readOnly }: { node: StepNode; onC
   );
 }
 
-function Editor({ workflow, onSaved }: { workflow: Workflow; onSaved: (saved: Workflow) => void }) {
+function Editor({ workflow, onSaved }: { workflow: Workflow; onSaved: (saved: Workflow) => Promise<void> }) {
   const run = useStore((state) => state.run);
   const theme = useStore((state) => state.theme);
   const [nodes, setNodes, onNodesChange] = useNodesState<StepNode>(toNodes(workflow));
@@ -198,7 +198,7 @@ function Editor({ workflow, onSaved }: { workflow: Workflow; onSaved: (saved: Wo
     const saved = workflow.builtin
       ? await run(() => api.post<Workflow>('/api/workflows', serialize(`${name} (cópia)`)), 'Cópia salva. Agora você pode editar.')
       : await run(() => api.put<Workflow>(`/api/workflows/${workflow.id}`, serialize(name)), 'Workflow salvo.');
-    if (saved) onSaved(saved);
+    if (saved) await onSaved(saved);
   };
 
   return (
@@ -327,7 +327,7 @@ export function WorkflowsView() {
           )}
         </aside>
         {current
-          ? <Editor key={`${current.id}-${version}`} workflow={current} onSaved={(saved) => { void reload(); setCurrentId(saved.id); setVersion((value) => value + 1); }} />
+          ? <Editor key={`${current.id}-${version}`} workflow={current} onSaved={async (saved) => { await reload(); setCurrentId(saved.id); setVersion((value) => value + 1); }} />
           : <Empty title="Escolha um workflow" icon={<WorkflowIcon size={26} />} />}
       </div>
     </div>

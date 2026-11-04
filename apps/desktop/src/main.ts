@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, shell, utilityProcess, type UtilityProcess } from 'electron';
 import { setupUpdater, setupUpdaterUnavailable } from './updater.ts';
@@ -34,7 +35,20 @@ function showSplash(): void {
   void splash.loadFile(resource('splash.html'));
 }
 
-function startServer(): Promise<{ port: number; token: string }> {
+// O navegador guarda tema, projeto escolhido e layout por porta: com uma porta nova a cada
+// abertura, tudo isso se perderia. Se esta estiver ocupada, usa outra só desta vez.
+const PREFERRED_PORT = 47821;
+
+function pickPort(): Promise<string> {
+  return new Promise((resolve) => {
+    const probe = net.createServer();
+    probe.once('error', () => resolve('0'));
+    probe.listen(PREFERRED_PORT, '127.0.0.1', () => probe.close(() => resolve(String(PREFERRED_PORT))));
+  });
+}
+
+async function startServer(): Promise<{ port: number; token: string }> {
+  const port = await pickPort();
   return new Promise((resolve, reject) => {
     const child = utilityProcess.fork(resource('server', 'index.mjs'), [], {
       serviceName: 'XinoIA Backend',
@@ -43,7 +57,7 @@ function startServer(): Promise<{ port: number; token: string }> {
         ...process.env,
         XINOIA_DATA_DIR: app.getPath('userData'),
         XINOIA_WEB_DIR: resource('web'),
-        XINOIA_PORT: '0',
+        XINOIA_PORT: port,
       },
     });
     server = child;

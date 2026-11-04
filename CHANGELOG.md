@@ -4,6 +4,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+## [0.1.2] - 2026-11-04
+
+### Corrigido
+
+- O tema, o projeto escolhido, o layout e a visão do escritório se perdiam a cada abertura do app instalado, porque ele usava uma porta nova a cada vez. Depois desta atualização, as preferências passam a ser mantidas. Como a porta muda uma última vez, elas voltam ao padrão uma vez.
+- **Retomar** passava por cima de uma tarefa reprovada no limite de correções. Agora a missão para de novo e pede **Tentar de novo** ou **Pular**.
+- Depois de salvar um workflow, a tela mostrava o desenho antigo até reabri-lo.
+
 ## [0.1.1] - 2026-11-04
 
 ### Adicionado

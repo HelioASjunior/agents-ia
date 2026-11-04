@@ -1,7 +1,7 @@
 {
   "name": "xinoia",
   "productName": "XinoIA",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Escritório virtual local para orquestrar agentes de IA usando os CLIs oficiais e o login de cada usuário.",
   "type": "module",
   "private": true,

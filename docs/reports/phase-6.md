@@ -64,6 +64,16 @@ O histórico foi reescrito antes de publicar, para os commits usarem o endereço
 
 **Não medido:** o consumo real de placa de vídeo do 3D, porque os testes rodam sem placa. Para isso, a cena é limitada a 30 quadros por segundo, e a visão Compacta não a desenha.
 
+## Versão 0.1.2
+
+Defeitos encontrados no primeiro uso real, em um projeto de verdade, e confirmados no código:
+
+- **Preferências perdidas a cada abertura:** o app abria em uma porta aleatória, e o navegador guarda preferências por porta. Agora usa uma porta fixa, ou outra só naquela vez, se ela estiver ocupada. O teste de instalação passou a conferir isso.
+- **Retomar depois de reprovar:** a tarefa reprovada contava como concluída e liberava as seguintes.
+- **Workflow salvo:** a tela recarregava antes de a lista nova chegar.
+
+O teste de instalação e o de atualização também passaram a exigir o registro em Aplicativos instalados.
+
 ## Preparação da assinatura de código
 
 Os passos da SignPath estão no workflow, desligados, com a política em `README.md` e `PRIVACY.md`. O pedido ainda não foi feito: a decisão foi ganhar usuários antes, porque o formulário pede provas de reputação. O caminho completo, com um certificado descartável, roda no workflow **Teste de atualização**. A assinatura real pela SignPath só pode ser testada depois da aprovação, inclusive as regras de metadados de `.signpath/artifact-configurations/`.

@@ -27,7 +27,7 @@ import {
   findFixerId,
   parsePlan,
   pipelineTasks,
-  readyTasks,
+  blockingRejections, readyTasks,
 } from './planning.ts';
 import type { SettingsService } from './policy.ts';
 import type { RunService } from './runs.ts';
@@ -437,7 +437,10 @@ export class Orchestrator {
     }
     const latest = await this.db.tasks.listForMission(missionId);
     if (!readyTasks(latest).length && !latest.some((task) => task.status === 'running')) {
-      await this.setStatus(mission, 'paused', 'Há tarefas bloqueadas por outras que não terminaram. Tente de novo ou pule a tarefa com problema.');
+      const [rejection] = blockingRejections(latest);
+      await this.setStatus(mission, 'paused', rejection
+        ? `"${rejection.title}" foi reprovada, e o que vem depois depende dela. Abra a tarefa e escolha Tentar de novo ou Pular.`
+        : 'Há tarefas bloqueadas por outras que não terminaram. Tente de novo ou pule a tarefa com problema.');
     }
   }
 
