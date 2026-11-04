@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" width="1600" height="520" role="img" aria-label="XinoIA: your AI team, working in your own office.">
+  <defs>
+    <pattern id="grid" width="96" height="56" patternUnits="userSpaceOnUse">
+      <path d="M48 0 96 28 48 56 0 28Z" fill="none" stroke="#1C2530" stroke-width="1.5"/>
+    </pattern>
+    <radialGradient id="glow" cx="24%" cy="50%" r="55%">
+      <stop offset="0" stop-color="#1D3A3C"/>
+      <stop offset="1" stop-color="#0B0F14" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fade" x1="0" x2="1">
+      <stop offset="0" stop-color="#0B0F14" stop-opacity="0"/>
+      <stop offset=".6" stop-color="#0B0F14" stop-opacity=".82"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="520" fill="#0B0F14"/>
+  <rect width="1600" height="520" fill="url(#grid)"/>
+  <rect width="1600" height="520" fill="url(#glow)"/>
+  <rect width="1600" height="520" fill="url(#fade)"/>
+
+  <g transform="translate(150 90) scale(1.32)">
+    <path d="M128 18 244 86v84L128 238 12 170V86Z" fill="#141A22"/>
+    <path d="M128 18 244 86 128 154 12 86Z" fill="#1B2430"/>
+    <path d="M128 154v84L12 170V86Z" fill="#10151C"/>
+    <path d="M128 154v84l116-68V86Z" fill="#0C1016"/>
+    <path d="M128 18 244 86 128 154 12 86Z" fill="none" stroke="#2C3948" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M72 51 184 121" stroke="#F5B544" stroke-width="24" stroke-linecap="round"/>
+    <path d="M184 51 72 121" stroke="#2DD4BF" stroke-width="24" stroke-linecap="round"/>
+    <path d="M104 71 152 101" stroke="#F5B544" stroke-width="24"/>
+    <circle cx="72" cy="51" r="17" fill="#FFD27A"/>
+    <circle cx="184" cy="121" r="17" fill="#FFD27A"/>
+    <circle cx="184" cy="51" r="17" fill="#7FF3E2"/>
+    <circle cx="72" cy="121" r="17" fill="#7FF3E2"/>
+    <path d="M64 178v24M64 178l-14-8M64 178l14-8" stroke="#2DD4BF" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+    <path d="M192 178v24M192 178l-14-8M192 178l14-8" stroke="#F5B544" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+  </g>
+
+  <g font-family="'Segoe UI Variable Display','Segoe UI',Inter,Helvetica,Arial,sans-serif">
+    <text x="600" y="240" font-size="136" font-weight="700" fill="#F4F6F8" letter-spacing="-3">Xino<tspan fill="#2DD4BF">IA</tspan></text>
+    <text x="606" y="298" font-size="30" font-weight="700" fill="#F5B544" letter-spacing="6">ONE TEAM. EVERY AGENT. REAL WORK.</text>
+    <text x="606" y="352" font-size="30" fill="#A6B0BD">Claude Code, Codex and more, orchestrated on your own computer.</text>
+  </g>
+</svg>

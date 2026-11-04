@@ -1,0 +1,509 @@
+import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
+import type {
+  Agent,
+  AgentEvent,
+  CustomProvider,
+  McpServer,
+  PermissionLevel,
+  Profile,
+  Project,
+  RoleId,
+  Run,
+  RunStatus,
+  ErrorKind,
+  Skill,
+  StoredRunEvent,
+  Toolkit,
+} from '@xinoia/shared';
+import type { Persistence, RunFilter, SessionKey } from '../types.ts';
+import { backupDatabase, openDatabase, type OpenResult } from './connection.ts';
+
+type Row = Record<string, SQLInputValue>;
+
+const parse = <T>(value: unknown): T => JSON.parse(String(value)) as T;
+const parseOrNull = <T>(value: unknown): T | null => (value === null || value === undefined ? null : parse<T>(value));
+const textOrNull = (value: unknown): string | null => (value === null || value === undefined ? null : String(value));
+const numOrNull = (value: unknown): number | null => (value === null || value === undefined ? null : Number(value));
+
+const NO_PROFILE = '-';
+const profileKey = (key: SessionKey): string => key.profileId ?? NO_PROFILE;
+
+function toProfile(r: Row): Profile {
+  return {
+    id: String(r.id),
+    provider: String(r.provider),
+    label: String(r.label),
+    homeDir: textOrNull(r.home_dir),
+    auth: parseOrNull(r.auth_json),
+    usage: parseOrNull(r.usage_json),
+    totals: parse(r.totals_json),
+    createdAt: Number(r.created_at),
+  };
+}
+
+function toProject(r: Row): Project {
+  return {
+    id: String(r.id),
+    name: String(r.name),
+    path: String(r.path),
+    info: parse(r.info_json),
+    createdAt: Number(r.created_at),
+  };
+}
+
+function toToolkit(r: Row): Toolkit {
+  return {
+    id: String(r.id),
+    name: String(r.name),
+    description: String(r.description),
+    pluginPath: textOrNull(r.plugin_path),
+    enabledInDefaultAccount: Number(r.enabled_in_default_account) === 1,
+    skills: parse<Skill[]>(r.skills_json),
+    mcp: parseOrNull<McpServer>(r.mcp_json),
+    exclusive: Number(r.exclusive) === 1,
+    preset: textOrNull(r.preset),
+    createdAt: Number(r.created_at),
+  };
+}
+
+function toRun(r: Row): Run {
+  return {
+    id: String(r.id),
+    agentId: textOrNull(r.agent_id),
+    agentName: String(r.agent_name),
+    profileId: textOrNull(r.profile_id),
+    projectId: String(r.project_id),
+    provider: String(r.provider),
+    status: String(r.status) as RunStatus,
+    prompt: String(r.prompt),
+    permission: String(r.permission) as PermissionLevel,
+    command: textOrNull(r.command),
+    sessionId: textOrNull(r.session_id),
+    model: textOrNull(r.model),
+    exitCode: numOrNull(r.exit_code),
+    errorKind: textOrNull(r.error_kind) as ErrorKind | null,
+    errorText: textOrNull(r.error_text),
+    finalText: textOrNull(r.final_text),
+    usage: parseOrNull(r.usage_json),
+    filesChanged: parse(r.files_changed_json),
+    logPath: textOrNull(r.log_path),
+    queuedAt: Number(r.queued_at),
+    startedAt: numOrNull(r.started_at),
+    endedAt: numOrNull(r.ended_at),
+  };
+}
+
+function toEvent(r: Row): StoredRunEvent {
+  return {
+    id: Number(r.id),
+    runId: String(r.run_id),
+    ts: Number(r.ts),
+    event: parse<AgentEvent>(r.payload_json),
+  };
+}
+
+export interface SqlitePersistence extends Persistence {
+  readonly database: DatabaseSync;
+  readonly opened: OpenResult;
+}
+
+export function createSqlitePersistence(file: string, backupsDir: string): SqlitePersistence {
+  const opened = openDatabase(file, backupsDir);
+  const { db } = opened;
+
+  const all = (sql: string, ...params: SQLInputValue[]) => db.prepare(sql).all(...params) as Row[];
+  const one = (sql: string, ...params: SQLInputValue[]) => db.prepare(sql).get(...params) as Row | undefined;
+  const run = (sql: string, ...params: SQLInputValue[]) => db.prepare(sql).run(...params);
+
+  const transaction = <T>(work: () => T): T => {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const value = work();
+      db.exec('COMMIT');
+      return value;
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  };
+
+  const toolkitIds = (agentId: string): string[] =>
+    all('SELECT toolkit_id FROM agent_toolkits WHERE agent_id = ? ORDER BY toolkit_id', agentId)
+      .map((row) => String(row.toolkit_id));
+
+  const toAgent = (r: Row): Agent => ({
+    id: String(r.id),
+    name: String(r.name),
+    role: String(r.role) as RoleId,
+    roleTitle: textOrNull(r.role_title),
+    instructions: textOrNull(r.instructions),
+    provider: String(r.provider),
+    profileId: textOrNull(r.profile_id),
+    model: textOrNull(r.model),
+    effort: textOrNull(r.effort),
+    permission: String(r.permission) as PermissionLevel,
+    color: String(r.color),
+    toolkitIds: toolkitIds(String(r.id)),
+    createdAt: Number(r.created_at),
+  });
+
+  const setAgentToolkits = (agent: Agent): void => {
+    run('DELETE FROM agent_toolkits WHERE agent_id = ?', agent.id);
+    for (const toolkitId of agent.toolkitIds) {
+      run('INSERT INTO agent_toolkits (agent_id, toolkit_id) VALUES (?, ?)', agent.id, toolkitId);
+    }
+  };
+
+  return {
+    database: db,
+    opened,
+
+    settings: {
+      async get<T>(key: string) {
+        const row = one('SELECT value_json FROM settings WHERE key = ?', key);
+        return row ? parse<T>(row.value_json) : null;
+      },
+      async set(key, value) {
+        run(
+          'INSERT INTO settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json',
+          key,
+          JSON.stringify(value),
+        );
+      },
+    },
+
+    profiles: {
+      async list() {
+        return all('SELECT * FROM profiles ORDER BY created_at').map(toProfile);
+      },
+      async get(id) {
+        const row = one('SELECT * FROM profiles WHERE id = ?', id);
+        return row ? toProfile(row) : null;
+      },
+      async insert(p) {
+        run(
+          'INSERT INTO profiles (id, provider, label, home_dir, auth_json, usage_json, totals_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          p.id,
+          p.provider,
+          p.label,
+          p.homeDir,
+          p.auth ? JSON.stringify(p.auth) : null,
+          p.usage ? JSON.stringify(p.usage) : null,
+          JSON.stringify(p.totals),
+          p.createdAt,
+        );
+      },
+      async updateLabel(id, label) {
+        run('UPDATE profiles SET label = ? WHERE id = ?', label, id);
+      },
+      async updateAuth(id, auth) {
+        run('UPDATE profiles SET auth_json = ? WHERE id = ?', JSON.stringify(auth), id);
+      },
+      async updateUsage(id, usage) {
+        run('UPDATE profiles SET usage_json = ? WHERE id = ?', JSON.stringify(usage), id);
+      },
+      async updateTotals(id, totals) {
+        run('UPDATE profiles SET totals_json = ? WHERE id = ?', JSON.stringify(totals), id);
+      },
+      async delete(id) {
+        run('DELETE FROM profiles WHERE id = ?', id);
+      },
+    },
+
+    agents: {
+      async list() {
+        return all('SELECT * FROM agents ORDER BY created_at').map(toAgent);
+      },
+      async get(id) {
+        const row = one('SELECT * FROM agents WHERE id = ?', id);
+        return row ? toAgent(row) : null;
+      },
+      async insert(a) {
+        transaction(() => {
+          run(
+            'INSERT INTO agents (id, name, role, role_title, instructions, provider, profile_id, model, effort, permission, color, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            a.id,
+            a.name,
+            a.role,
+            a.roleTitle,
+            a.instructions,
+            a.provider,
+            a.profileId,
+            a.model,
+            a.effort,
+            a.permission,
+            a.color,
+            a.createdAt,
+          );
+          setAgentToolkits(a);
+        });
+      },
+      async update(a) {
+        transaction(() => {
+          run(
+            'UPDATE agents SET name = ?, role = ?, role_title = ?, instructions = ?, provider = ?, profile_id = ?, model = ?, effort = ?, permission = ?, color = ? WHERE id = ?',
+            a.name,
+            a.role,
+            a.roleTitle,
+            a.instructions,
+            a.provider,
+            a.profileId,
+            a.model,
+            a.effort,
+            a.permission,
+            a.color,
+            a.id,
+          );
+          setAgentToolkits(a);
+        });
+      },
+      async delete(id) {
+        run('DELETE FROM agents WHERE id = ?', id);
+      },
+    },
+
+    projects: {
+      async list() {
+        return all('SELECT * FROM projects ORDER BY created_at').map(toProject);
+      },
+      async get(id) {
+        const row = one('SELECT * FROM projects WHERE id = ?', id);
+        return row ? toProject(row) : null;
+      },
+      async findByPath(path) {
+        const row = one('SELECT * FROM projects WHERE path = ?', path);
+        return row ? toProject(row) : null;
+      },
+      async insert(p) {
+        run(
+          'INSERT INTO projects (id, name, path, info_json, created_at) VALUES (?, ?, ?, ?, ?)',
+          p.id,
+          p.name,
+          p.path,
+          JSON.stringify(p.info),
+          p.createdAt,
+        );
+      },
+      async updateInfo(id, info) {
+        run('UPDATE projects SET info_json = ? WHERE id = ?', JSON.stringify(info), id);
+      },
+      async delete(id) {
+        run('DELETE FROM projects WHERE id = ?', id);
+      },
+    },
+
+    toolkits: {
+      async list() {
+        return all('SELECT * FROM toolkits ORDER BY created_at').map(toToolkit);
+      },
+      async get(id) {
+        const row = one('SELECT * FROM toolkits WHERE id = ?', id);
+        return row ? toToolkit(row) : null;
+      },
+      async insert(t) {
+        run(
+          'INSERT INTO toolkits (id, name, description, plugin_path, enabled_in_default_account, skills_json, mcp_json, exclusive, preset, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          t.id,
+          t.name,
+          t.description,
+          t.pluginPath,
+          t.enabledInDefaultAccount ? 1 : 0,
+          JSON.stringify(t.skills),
+          t.mcp ? JSON.stringify(t.mcp) : null,
+          t.exclusive ? 1 : 0,
+          t.preset,
+          t.createdAt,
+        );
+      },
+      async update(t) {
+        run(
+          'UPDATE toolkits SET name = ?, description = ?, mcp_json = ?, exclusive = ? WHERE id = ?',
+          t.name,
+          t.description,
+          t.mcp ? JSON.stringify(t.mcp) : null,
+          t.exclusive ? 1 : 0,
+          t.id,
+        );
+      },
+      async delete(id) {
+        run('DELETE FROM toolkits WHERE id = ?', id);
+      },
+    },
+
+    customProviders: {
+      async list() {
+        return all('SELECT * FROM custom_providers ORDER BY created_at').map((r): CustomProvider => ({
+          id: String(r.id),
+          name: String(r.name),
+          command: String(r.command),
+          args: String(r.args),
+          homeEnv: textOrNull(r.home_env),
+          loginCommand: textOrNull(r.login_command),
+          createdAt: Number(r.created_at),
+        }));
+      },
+      async insert(p) {
+        run(
+          'INSERT INTO custom_providers (id, name, command, args, home_env, login_command, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          p.id,
+          p.name,
+          p.command,
+          p.args,
+          p.homeEnv,
+          p.loginCommand,
+          p.createdAt,
+        );
+      },
+      async delete(id) {
+        run('DELETE FROM custom_providers WHERE id = ?', id);
+      },
+    },
+
+    sessions: {
+      async get(key) {
+        const row = one(
+          'SELECT session_id FROM provider_sessions WHERE agent_id = ? AND project_id = ? AND profile_key = ?',
+          key.agentId,
+          key.projectId,
+          profileKey(key),
+        );
+        return row ? String(row.session_id) : null;
+      },
+      async set(key, sessionId) {
+        run(
+          `INSERT INTO provider_sessions (agent_id, project_id, profile_key, session_id, updated_at) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(agent_id, project_id, profile_key) DO UPDATE SET session_id = excluded.session_id, updated_at = excluded.updated_at`,
+          key.agentId,
+          key.projectId,
+          profileKey(key),
+          sessionId,
+          Date.now(),
+        );
+      },
+      async clear(key) {
+        run(
+          'DELETE FROM provider_sessions WHERE agent_id = ? AND project_id = ? AND profile_key = ?',
+          key.agentId,
+          key.projectId,
+          profileKey(key),
+        );
+      },
+    },
+
+    runs: {
+      async insert(r) {
+        run(
+          `INSERT INTO runs (id, agent_id, agent_name, profile_id, project_id, provider, status, prompt, permission, command, session_id, model, exit_code, error_kind, error_text, final_text, usage_json, files_changed_json, log_path, queued_at, started_at, ended_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          r.id,
+          r.agentId,
+          r.agentName,
+          r.profileId,
+          r.projectId,
+          r.provider,
+          r.status,
+          r.prompt,
+          r.permission,
+          r.command,
+          r.sessionId,
+          r.model,
+          r.exitCode,
+          r.errorKind,
+          r.errorText,
+          r.finalText,
+          r.usage ? JSON.stringify(r.usage) : null,
+          JSON.stringify(r.filesChanged),
+          r.logPath,
+          r.queuedAt,
+          r.startedAt,
+          r.endedAt,
+        );
+      },
+      async update(r) {
+        run(
+          `UPDATE runs SET status = ?, command = ?, session_id = ?, model = ?, exit_code = ?, error_kind = ?, error_text = ?, final_text = ?, usage_json = ?, files_changed_json = ?, log_path = ?, started_at = ?, ended_at = ? WHERE id = ?`,
+          r.status,
+          r.command,
+          r.sessionId,
+          r.model,
+          r.exitCode,
+          r.errorKind,
+          r.errorText,
+          r.finalText,
+          r.usage ? JSON.stringify(r.usage) : null,
+          JSON.stringify(r.filesChanged),
+          r.logPath,
+          r.startedAt,
+          r.endedAt,
+          r.id,
+        );
+      },
+      async get(id) {
+        const row = one('SELECT * FROM runs WHERE id = ?', id);
+        return row ? toRun(row) : null;
+      },
+      async list(filter: RunFilter = {}) {
+        const where: string[] = [];
+        const params: SQLInputValue[] = [];
+        if (filter.projectId) {
+          where.push('project_id = ?');
+          params.push(filter.projectId);
+        }
+        if (filter.agentId) {
+          where.push('agent_id = ?');
+          params.push(filter.agentId);
+        }
+        if (filter.status) {
+          where.push('status = ?');
+          params.push(filter.status);
+        }
+        const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+        params.push(filter.limit ?? 100);
+        return all(`SELECT * FROM runs ${clause} ORDER BY queued_at DESC LIMIT ?`, ...params).map(toRun);
+      },
+      async markUnfinishedAsInterrupted(now) {
+        const changed = run(
+          `UPDATE runs SET status = 'interrupted', ended_at = ?, error_text = 'O XinoIA foi fechado durante a execução.' WHERE status IN ('queued', 'running')`,
+          now,
+        );
+        return Number(changed.changes);
+      },
+    },
+
+    runEvents: {
+      async append(runId, ts, event) {
+        const inserted = run(
+          'INSERT INTO run_events (run_id, ts, type, payload_json) VALUES (?, ?, ?, ?)',
+          runId,
+          ts,
+          event.type,
+          JSON.stringify(event),
+        );
+        return { id: Number(inserted.lastInsertRowid), runId, ts, event };
+      },
+      async listForRun(runId, afterId = 0) {
+        return all('SELECT * FROM run_events WHERE run_id = ? AND id > ? ORDER BY id', runId, afterId).map(toEvent);
+      },
+      async listAfter(afterId, limit = 2000) {
+        return all('SELECT * FROM run_events WHERE id > ? ORDER BY id LIMIT ?', afterId, limit).map(toEvent);
+      },
+      async lastId() {
+        const row = one('SELECT coalesce(max(id), 0) AS last FROM run_events');
+        return Number(row?.last ?? 0);
+      },
+    },
+
+    async backup(reason) {
+      return backupDatabase(db, backupsDir, reason);
+    },
+
+    async schemaVersion() {
+      const row = one('PRAGMA user_version');
+      return Number(row?.user_version ?? 0);
+    },
+
+    async close() {
+      db.close();
+    },
+  };
+}

@@ -1,0 +1,26 @@
+node_modules/
+dist/
+release/
+out/
+coverage/
+
+# Dados locais nunca entram no repositório. Em uso normal ficam fora desta pasta.
+data/
+.xinoia-dev/
+*.db
+*.db-wal
+*.db-shm
+
+# Segredos
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+
+*.log
+.DS_Store
+Thumbs.db
+.claude/
+.vscode/

@@ -1,0 +1,27 @@
+{
+  "name": "xinoia",
+  "productName": "XinoIA",
+  "version": "0.1.0",
+  "description": "Escritório virtual local para orquestrar agentes de IA usando os CLIs oficiais e o login de cada usuário.",
+  "type": "module",
+  "private": true,
+  "repository": "github:HelioASjunior/agents-ia",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:server": "node --disable-warning=ExperimentalWarning --watch apps/server/src/index.ts",
+    "doctor": "node --disable-warning=ExperimentalWarning apps/server/src/doctor.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-timeout=60000 \"apps/server/test/*.test.ts\"",
+    "test:real": "node --disable-warning=ExperimentalWarning --test --test-timeout=240000 --test-concurrency=1 \"apps/server/test/real/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}
