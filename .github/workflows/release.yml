@@ -1,0 +1,84 @@
+name: Release
+
+# Publica uma versão ao receber uma tag: v1.2.3 é estável, v1.2.3-beta.1 é beta.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Conferir a versão com a tag
+        shell: bash
+        run: |
+          expected="${GITHUB_REF_NAME#v}"
+          actual="$(node -p "require('./apps/desktop/package.json').version")"
+          if [ "$expected" != "$actual" ]; then
+            echo "A tag $GITHUB_REF_NAME não bate com a versão $actual em apps/desktop/package.json"
+            exit 1
+          fi
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build:desktop
+      - name: Gerar instalador e versão portátil
+        working-directory: apps/desktop
+        run: npx electron-builder --config electron-builder.yml --publish never --win
+        env:
+          # Certificado opcional. Sem ele, o instalador sai sem assinatura Authenticode.
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Testar a instalação em uma máquina limpa
+        run: npm run test:dist
+      - name: Assinar os pacotes e calcular checksums
+        run: node scripts/release-sign.mjs release
+        env:
+          XINOIA_SIGNING_KEY: ${{ secrets.XINOIA_SIGNING_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xinoia-windows
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            release/XinoIA-Setup-*.exe
+            release/XinoIA-Setup-*.exe.blockmap
+            release/XinoIA-Setup-*.exe.sig
+            release/XinoIA-Portable-*.exe
+            release/XinoIA-Portable-*.exe.sig
+            release/*.yml
+            release/SHA256SUMS.txt
+            !release/builder-*.yml
+
+  # Só publica se tudo acima passou. É o único passo com permissão de escrita.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: xinoia-windows
+          path: dist-release
+      - name: Montar as notas da versão
+        run: node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
+      - name: Publicar no GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=""
+          case "$GITHUB_REF_NAME" in *-*) flags="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist-release/* --title "XinoIA $GITHUB_REF_NAME" --notes-file notes.md --verify-tag $flags

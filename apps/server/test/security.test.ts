@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import WebSocket from 'ws';
 import { buildEnv } from '../src/process/spawn.ts';
@@ -21,6 +23,13 @@ test('Segredos são mascarados', () => {
   for (const [input, expected] of samples) assert.match(redact(input), expected, input);
   assert.equal(redact('texto normal sem nada'), 'texto normal sem nada');
   assert.doesNotMatch(redact('chave sk-ant-api03-abcdefghijklmnop123'), /abcdefghijklmnop123/);
+});
+
+test('A pasta pessoal do usuário não aparece nos registros', () => {
+  const home = os.homedir();
+  assert.equal(redact(`abrindo ${home}${path.sep}projeto`), `abrindo ~${path.sep}projeto`);
+  assert.equal(redact(`caminho ${home.replaceAll('\\', '/')}/a.txt`), 'caminho ~/a.txt');
+  assert.equal(redact(JSON.stringify({ file: `${home}${path.sep}a` })).includes(path.basename(home)), false);
 });
 
 test('Ambiente: remove cobrança por API e herança de sessão, e aponta o perfil', () => {

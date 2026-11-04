@@ -72,7 +72,7 @@ test('Codex: sessão, comando, mensagem e consumo', () => {
     { type: 'turn.completed', usage: { input_tokens: 34936, output_tokens: 45 } },
   ]);
   assert.deepEqual(events[0], { type: 'session', sessionId: 'th1' });
-  assert.equal(events[1]?.type, 'warning');
+  assert.equal(events[1]?.type, 'noise', 'configuração pessoal da conta não é aviso da tarefa');
   const command = events.find((e) => e.type === 'tool_start' && e.name === 'Shell');
   assert.equal(command?.type === 'tool_start' && command.command, 'echo oi');
   const texts = events.filter((e) => e.type === 'text').map((e) => (e.type === 'text' ? e.text : ''));

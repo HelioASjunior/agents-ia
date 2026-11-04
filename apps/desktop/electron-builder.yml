@@ -1,0 +1,63 @@
+appId: com.xinoia.app
+productName: XinoIA
+copyright: Copyright © 2026 HelioASjunior
+directories:
+  output: ../../release
+  buildResources: build
+# Só o programa compilado entra no pacote. Dados, testes, fontes e configurações locais
+# ficam de fora, e nenhum CLI de IA é incluído: cada pessoa instala o dela.
+files:
+  - dist/**
+  - package.json
+  - '!**/*.map'
+asarUnpack:
+  - '**/node_modules/node-pty/**'
+# node-pty já traz binários prontos, compatíveis com qualquer versão do Electron.
+npmRebuild: false
+extraMetadata:
+  main: dist/main.cjs
+publish:
+  provider: github
+  owner: HelioASjunior
+  repo: agents-ia
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icon.ico
+  executableName: XinoIA
+  # A assinatura Authenticode entra sozinha quando CSC_LINK estiver definido no CI.
+  signtoolOptions:
+    publisherName: HelioASjunior
+nsis:
+  artifactName: XinoIA-Setup-v${version}.${ext}
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createStartMenuShortcut: true
+  shortcutName: XinoIA
+  # O atalho na área de trabalho é opcional: quem decide é installer.nsh.
+  createDesktopShortcut: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  uninstallDisplayName: XinoIA
+  # Dados do usuário ficam fora da pasta de instalação e sobrevivem à desinstalação.
+  deleteAppDataOnUninstall: false
+  include: build/installer.nsh
+  language: 1046
+portable:
+  artifactName: XinoIA-Portable-v${version}.${ext}
+# Prontos para quando houver testes nessas plataformas.
+mac:
+  target: [dmg]
+  icon: build/icon.png
+  category: public.app-category.developer-tools
+  artifactName: XinoIA-v${version}-${arch}.${ext}
+linux:
+  target: [AppImage]
+  icon: build/icon.png
+  category: Development
+  artifactName: XinoIA-v${version}-${arch}.${ext}

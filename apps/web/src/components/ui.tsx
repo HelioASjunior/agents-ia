@@ -189,12 +189,13 @@ export function StatusPill({ status }: { status: string }) {
   );
 }
 
-export function Meter({ value, tone = 'var(--accent)', label }: { value: number; tone?: string; label?: string }) {
+/** `usage`: quanto mais cheio, pior, como limites e memória. Progresso nunca fica vermelho. */
+export function Meter({ value, tone = 'var(--accent)', label, usage = false }: { value: number; tone?: string; label?: string; usage?: boolean }) {
   const percent = Math.max(0, Math.min(100, value * 100));
   return (
     <div role="meter" aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
       <div className="h-1.5 overflow-hidden rounded-full bg-hover">
-        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${percent}%`, background: percent > 85 ? 'var(--danger)' : tone }} />
+        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${percent}%`, background: usage && percent > 85 ? 'var(--danger)' : tone }} />
       </div>
     </div>
   );

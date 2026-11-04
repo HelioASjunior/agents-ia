@@ -30,7 +30,7 @@ Cada decisão foi testada nesta máquina (Windows 11, Node 24.13, Electron 45.2.
 | **`node-pty`** | Traz binários prontos para Windows. Testado dentro do Electron 45. | Terminal falso baseado só em pipes não serve para fluxos interativos, como o login. |
 | **Fastify + WebSocket** | API local validada e streaming bidirecional. | SSE não serve para a entrada do terminal interativo. |
 | **TypeScript sem etapa de build no desenvolvimento** | O Node 24 executa TS direto. O empacotamento usa esbuild. | `ts-node` e similares são uma dependência a mais. |
-| **React, Vite, Tailwind, xterm.js** (Fase 3) | Componentes e terminal real. | |
+| **React, Vite, Tailwind, xterm.js** | Componentes e terminal real. | |
 
 `node:sqlite` ainda é marcado como experimental pelo Node. O acesso fica concentrado em
 `apps/server/src/db/`, de modo que trocar o driver afete só essa pasta.
@@ -50,8 +50,8 @@ apps/
       routes/        Endpoints REST
       ws/            Transmissão de eventos em tempo real
     test/            Testes unitários, de integração e com CLIs reais
-  web/               Interface React (Fase 3)
-  desktop/           Casca Electron, instalador e atualizador (Fase 6)
+  web/               Interface React
+  desktop/           Casca Electron, instalador e atualizador
 packages/
   shared/            Tipos e validações usados por backend e interface
 docs/                Arquitetura, roteiro, provedores
@@ -99,10 +99,18 @@ Ao iniciar, execuções que estavam rodando quando o app fechou são marcadas co
 
 Cada perfil do sistema operacional tem seus próprios dados.
 
-## Distribuição e atualização (Fase 6)
+## Persistência
+
+Os serviços conhecem só as interfaces de `persistence/types.ts`, todas assíncronas. Só
+`persistence/sqlite` tem SQL, o que deixa um banco em rede possível no futuro. Toda escrita
+passa pelo backend: agentes nunca acessam o banco. Código, repositórios, worktrees e logs brutos
+ficam fora dele, com referências. O banco não guarda credenciais: o login fica com cada CLI, na
+pasta do perfil.
+
+## Distribuição e atualização
 
 - **Instalador:** `electron-builder` com NSIS gera `XinoIA-Setup-vX.X.X.exe`, além de uma
-  versão portátil.
+  versão portátil. O backend roda em um `utilityProcess`, e a página não tem acesso ao Node.
 - **Atualização:** `electron-updater` lê os metadados do GitHub Releases, com canais
   `latest` e `beta`. Nunca executa código de uma branch.
 - **Autenticidade:** o hash em `latest.yml` só prova integridade, porque está no mesmo lugar

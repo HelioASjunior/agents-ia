@@ -1,3 +1,5 @@
+import os from 'node:os';
+
 // Mascara segredos antes de qualquer coisa ser gravada ou enviada à interface. O
 // agente pode imprimir um .env ou um token no terminal sem ninguém pedir.
 const PATTERNS: Array<[RegExp, string]> = [
@@ -13,9 +15,14 @@ const PATTERNS: Array<[RegExp, string]> = [
   [/\b([\w-]*(?:password|passwd|senha|secret|api[_-]?key|access[_-]?token|auth[_-]?token)[\w-]*)(["']?\s*[:=]\s*["']?)[^\s"',;]{4,}/gi, '$1$2***'],
 ];
 
+const home = os.homedir();
+// Vale nas duas formas em que a pasta pessoal aparece: C:\Users\nome e C:/Users/nome.
+const homeVariants = home.length > 3 ? [home, home.replaceAll('\\', '\\\\'), home.replaceAll('\\', '/')] : [];
+
 export function redact(text: string): string {
   let result = text;
   for (const [pattern, replacement] of PATTERNS) result = result.replace(pattern, replacement);
+  for (const variant of homeVariants) result = result.replaceAll(variant, '~');
   return result;
 }
 

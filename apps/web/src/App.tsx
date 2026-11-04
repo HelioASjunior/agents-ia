@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ChevronDown, FolderGit2, Info, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Download, FolderGit2, Info, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from './api.ts';
 import { RightPanel } from './components/RightPanel.tsx';
@@ -95,6 +95,29 @@ function MissionStatus() {
       <StatusPill status={mission.status} />
       {list.length > 0 && <span className="whitespace-nowrap text-muted">{done} de {list.length}</span>}
       <span className="hidden min-w-0 truncate text-muted lg:inline">{mission.goal}</span>
+    </button>
+  );
+}
+
+/** Aviso discreto: não interrompe nada, e leva para Configurações. */
+function UpdateNotice() {
+  const setView = useStore((state) => state.setView);
+  const [state, setState] = useState<UpdateState | null>(null);
+  useEffect(() => {
+    const bridge = window.xinoia?.updates;
+    if (!bridge) return undefined;
+    void bridge.getState().then(setState);
+    return bridge.onChange(setState);
+  }, []);
+  if (!state || !['available', 'downloading', 'ready'].includes(state.status) || !state.available) return null;
+  const text = state.status === 'ready'
+    ? `Versão ${state.available.version} pronta para instalar`
+    : state.status === 'downloading'
+      ? `Baixando a versão ${state.available.version}`
+      : `Versão ${state.available.version} disponível`;
+  return (
+    <button type="button" onClick={() => setView('settings')} className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-accent-soft px-2 text-xs font-medium text-accent hover:brightness-110">
+      <Download size={12} /> {text}
     </button>
   );
 }
@@ -208,6 +231,7 @@ export function App() {
           <span className="h-4 w-px shrink-0 bg-line" />
           <MissionStatus />
           <span className="flex-1" />
+          <UpdateNotice />
           <IconButton label={layout.panel ? 'Recolher painel' : 'Mostrar painel'} onClick={() => updateLayout({ panel: !layout.panel })}>
             {layout.panel ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
           </IconButton>

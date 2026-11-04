@@ -1,0 +1,48 @@
+name: Problema
+description: Algo não funciona como deveria
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Não cole senhas, tokens ou dados pessoais.** Para falhas de segurança, use o relato privado descrito em SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Versão do XinoIA
+      description: Em Configurações > Atualizações
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Como você usa
+      options:
+        - Instalador
+        - Versão portátil
+        - Pelo código-fonte
+    validations:
+      required: true
+  - type: input
+    id: tools
+    attributes:
+      label: Ferramentas de IA e versões
+      placeholder: Claude Code 2.1, Codex CLI 0.166
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu, e o que você esperava
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Mensagens de erro
+      description: Do terminal do XinoIA ou de logs/server.log, na pasta de dados
+      render: text

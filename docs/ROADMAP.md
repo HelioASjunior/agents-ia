@@ -1,6 +1,15 @@
 # Roteiro do XinoIA
 
-Uma fase só avança depois de testada. Um item só é marcado quando existe comprovação.
+Uma fase só avança depois de testada. Um item só é marcado quando existe comprovação. Os relatórios de cada fase estão em [docs/reports](reports).
+
+| Fase | Situação |
+| --- | --- |
+| 1. Backend, banco e CLIs | Concluída |
+| 2. Orquestrador | Concluída |
+| 3. Chat, terminal e monitoramento | Concluída |
+| 4. Projetos, workflows e Git | Concluída |
+| 5. Escritório e identidade | Concluída |
+| 6. Segurança, instalador, atualização e publicação | Ver [relatório](reports/phase-6.md) |
 
 ## Fase 1: estrutura, backend, persistência e integração real com CLIs
 

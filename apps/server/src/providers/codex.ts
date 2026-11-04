@@ -58,8 +58,12 @@ function parseItem(phase: string, item: Record<string, any>, state: { hasText: b
             { type: 'tool_end', toolId: item.id, ok: true, output: '' },
           ]
         : [];
-    case 'error':
-      return completed ? [{ type: 'warning', text: String(item.message ?? '') }] : [];
+    case 'error': {
+      if (!completed) return [];
+      const text = String(item.message ?? '');
+      // Reclamação sobre a configuração pessoal da conta: não diz respeito à tarefa.
+      return [{ type: /ignoring \d+ unrecognized configuration/i.test(text) ? 'noise' : 'warning', text }];
+    }
     default:
       return [];
   }

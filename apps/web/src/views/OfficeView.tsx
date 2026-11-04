@@ -193,14 +193,16 @@ export function OfficeView() {
   const missionTasks = mission ? tasks[mission.id] ?? [] : [];
   useEffect(() => {
     const list = Object.values(runs);
+    const active = activeMission(missions);
+    const shown = active ? missionTasks : [];
     scene.current?.setStats({
       running: list.filter((run) => run.status === 'running').length,
       done: list.filter((run) => run.status === 'completed').length,
       failed: list.filter((run) => run.status === 'failed').length,
-      missionTitle: mission && activeMission(missions) ? mission.goal : null,
-      missionStatus: mission?.status ?? null,
-      tasksDone: missionTasks.filter((task) => task.status === 'done' || task.status === 'skipped').length,
-      tasksTotal: missionTasks.length,
+      missionTitle: active?.goal ?? null,
+      missionStatus: active?.status ?? null,
+      tasksDone: shown.filter((task) => task.status === 'done' || task.status === 'skipped').length,
+      tasksTotal: shown.length,
     });
   }, [mission, missionTasks, missions, runs, mode]);
 

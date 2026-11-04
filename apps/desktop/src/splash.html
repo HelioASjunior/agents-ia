@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'" />
+    <title>XinoIA</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: radial-gradient(circle at 50% 40%, #16302f, #0b0f14 70%);
+        color: #e9edf2;
+        font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+        user-select: none;
+        -webkit-app-region: drag;
+      }
+      img { width: 96px; height: 96px; animation: pulse 1.6s ease-in-out infinite; }
+      h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.5px; }
+      h1 span { color: #2dd4bf; }
+      p { margin: 0; color: #7f8b9a; font-size: 13px; }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+      @media (prefers-reduced-motion: reduce) { img { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <img src="logo.svg" alt="" />
+    <h1>Xino<span>IA</span></h1>
+    <p>Preparando o escritório…</p>
+  </body>
+</html>

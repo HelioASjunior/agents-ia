@@ -127,11 +127,11 @@ export function DashboardView() {
               <h2 className="label">Este computador</h2>
               <div>
                 <div className="mb-1 flex justify-between text-xs"><span className="text-muted">Processador ({metrics.system.cpuCount} núcleos)</span><span>{metrics.system.cpuUsage === null ? '—' : `${Math.round(metrics.system.cpuUsage * 100)}%`}</span></div>
-                <Meter value={metrics.system.cpuUsage ?? 0} label="Uso do processador" />
+                <Meter usage value={metrics.system.cpuUsage ?? 0} label="Uso do processador" />
               </div>
               <div>
                 <div className="mb-1 flex justify-between text-xs"><span className="text-muted">Memória</span><span>{formatBytes(metrics.system.memoryTotal - metrics.system.memoryFree)} de {formatBytes(metrics.system.memoryTotal)}</span></div>
-                <Meter value={memoryUsed} label="Uso de memória" />
+                <Meter usage value={memoryUsed} label="Uso de memória" />
               </div>
               <p className="text-xs text-muted">XinoIA usando {formatBytes(metrics.system.processMemory)} · no ar há {formatDuration(metrics.system.uptimeSeconds * 1000)}</p>
             </section>

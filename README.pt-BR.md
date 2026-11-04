@@ -9,122 +9,143 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/HelioASjunior/agents-ia/releases"><img src="https://img.shields.io/badge/Baixar%20para%20Windows-.exe-2DD4BF?style=for-the-badge&logo=windows11&logoColor=white" alt="Baixar para Windows"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/HelioASjunior/agents-ia/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HelioASjunior/agents-ia/ci.yml?branch=main&style=flat-square&label=ci" alt="Situação do CI"></a>
-  <img src="https://img.shields.io/badge/status-em%20desenvolvimento-F5B544?style=flat-square" alt="Situação: em desenvolvimento">
+  <a href="https://github.com/HelioASjunior/agents-ia/releases"><img src="https://img.shields.io/github/v/release/HelioASjunior/agents-ia?include_prereleases&style=flat-square&label=vers%C3%A3o&color=F5B544" alt="Versão mais recente"></a>
   <img src="https://img.shields.io/badge/plataforma-Windows%2010%2F11-2DD4BF?style=flat-square" alt="Plataforma: Windows 10 e 11">
-  <img src="https://img.shields.io/badge/node-%3E%3D24-3C873A?style=flat-square" alt="Node 24 ou mais recente">
   <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-Apache--2.0-blue?style=flat-square" alt="Licença: Apache-2.0"></a>
 </p>
 
-O XinoIA coloca Claude Code, Codex CLI e outros agentes de programação para trabalhar como uma equipe no seu computador. Você passa um objetivo, e cada agente assume uma tarefa e entrega o resultado para o próximo, no mesmo projeto. Você acompanha tudo em um terminal ao vivo, conversa com qualquer agente pelo chat e vê o trabalho acontecer em um escritório virtual, onde cada animação vem de um evento real.
+O XinoIA coloca Claude Code, Codex CLI e outros agentes de programação para trabalhar como uma equipe no seu computador. Você passa um objetivo. Um coordenador planeja, cada agente assume uma tarefa e entrega o resultado para o próximo, e outro agente revisa. Você acompanha tudo em um terminal ao vivo, conversa com qualquer agente pelo chat e vê o trabalho acontecer em um escritório virtual, onde cada animação vem de um evento real.
 
-**Suas contas, sua máquina.** O XinoIA usa o CLI oficial de cada fornecedor, com o login de assinatura que você fez nele, então não precisa de chaves de API. Ele nunca vê suas credenciais. Projetos, conversas e histórico ficam em um banco de dados local, e não existe servidor nem cadastro do XinoIA.
+**Suas contas, sua máquina.** O XinoIA usa o CLI oficial de cada fornecedor, com o login de assinatura que você fez nele, então não precisa de chaves de API. Ele nunca vê suas senhas ou tokens. Projetos, conversas e histórico ficam em um banco de dados local, e não existe servidor, cadastro nem telemetria do XinoIA. Ele só consulta o GitHub para saber de atualizações, e seus pedidos vão para as ferramentas de IA que você escolher.
 
-[Baixar](https://github.com/HelioASjunior/agents-ia/releases/latest) · [Suporte a provedores](docs/PROVIDERS.md) · [Arquitetura](docs/ARCHITECTURE.md) · [Roteiro](docs/ROADMAP.md) · [Novidades](CHANGELOG.md)
+[Baixar](https://github.com/HelioASjunior/agents-ia/releases) · [Guia de uso](docs/USER_GUIDE.md) · [Suporte a provedores](docs/PROVIDERS.md) · [Arquitetura](docs/ARCHITECTURE.md) · [Segurança](SECURITY.md) · [Novidades](CHANGELOG.md)
 
-> [!IMPORTANT]
-> **O XinoIA está em desenvolvimento ativo e ainda não tem instalador.** O backend e as integrações reais com os CLIs já funcionam e têm testes, mas o aplicativo desktop e a interface ainda estão sendo construídos. A tabela em [Situação do projeto](#situação-do-projeto) mostra exatamente o que existe.
+<p align="center">
+  <img src="docs/assets/screens/escritorio.png" alt="O escritório virtual durante uma missão real, com o terminal ao vivo ao lado.">
+</p>
 
 ## Instalação
 
-### Instalador para Windows (em breve)
+### Windows 10 e 11
 
-Quando a primeira versão for publicada, você vai instalar o XinoIA como qualquer outro programa:
+1. Abra [Releases](https://github.com/HelioASjunior/agents-ia/releases) e baixe o `XinoIA-Setup-vX.X.X.exe`.
+2. Execute o instalador.
+3. Abra o **XinoIA** pelo menu Iniciar. Um assistente rápido cuida do resto.
 
-1. Abra [Releases](https://github.com/HelioASjunior/agents-ia/releases/latest).
-2. Baixe o `XinoIA-Setup-vX.X.X.exe`.
-3. Execute o instalador e abra o **XinoIA** pelo menu Iniciar.
+Você não precisa de Node.js nem de ferramentas de desenvolvimento para rodar o XinoIA. As atualizações chegam dentro do programa, e seus dados são preservados.
 
-Você não vai precisar de Node.js nem de ferramentas de desenvolvimento. O XinoIA vai detectar suas ferramentas de IA e orientar a instalação e o login delas.
+> [!NOTE]
+> O instalador ainda não tem certificado de assinatura de código da Microsoft, então o Windows pode mostrar o aviso do SmartScreen. Clique em **Mais informações** e em **Executar assim mesmo**. [Por que isso acontece](SECURITY.md#instalador-e-smartscreen).
 
-### Pelo código-fonte (já disponível)
+Prefere não instalar? Baixe o `XinoIA-Portable-vX.X.X.exe`, que guarda os dados em uma pasta ao lado dele.
 
-Isto executa o backend e é voltado a desenvolvedores. Você precisa do [Node.js 24+](https://nodejs.org) e do [Git](https://git-scm.com).
+### Suas ferramentas de IA
+
+O XinoIA não as inclui: instale as que quiser e entre com a sua própria conta. Estes comandos usam o [Node.js](https://nodejs.org).
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+```bash
+npm install -g @openai/codex
+```
+
+O assistente detecta o que você tem e abre o login oficial de cada ferramenta.
+
+## O que ele faz
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/screens/plano.png" alt="Um plano real aguardando aprovação"></td>
+    <td width="50%"><img src="docs/assets/screens/tarefas.png" alt="Quadro de tarefas durante uma missão"></td>
+  </tr>
+  <tr>
+    <td><b>O coordenador planeja, você aprova.</b> Ele examina o projeto antes. Dá para editar o plano ou pedir outro.</td>
+    <td><b>O trabalho passa de um agente para o outro sozinho.</b> Cada tarefa recebe o que os colegas entregaram, e uma reprovação volta para correção.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/screens/chat.png" alt="Chat com um agente"></td>
+    <td><img src="docs/assets/screens/workflows.png" alt="Editor visual de workflows"></td>
+  </tr>
+  <tr>
+    <td><b>Fale com quem quiser.</b> Use <code>@nome</code>, ou comece com "Equipe, ..." para ouvir todos. As conversas continuam de onde pararam.</td>
+    <td><b>Desenhe o seu processo.</b> Etapas e condições, ou comece de um modelo pronto.</td>
+  </tr>
+</table>
+
+- **Terminal ao vivo:** a saída real de cada ferramenta, da equipe toda ou de um agente, com busca, e preservada entre reinícios. Há também um terminal interativo de verdade.
+- **Trabalho paralelo isolado:** em um projeto Git, tarefas em paralelo rodam em worktrees separados. Sua pasta só muda depois que você revisa e aprova. Um conflito vira uma tarefa, e ninguém tem o trabalho sobrescrito.
+- **Modos de execução:** supervisionado, semiautônomo e autônomo controlado, com limites de permissão, regras de negação e interrupção de comandos destrutivos.
+- **Números honestos:** uso e limites só aparecem quando a ferramenta informa. Nada é inventado.
+- **Unreal Engine:** use as skills oficiais da Epic Games e as ferramentas do Unreal Editor por MCP.
+
+## Como as partes se encaixam
+
+- **Provedores** são adaptadores em volta de cada CLI oficial, sem modificações. Adicionar uma ferramenta não afeta o resto.
+- **Perfis** mantêm cada conta em uma pasta própria, usando o isolamento que o próprio CLI oferece.
+- **Agentes** combinam um papel, uma ferramenta, um perfil, um nível de permissão e integrações.
+- **Missões** transformam um objetivo em tarefas, com dependências, revisões e um relatório final.
+- **O escritório** mostra esses eventos. Agente disponível fica à mesa: a caminhada só acontece em uma passagem de trabalho real.
+- **SQLite** guarda tudo localmente, em modo WAL, com migrações versionadas e cópias de segurança automáticas. Você não instala um servidor de banco de dados.
+
+## Ferramentas suportadas
+
+| Ferramenta | Assinatura, sem chave de API | Vários perfis | MCP | Situação |
+| --- | --- | --- | --- | --- |
+| Claude Code | Sim | Sim | Sim, com plugins | Testado com conta real |
+| Codex CLI | Sim | Sim | Só HTTP | Testado com conta real |
+| Gemini CLI | Login Google | Sim | Configurar no perfil | Escrito pela documentação, **ainda não testado** |
+| Agentes locais personalizados | Depende da ferramenta | Depende da ferramenta | Não | Testado com CLI local de teste |
+
+Assinatura não é acesso ilimitado: os limites do seu plano continuam valendo. O XinoIA nunca troca de conta sozinho para contornar um limite. Use apenas contas suas e respeite os termos de cada fornecedor. Veja [o suporte a provedores](docs/PROVIDERS.md) para detalhes e um resumo dos termos.
+
+## Unreal Engine
+
+Ative a integração Unreal Engine em qualquer agente para usar as skills oficiais da Epic Games e as ferramentas do Unreal Editor. O Claude Code carrega o plugin mesmo em um perfil separado, e o Codex CLI recebe o servidor MCP e os caminhos das skills. Agentes no mesmo editor trabalham um de cada vez. [Configuração](docs/USER_GUIDE.md#unreal-engine).
+
+O carregamento do plugin e a configuração têm testes. As chamadas de ferramenta com o editor aberto ainda não foram testadas.
+
+## Segurança
+
+- O servidor local escuta só em `127.0.0.1` e exige um token gerado a cada inicialização, com verificação de `Host` e `Origin`.
+- Os pedidos passam por stdin e nunca viram argumentos de linha de comando.
+- Segredos e sua pasta pessoal são mascarados antes de qualquer coisa ser salva ou exibida.
+- Atualizações só são instaladas depois de conferir uma assinatura Ed25519, com a chave pública embutida no programa. Checksum sozinho não prova de onde um arquivo veio.
+- Agentes são poderosos: no nível mais alto de permissão, um deles pode fazer o que a sua conta de usuário pode. Use Git e comece com permissões baixas. [Contra o que o XinoIA não protege](SECURITY.md#o-que-o-xinoia-não-faz).
+
+## Documentação
+
+| Objetivo | Comece por |
+| --- | --- |
+| Instalar e usar, perguntas frequentes e problemas comuns | [Guia de uso](docs/USER_GUIDE.md) |
+| O que funciona por assinatura, e termos dos fornecedores | [Suporte a provedores](docs/PROVIDERS.md) |
+| Entender o desenho | [Arquitetura](docs/ARCHITECTURE.md) · [Roteiro](docs/ROADMAP.md) |
+| Publicar uma versão | [Publicação](docs/RELEASING.md) |
+| Relatar uma vulnerabilidade | [Segurança](SECURITY.md) |
+
+## Desenvolvimento
+
+Você precisa do [Node.js 24+](https://nodejs.org) e do [Git](https://git-scm.com).
 
 ```bash
 git clone https://github.com/HelioASjunior/agents-ia.git
 cd agents-ia
 npm install
-npm run doctor
-```
-
-O `npm run doctor` mostra quais ferramentas de IA o XinoIA encontrou no seu computador. Para iniciar o servidor local:
-
-```bash
-npm run dev:server
-```
-
-## Configure suas ferramentas de IA
-
-Instale as ferramentas que quiser e entre com a sua própria conta. O XinoIA não as inclui.
-
-```bash
-npm install -g @anthropic-ai/claude-code
-claude auth login
+npm run start:desktop
 ```
 
 ```bash
-npm install -g @openai/codex
-codex login
-```
-
-## Como as partes se encaixam
-
-- **Provedores** são adaptadores em volta de cada CLI oficial. Nada mais no XinoIA conhece as opções de um fornecedor, então adicionar uma ferramenta não afeta o resto.
-- **Perfis** mantêm cada conta em uma pasta própria, usando o isolamento que o próprio CLI oferece.
-- **Agentes** combinam um papel, uma ferramenta, um perfil, um nível de permissão e integrações opcionais.
-- **Execuções** rodam um processo de verdade. A saída dele vira eventos, salvos localmente e transmitidos ao vivo.
-- **O banco de dados** é SQLite em modo WAL, com migrações versionadas e cópias de segurança automáticas. Não é preciso um servidor de banco de dados.
-
-## Ferramentas suportadas
-
-| Ferramenta | Assinatura, sem chave de API | Vários perfis | Situação |
-| --- | --- | --- | --- |
-| Claude Code | Sim | Sim | Testado com conta real |
-| Codex CLI | Sim | Sim | Testado com conta real |
-| Gemini CLI | Login Google | Sim | Escrito pela documentação, **ainda não testado** |
-| Agentes locais personalizados | Depende da ferramenta | Depende da ferramenta | Testado com CLI local de teste |
-
-Assinatura não é acesso ilimitado por API: os limites do seu plano continuam valendo. O XinoIA mostra o uso apenas quando o CLI informa, e nunca troca de conta sozinho para contornar um limite. Veja [Suporte a provedores](docs/PROVIDERS.md) para mais detalhes e um resumo dos termos dos fornecedores.
-
-## Unreal Engine
-
-Ative a integração Unreal Engine em qualquer agente para usar as skills oficiais da Epic Games e as ferramentas do Unreal Editor por MCP. O Claude Code carrega o plugin mesmo em um perfil isolado, e o Codex CLI recebe o servidor MCP e os caminhos das skills.
-
-Agentes no mesmo editor trabalham um de cada vez, porque a própria skill alerta sobre conflitos. O carregamento do plugin e a configuração têm testes. As chamadas de ferramenta com o editor aberto ainda não foram testadas. Veja [configuração e limites](docs/PROVIDERS.md#unreal-engine-epic-games).
-
-## Segurança
-
-- O servidor escuta apenas em `127.0.0.1` e exige um token gerado a cada inicialização.
-- As verificações de `Host` e `Origin` bloqueiam pedidos vindos de páginas web e DNS rebinding.
-- Os prompts passam por stdin e nunca viram argumentos de linha de comando.
-- Segredos impressos por um agente são mascarados antes de serem salvos ou exibidos.
-- Chaves de API são removidas do ambiente dos CLIs conhecidos, para evitar cobrança por API sem querer.
-
-Agentes podem ler e alterar arquivos na pasta do projeto e, nos níveis mais altos de permissão, executar comandos. Escolha o nível de cada agente com cuidado e use Git.
-
-## Situação do projeto
-
-| Fase | Escopo | Situação |
-| --- | --- | --- |
-| 1 | Backend, banco de dados, integração real com CLIs | **Concluída e testada** |
-| 2 | Orquestrador, tarefas, revisão entre agentes | **Concluída e testada** |
-| 3 | Chat, terminal, monitoramento | **Concluída e testada** |
-| 4 | Projetos, workflows, Git worktrees | **Concluída e testada** |
-| 5 | Escritório virtual e identidade visual | **Concluída e testada** |
-| 6 | Instalador, atualizações automáticas, releases | Planejada |
-
-## Desenvolvimento
-
-```bash
-npm install
 npm run typecheck
 npm test
 ```
 
-O `npm run test:real` roda com os CLIs reais e as contas logadas, e gasta um pouco da cota do seu plano. Por isso fica fora do CI.
-
-As regras do repositório estão em [CLAUDE.md](CLAUDE.md).
+O `npm run test:real` usa seus CLIs reais e contas logadas, e gasta um pouco da cota do seu plano. Por isso fica fora do CI. Para gerar o instalador, veja [Publicação](docs/RELEASING.md). Para contribuir, veja o [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licença
 

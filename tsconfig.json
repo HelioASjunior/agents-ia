@@ -3,8 +3,12 @@
     "target": "ES2023",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2023"],
-    "types": ["node"],
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
@@ -15,7 +19,14 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": false
   },
-  "include": ["apps/server/src", "apps/server/test", "packages/shared/src"]
+  "include": [
+    "apps/server/src",
+    "apps/server/test",
+    "packages/shared/src",
+    "apps/desktop/src",
+    "scripts/dev-server.ts"
+  ]
 }

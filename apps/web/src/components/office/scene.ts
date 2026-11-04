@@ -573,7 +573,7 @@ export class OfficeScene {
     });
 
     // Plantas
-    for (const [x, y] of [[1, 4], [12, 1], [20, 4], [9, 12], [14, 12], [20, 12]] as Array<[number, number]>) {
+    for (const [x, y] of [[6, 4], [12, 1], [20, 4], [9, 12], [14, 12], [20, 12]] as Array<[number, number]>) {
       this.block(x, y);
       this.add(x + 0.5, y + 0.5, () => {
         this.box(x + 0.28, y + 0.28, 0, 0.44, 0.44, 0.4, this.palette.pot);

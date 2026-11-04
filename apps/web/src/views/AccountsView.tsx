@@ -165,7 +165,7 @@ function ProfileRow({ profile }: { profile: Profile }) {
                 <span>{WINDOW_NAMES[name] ?? name}</span>
                 <span>{window.utilization === null ? '—' : `${Math.round(window.utilization * 100)}%`}</span>
               </div>
-              <Meter value={window.utilization ?? 0} label={WINDOW_NAMES[name] ?? name} />
+              <Meter usage value={window.utilization ?? 0} label={WINDOW_NAMES[name] ?? name} />
               {window.resetsAt && <p className="mt-0.5 text-[11px] text-muted">Renova {formatDateTime(window.resetsAt * 1000)}</p>}
             </div>
           ))}

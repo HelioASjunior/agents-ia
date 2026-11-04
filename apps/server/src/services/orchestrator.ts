@@ -986,6 +986,12 @@ export class Orchestrator {
     return unfinished.length;
   }
 
+  /** A missão mais recente do projeto, ativa ou não, com o que cada um entregou. */
+  async describeLatest(projectId: string): Promise<{ mission: Mission; tasks: Task[] } | null> {
+    const [mission] = await this.db.missions.list({ projectId, limit: 1 });
+    return mission ? { mission, tasks: await this.db.tasks.listForMission(mission.id) } : null;
+  }
+
   /** Contexto para quem conversa com a equipe durante a missão. */
   async describeActive(projectId: string): Promise<{ mission: Mission; tasks: Task[] } | null> {
     const missions = await this.db.missions.list({ projectId, limit: 5 });

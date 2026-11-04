@@ -94,6 +94,20 @@ test('Chat: /missão inicia uma missão real, e mensagens orientam a que está a
   await h.cleanup();
 });
 
+test('Chat da equipe: quem é chamado sabe o que fez na última missão', async () => {
+  const h = await createHarness();
+  const { projectId, anaId } = await agents(h);
+  const mission = await h.ctx.orchestrator.start({ projectId, goal: 'Algo', coordinatorId: anaId, settings: { autoApprove: true } });
+  await h.ctx.orchestrator.waitForIdle(mission.id);
+  await h.ctx.chat.send({ projectId, channel: 'team', text: '@Bia o que você olhou?' });
+  await h.ctx.chat.idle();
+  const prompt = fs.readFileSync(path.join(h.projectDir, 'prompt-recebido.txt'), 'utf8');
+  assert.match(prompt, /Missão mais recente da equipe \(completed\)/);
+  assert.match(prompt, /Revisar \(Bia\): done, APROVADO/);
+  assert.match(prompt, /Sem pendências/);
+  await h.cleanup();
+});
+
 test('Chat: interromper a resposta encerra o processo e marca a mensagem', async () => {
   const h = await createHarness();
   const { projectId, anaId } = await agents(h);
