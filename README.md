@@ -31,9 +31,6 @@ XinoIA runs Claude Code, Codex CLI and other AI coding agents as one team on you
 
 ## Install
 
-> [!IMPORTANT]
-> **The first version hasn't been published yet.** Until then, [run it from source](#development) or [build the installer yourself](docs/RELEASING.md#gerar-localmente). The steps below apply as soon as it's available.
-
 ### Windows 10 and 11
 
 1. Open [Releases](https://github.com/HelioASjunior/agents-ia/releases) and download `XinoIA-Setup-vX.X.X.exe`.

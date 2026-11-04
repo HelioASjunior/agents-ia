@@ -13,7 +13,7 @@
 
 | Teste | Onde | Resultado |
 | --- | --- | --- |
-| `npm run typecheck` e `npm test` (138 testes) | Local e CI | Passaram |
+| `npm run typecheck` e `npm test` (139 testes) | Local e CI | Passaram |
 | `npm run test:dist` | Local e **Windows limpo do GitHub** | Passou |
 | Atualização real com servidor local (`scripts/test-update-local.mjs`) | Local | Passou |
 | `npm run test:real` (15 testes) | Local, com contas reais | Passou |
@@ -44,22 +44,21 @@ Pedidos feitos ao avaliar a entrega:
 
 **Não testado:** concluir um login novo de ponta a ponta pela janela, porque exige uma pessoa no navegador; execução paga com uma chave válida; instalação em um clique em uma máquina sem o CLI.
 
+## Primeira publicação
+
+A versão 0.1.0 saiu pelo workflow `Release`, de ponta a ponta. Depois, os arquivos foram baixados do GitHub e conferidos: checksums e assinaturas válidos com a chave pública do app, e a assinatura recusada em um arquivo errado. O teste de instalação (`test:dist`) rodou nos próprios arquivos baixados.
+
+O histórico foi reescrito antes de publicar, para os commits usarem o endereço privado do GitHub em vez de um e-mail pessoal.
+
 ## O que depende do dono do repositório
 
-1. **Enviar a chave de assinatura ao GitHub.** O ambiente bloqueou esta gravação, com razão No PowerShell ou no Prompt de Comando, rode:
-
-   ```bash
-   cmd /c "gh secret set XINOIA_SIGNING_KEY --repo HelioASjunior/agents-ia < %USERPROFILE%\.xinoia-release\update-signing-key.pem"
-   ```
-
-2. **Publicar a primeira versão.** Publicar uma Release pública também foi bloqueado para decisão humana. Depois do passo 1, siga [Como publicar](../RELEASING.md).
-3. **Guardar a chave privada** em `%USERPROFILE%\.xinoia-release\` em um lugar seguro. Sem ela, os apps instalados não aceitam versões novas.
-4. **Ler os Termos Comerciais da Anthropic.** A página de conformidade diz que executar o Claude Code em um produto exige aceitá-los, e há um [ponto em aberto sobre o login](../PROVIDERS.md#termos-dos-fornecedores) que vale perguntar à Anthropic antes de divulgar amplamente. Essa é uma decisão de quem publica.
-5. **Certificado de assinatura de código** (opcional, pago). Sem ele, o Windows mostra o aviso do SmartScreen.
+1. **Guardar a chave privada** em `%USERPROFILE%\.xinoia-release\` em um lugar seguro. Sem ela, os apps instalados não aceitam versões novas.
+2. **Ler os Termos Comerciais da Anthropic.** A página de conformidade diz que executar o Claude Code em um produto exige aceitá-los, e há um [ponto em aberto sobre o login](../PROVIDERS.md#termos-dos-fornecedores) que vale perguntar à Anthropic antes de divulgar amplamente. Essa é uma decisão de quem publica.
+3. **Certificado de assinatura de código** (opcional, pago). Sem ele, o Windows mostra o aviso do SmartScreen.
 
 ## Limitações e testes pendentes
 
-- O workflow `Release` nunca rodou de ponta a ponta, porque depende dos itens 1 e 2. Os passos dele foram exercitados à parte: testes, empacotamento e teste de instalação no CI, e assinatura e atualização localmente, contra um servidor local em vez do GitHub. O primeiro download real do GitHub ainda precisa ser conferido.
+- Uma atualização real pelo GitHub ainda não aconteceu, porque só existe uma versão publicada. O caminho completo foi testado contra um servidor local, e o teste pelo GitHub vem com a próxima versão.
 - Exigem pessoa e conta real: login de uma segunda conta, ferramentas MCP com o Unreal Editor aberto, Gemini CLI e o aviso do SmartScreen ao baixar pelo navegador.
 - O teste de instalação no CI roda em uma máquina limpa, mas o Windows de lá tem Node.js. Falta uma execução em um Windows sem ele.
 - macOS e Linux estão configurados, mas sem testes nem publicação.

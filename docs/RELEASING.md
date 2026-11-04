@@ -8,8 +8,6 @@
    cmd /c "gh secret set XINOIA_SIGNING_KEY --repo HelioASjunior/agents-ia < %USERPROFILE%\.xinoia-release\update-signing-key.pem"
    ```
 
-2. Remova dos dois READMEs o aviso de que a primeira versão ainda não foi publicada.
-
 ## Publicar
 
 ```bash

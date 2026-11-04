@@ -34,7 +34,8 @@ for (const name of installers) {
 const lines = [];
 for (const name of fs.readdirSync(releaseDir).sort()) {
   const file = path.join(releaseDir, name);
-  if (!fs.statSync(file).isFile() || name === 'SHA256SUMS.txt' || !/\.(exe|sig|yml|blockmap)$/.test(name)) continue;
+  // builder-*.yml é um arquivo interno do empacotador, que não é publicado.
+  if (!fs.statSync(file).isFile() || name === 'SHA256SUMS.txt' || name.startsWith('builder-') || !/\.(exe|sig|yml|blockmap)$/.test(name)) continue;
   lines.push(`${(await digest(file, 'sha256')).toString('hex')}  ${name}`);
 }
 fs.writeFileSync(path.join(releaseDir, 'SHA256SUMS.txt'), `${lines.join('\n')}\n`);

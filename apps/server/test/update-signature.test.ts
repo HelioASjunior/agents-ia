@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -57,4 +58,18 @@ test('A chave pública embutida é válida, e nenhuma chave privada está no rep
     }
   };
   visit(root);
+});
+
+test('Publicação: os checksums só listam o que é publicado', () => {
+  const dir = tempDir();
+  fs.writeFileSync(path.join(dir, 'XinoIA-Setup-v1.0.0.exe'), 'instalador');
+  fs.writeFileSync(path.join(dir, 'latest.yml'), 'version: 1.0.0');
+  fs.writeFileSync(path.join(dir, 'builder-debug.yml'), 'interno');
+  fs.writeFileSync(path.join(dir, 'builder-effective-config.yaml'), 'interno');
+  const script = fileURLToPath(new URL('../../../scripts/release-sign.mjs', import.meta.url));
+  execFileSync(process.execPath, [script, dir], { env: { ...process.env, XINOIA_SIGNING_KEY: pair().privateKey }, stdio: 'pipe' });
+
+  const listed = fs.readFileSync(path.join(dir, 'SHA256SUMS.txt'), 'utf8').trim().split('\n').map((line) => line.split('  ')[1]);
+  assert.deepEqual(listed, ['XinoIA-Setup-v1.0.0.exe', 'XinoIA-Setup-v1.0.0.exe.sig', 'latest.yml']);
+  removeDir(dir);
 });

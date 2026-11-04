@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+### Corrigido
+
+- `SHA256SUMS.txt` não lista mais um arquivo interno do empacotador, que não é publicado. O arquivo da versão 0.1.0 foi corrigido no próprio GitHub, e os outros arquivos dela não mudaram.
+
 ## [0.1.0] - 2026-11-04
 
 Primeira versão de testes do XinoIA.
