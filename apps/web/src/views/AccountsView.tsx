@@ -1,66 +1,14 @@
-import { AlertTriangle, CheckCircle2, CircleSlash, Copy, ExternalLink, Gamepad2, KeyRound, LogIn, LogOut, Plug, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleSlash, Copy, Download, ExternalLink, Gamepad2, Globe, KeyRound, LogOut, Plug, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { CustomProvider, DiscoveredToolkit, Profile, ProviderInfo, TerminalInfo, Toolkit } from '@xinoia/shared';
+import type { CustomProvider, DiscoveredToolkit, Profile, ProviderInfo, Toolkit } from '@xinoia/shared';
 import { api } from '../api.ts';
-import { PtyTerminal } from '../components/PtyTerminal.tsx';
+import { ApiKeyDialog, BrowserLogin, InstallDialog } from '../components/ConnectAccount.tsx';
 import { Button, Dialog, Field, formatDateTime, formatNumber, IconButton, Meter, PageHeader } from '../components/ui.tsx';
 import { useStore } from '../store.ts';
 
 const WINDOW_NAMES: Record<string, string> = { five_hour: 'Janela de 5 horas', seven_day: 'Janela de 7 dias' };
 
-function LoginDialog({ profile, onClose }: { profile: Profile; onClose: () => void }) {
-  const run = useStore((state) => state.run);
-  const [terminal, setTerminal] = useState<TerminalInfo | null>(null);
-  const [external, setExternal] = useState<{ opened: boolean; command: string } | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    void run(() => api.post<TerminalInfo>('/api/terminals', { kind: 'login', profileId: profile.id })).then((created) => {
-      if (live && created) setTerminal(created);
-      else if (created) void api.delete(`/api/terminals/${created.id}`).catch(() => undefined);
-    });
-    return () => {
-      live = false;
-    };
-  }, [profile.id, run]);
-
-  const finish = async () => {
-    if (terminal) await api.delete(`/api/terminals/${terminal.id}`).catch(() => undefined);
-    await run(() => api.post(`/api/profiles/${profile.id}/check`));
-    onClose();
-  };
-
-  return (
-    <Dialog
-      title={`Login: ${profile.label}`}
-      onClose={() => void finish()}
-      width={760}
-      footer={(
-        <>
-          <Button
-            kind="ghost"
-            onClick={async () => {
-              const result = await run(() => api.post<{ opened: boolean; command: string }>(`/api/profiles/${profile.id}/login`));
-              if (result) setExternal(result);
-            }}
-          >
-            <ExternalLink size={13} /> Abrir em janela separada
-          </Button>
-          <Button kind="primary" onClick={() => void finish()}>Terminei</Button>
-        </>
-      )}
-    >
-      <p className="mb-2 text-[13px] text-soft">
-        Este é o login oficial da própria ferramenta. O navegador pode abrir para você entrar. Sua senha e seus tokens nunca passam pelo XinoIA.
-      </p>
-      <p className="mb-3 text-xs text-muted">Se o navegador já estiver em outra conta, troque de conta nele antes de confirmar.</p>
-      {external && !external.opened && <p className="mb-2 rounded bg-hover px-2 py-1 font-mono text-xs">{external.command}</p>}
-      <div className="h-72 overflow-hidden rounded-lg border border-line bg-bg">
-        {terminal ? <PtyTerminal terminalId={terminal.id} /> : <p className="p-3 text-xs text-muted">Abrindo…</p>}
-      </div>
-    </Dialog>
-  );
-}
+type NewAccount = 'browser' | 'computer' | 'key';
 
 function AddProfile({ provider, onClose }: { provider: ProviderInfo; onClose: () => void }) {
   const run = useStore((state) => state.run);
@@ -68,7 +16,17 @@ function AddProfile({ provider, onClose }: { provider: ProviderInfo; onClose: ()
   const profiles = useStore((state) => state.profiles);
   const hasDefault = profiles.some((profile) => profile.provider === provider.id && !profile.homeDir);
   const [label, setLabel] = useState('');
-  const [useDefault, setUseDefault] = useState(!hasDefault);
+  const [kind, setKind] = useState<NewAccount>(hasDefault ? 'browser' : 'computer');
+  const [apiKey, setApiKey] = useState('');
+  const [loginProfile, setLoginProfile] = useState<Profile | null>(null);
+
+  if (loginProfile) return <BrowserLogin profile={loginProfile} providerLabel={provider.label} onClose={onClose} />;
+
+  const options: Array<{ id: NewAccount; title: string; text: string; disabled: boolean }> = [
+    { id: 'computer', title: 'Usar o login já feito neste computador', text: hasDefault ? 'Já cadastrado.' : 'O mesmo usado quando você roda a ferramenta no terminal.', disabled: hasDefault },
+    { id: 'browser', title: 'Entrar em outra conta pelo navegador', text: 'Conta por assinatura, em um perfil só dela.', disabled: !provider.isolatesProfiles },
+    { id: 'key', title: 'Usar uma chave de API', text: 'Cobrança por uso, à parte da assinatura.', disabled: !provider.supportsApiKey },
+  ];
 
   return (
     <Dialog
@@ -79,17 +37,23 @@ function AddProfile({ provider, onClose }: { provider: ProviderInfo; onClose: ()
           <Button kind="ghost" onClick={onClose}>Cancelar</Button>
           <Button
             kind="primary"
-            disabled={!label.trim()}
+            disabled={!label.trim() || (kind === 'key' && apiKey.trim().length < 8)}
             onClick={async () => {
-              const created = await run(() => api.post<Profile>('/api/profiles', { provider: provider.id, label, useSystemDefault: useDefault }));
-              if (created) {
-                await run(() => api.post(`/api/profiles/${created.id}/check`));
-                await loadCatalog();
-                onClose();
-              }
+              const created = await run(() => api.post<Profile>('/api/profiles', {
+                provider: provider.id,
+                label,
+                useSystemDefault: kind === 'computer',
+                ...(kind === 'key' ? { apiKey } : {}),
+              }));
+              setApiKey('');
+              if (!created) return;
+              await run(() => api.post(`/api/profiles/${created.id}/check`));
+              await loadCatalog();
+              if (kind === 'browser' && provider.canLogin) setLoginProfile(created);
+              else onClose();
             }}
           >
-            Adicionar
+            {kind === 'browser' ? 'Continuar no navegador' : 'Adicionar'}
           </Button>
         </>
       )}
@@ -99,17 +63,20 @@ function AddProfile({ provider, onClose }: { provider: ProviderInfo; onClose: ()
           <input autoFocus className="field" value={label} onChange={(event) => setLabel(event.target.value)} />
         </Field>
         <fieldset className="space-y-1.5 text-[13px]">
-          <label className={`block rounded-lg border p-2.5 ${useDefault ? 'border-accent bg-accent-soft' : 'border-line-strong'} ${hasDefault ? 'opacity-50' : 'cursor-pointer'}`}>
-            <input type="radio" className="sr-only" name="kind" disabled={hasDefault} checked={useDefault} onChange={() => setUseDefault(true)} />
-            <span className="block font-medium">Usar o login já feito neste computador</span>
-            <span className="block text-xs text-muted">{hasDefault ? 'Já cadastrado.' : 'O mesmo usado quando você roda a ferramenta no terminal.'}</span>
-          </label>
-          <label className={`block rounded-lg border p-2.5 ${!useDefault ? 'border-accent bg-accent-soft' : 'border-line-strong'} ${provider.isolatesProfiles ? 'cursor-pointer' : 'opacity-50'}`}>
-            <input type="radio" className="sr-only" name="kind" disabled={!provider.isolatesProfiles} checked={!useDefault} onChange={() => setUseDefault(false)} />
-            <span className="block font-medium">Criar um perfil separado</span>
-            <span className="block text-xs text-muted">Pasta própria, com login próprio, para outra conta sua.</span>
-          </label>
+          {options.map((option) => (
+            <label key={option.id} className={`block rounded-lg border p-2.5 ${kind === option.id ? 'border-accent bg-accent-soft' : 'border-line-strong'} ${option.disabled ? 'opacity-50' : 'cursor-pointer'}`}>
+              <input type="radio" className="sr-only" name="kind" disabled={option.disabled} checked={kind === option.id} onChange={() => setKind(option.id)} />
+              <span className="block font-medium">{option.title}</span>
+              <span className="block text-xs text-muted">{option.text}</span>
+            </label>
+          ))}
         </fieldset>
+        {kind === 'key' && (
+          <Field label="Chave de API" hint="Fica cifrada pelo Windows, presa ao seu usuário, e não volta para a tela.">
+            <input type="password" autoComplete="off" spellCheck={false} className="field font-mono" value={apiKey} onChange={(event) => setApiKey(event.target.value)} />
+          </Field>
+        )}
+        {kind === 'key' && provider.apiKeyUrl && <a className="inline-flex items-center gap-1 text-xs text-accent underline" href={provider.apiKeyUrl} target="_blank" rel="noreferrer noopener">Criar uma chave no site oficial <ExternalLink size={11} /></a>}
       </div>
     </Dialog>
   );
@@ -120,8 +87,10 @@ function ProfileRow({ profile }: { profile: Profile }) {
   const loadCatalog = useStore((state) => state.loadCatalog);
   const provider = useStore((state) => state.providers.find((item) => item.id === profile.provider));
   const [loggingIn, setLoggingIn] = useState(false);
+  const [changingKey, setChangingKey] = useState(false);
   const [removing, setRemoving] = useState(false);
   const auth = profile.auth;
+  const usesKey = profile.credential === 'api_key';
 
   return (
     <li className="px-4 py-3">
@@ -129,7 +98,7 @@ function ProfileRow({ profile }: { profile: Profile }) {
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2 text-[13px] font-medium">
             {profile.label}
-            <span className="rounded bg-hover px-1.5 text-[11px] font-normal text-muted">{profile.homeDir ? 'perfil separado' : 'login do computador'}</span>
+            <span className="rounded bg-hover px-1.5 text-[11px] font-normal text-muted">{usesKey ? 'chave de API' : profile.homeDir ? 'perfil separado' : 'login do computador'}</span>
           </p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs">
             {!auth ? (
@@ -137,7 +106,7 @@ function ProfileRow({ profile }: { profile: Profile }) {
             ) : !auth.loggedIn ? (
               <span className="flex items-center gap-1 text-amber"><CircleSlash size={12} /> {auth.error ?? 'Sem login'}</span>
             ) : auth.subscription === false ? (
-              <span className="flex items-center gap-1 text-amber"><AlertTriangle size={12} /> Login por chave de API. Usar isto gera cobrança por API, não pela assinatura.</span>
+              <span className="flex items-center gap-1 text-amber"><AlertTriangle size={12} /> {usesKey ? 'Chave guardada. Cada uso é cobrado pelo fornecedor, não pela assinatura.' : 'Login por chave de API. Usar isto gera cobrança por API, não pela assinatura.'}</span>
             ) : (
               <span className="flex items-center gap-1 text-ok"><CheckCircle2 size={12} /> {auth.subscription ? 'Assinatura conectada' : 'Conectado'}</span>
             )}
@@ -146,11 +115,12 @@ function ProfileRow({ profile }: { profile: Profile }) {
           </p>
         </div>
         <div className="flex items-center gap-1">
-          {provider?.canLogin && (
-            <Button size="sm" kind={auth?.loggedIn ? 'ghost' : 'primary'} onClick={() => setLoggingIn(true)}><LogIn size={13} /> Login</Button>
+          {provider?.canLogin && !usesKey && (
+            <Button size="sm" kind={auth?.loggedIn ? 'ghost' : 'primary'} onClick={() => setLoggingIn(true)}><Globe size={13} /> {auth?.loggedIn ? 'Entrar de novo' : 'Entrar pelo navegador'}</Button>
           )}
+          {usesKey && <Button size="sm" kind="ghost" onClick={() => setChangingKey(true)}><KeyRound size={13} /> Trocar chave</Button>}
           <IconButton label="Verificar agora" onClick={() => void run(() => api.post(`/api/profiles/${profile.id}/check`))}><RefreshCw size={13} /></IconButton>
-          {provider?.canLogin && auth?.loggedIn && profile.homeDir && (
+          {provider?.canLogin && auth?.loggedIn && profile.homeDir && !usesKey && (
             <IconButton label="Sair desta conta" onClick={() => void run(() => api.post(`/api/profiles/${profile.id}/logout`), 'Conta desconectada.')}><LogOut size={13} /></IconButton>
           )}
           <IconButton label="Remover" onClick={() => setRemoving(true)}><Trash2 size={13} /></IconButton>
@@ -178,7 +148,8 @@ function ProfileRow({ profile }: { profile: Profile }) {
         </p>
       )}
 
-      {loggingIn && <LoginDialog profile={profile} onClose={() => setLoggingIn(false)} />}
+      {loggingIn && <BrowserLogin profile={profile} providerLabel={provider?.label ?? profile.label} onClose={() => setLoggingIn(false)} />}
+      {changingKey && provider && <ApiKeyDialog provider={provider} profile={profile} onClose={() => setChangingKey(false)} />}
       {removing && (
         <Dialog
           title={`Remover ${profile.label}?`}
@@ -200,7 +171,9 @@ function ProfileRow({ profile }: { profile: Profile }) {
           )}
         >
           <p className="text-[13px] text-soft">
-            {profile.homeDir
+            {usesKey
+              ? 'A chave e a pasta deste perfil serão apagadas daqui. A chave continua válida no site do fornecedor até você revogá-la lá.'
+              : profile.homeDir
               ? 'A pasta deste perfil será apagada, junto com o login guardado nela.'
               : 'Sai só do XinoIA. O login do computador continua funcionando no terminal.'}
           </p>
@@ -215,6 +188,7 @@ function ProviderSection({ provider }: { provider: ProviderInfo }) {
   const profiles = allProfiles.filter((profile) => profile.provider === provider.id);
   const toast = useStore((state) => state.toast);
   const [adding, setAdding] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-panel">
@@ -233,7 +207,8 @@ function ProviderSection({ provider }: { provider: ProviderInfo }) {
       </header>
       {!provider.installed && provider.installCommand && (
         <div className="px-4 py-3 text-[13px]">
-          <p className="text-soft">Instale em um terminal, depois atualize esta tela:</p>
+          <Button size="sm" kind="primary" className="mb-2" onClick={() => setInstalling(true)}><Download size={13} /> Instalar</Button>
+          <p className="text-soft">O botão roda o instalador oficial à sua vista. Se preferir, rode em um terminal:</p>
           <div className="mt-1.5 flex items-center gap-2 rounded-md bg-bg px-3 py-2">
             <code className="min-w-0 flex-1 break-all font-mono text-xs">{provider.installCommand}</code>
             <IconButton
@@ -252,6 +227,7 @@ function ProviderSection({ provider }: { provider: ProviderInfo }) {
       {provider.installed && !profiles.length && <p className="px-4 py-3 text-[13px] text-muted">Nenhuma conta cadastrada.</p>}
       {profiles.length > 0 && <ul className="divide-y divide-line">{profiles.map((profile) => <ProfileRow key={profile.id} profile={profile} />)}</ul>}
       {adding && <AddProfile provider={provider} onClose={() => setAdding(false)} />}
+      {installing && <InstallDialog provider={provider} onClose={() => setInstalling(false)} />}
     </section>
   );
 }
@@ -426,7 +402,7 @@ export function AccountsView() {
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader
         title="Contas e ferramentas"
-        subtitle="Cada ferramenta usa o login oficial dela. Sua senha nunca passa pelo XinoIA."
+        subtitle="Entre pelo navegador com a sua assinatura, ou use uma chave de API. Sua senha nunca passa pelo XinoIA."
         actions={(
           <Button
             disabled={refreshing}

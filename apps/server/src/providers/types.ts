@@ -52,6 +52,9 @@ export interface ProviderAdapter {
   capabilityProbe: { args: string[]; flags: Record<string, string> } | null;
   models: string[];
   efforts: string[];
+  /** Variável em que o CLI lê a chave de API. null: não aceita chave por aqui. */
+  apiKeyEnv: string | null;
+  apiKeyUrl: string | null;
   /** Mantém variáveis de API no ambiente. Só para CLIs personalizados. */
   keepsApiEnv?: boolean;
   requiresProfile: boolean;

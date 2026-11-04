@@ -194,8 +194,14 @@ export const claudeAdapter: ProviderAdapter = {
   defaultHomeDir: '.claude',
   support: 'tested',
   note: null,
-  installCommand: 'npm install -g @anthropic-ai/claude-code',
-  installUrl: 'https://code.claude.com/docs',
+  // O instalador nativo não precisa de Node.js.
+  installCommand: process.platform === 'win32'
+    ? 'powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://claude.ai/install.ps1 | iex"'
+    : 'curl -fsSL https://claude.ai/install.sh | bash',
+  installUrl: 'https://code.claude.com/docs/en/setup',
+  // Em modo não interativo, a documentação diz que a chave sempre é usada quando existe.
+  apiKeyEnv: 'ANTHROPIC_API_KEY',
+  apiKeyUrl: 'https://platform.claude.com/settings/keys',
   loginCommand: 'claude auth login',
   logoutArgs: ['auth', 'logout'],
   statusArgs: ['auth', 'status', '--json'],

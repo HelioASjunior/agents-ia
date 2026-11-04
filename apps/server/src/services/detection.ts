@@ -64,6 +64,8 @@ export class DetectionService {
         support: adapter.support,
         isolatesProfiles: Boolean(adapter.homeEnv),
         canLogin: Boolean(adapter.loginCommand),
+        supportsApiKey: Boolean(adapter.apiKeyEnv),
+        apiKeyUrl: adapter.apiKeyUrl,
         installCommand: adapter.installCommand,
         installUrl: adapter.installUrl,
         models: adapter.models,

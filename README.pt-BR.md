@@ -19,9 +19,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-Apache--2.0-blue?style=flat-square" alt="Licença: Apache-2.0"></a>
 </p>
 
-O XinoIA coloca Claude Code, Codex CLI e outros agentes de programação para trabalhar como uma equipe no seu computador. Você passa um objetivo. Um coordenador planeja, cada agente assume uma tarefa e entrega o resultado para o próximo, e outro agente revisa. Você acompanha tudo em um terminal ao vivo, conversa com qualquer agente pelo chat e vê o trabalho acontecer em um escritório virtual, onde cada animação vem de um evento real.
+O XinoIA coloca Claude Code, Codex CLI e outros agentes de programação para trabalhar como uma equipe no seu computador. Você passa um objetivo. Um coordenador planeja, cada agente assume uma tarefa e entrega o resultado para o próximo, e outro agente revisa. Você acompanha tudo em um terminal ao vivo, conversa com qualquer agente pelo chat e vê o trabalho acontecer em um escritório virtual em estilo de jogo, onde cada animação vem de um evento real.
 
-**Suas contas, sua máquina.** O XinoIA usa o CLI oficial de cada fornecedor, com o login de assinatura que você fez nele, então não precisa de chaves de API. Ele nunca vê suas senhas ou tokens. Projetos, conversas e histórico ficam em um banco de dados local, e não existe servidor, cadastro nem telemetria do XinoIA. Ele só consulta o GitHub para saber de atualizações, e seus pedidos vão para as ferramentas de IA que você escolher.
+**Suas contas, sua máquina.** O XinoIA roda no seu computador e usa o CLI oficial de cada fornecedor. Você escolhe a IA e entra pelo navegador, com a sua assinatura, ou usa uma chave de API, se preferir. Ele nunca vê suas senhas ou tokens de login, e uma chave de API fica cifrada pelo Windows. Projetos, conversas e histórico ficam em um banco de dados local, e não existe servidor, cadastro nem telemetria do XinoIA. Ele só consulta o GitHub para saber de atualizações, e seus pedidos vão para as ferramentas de IA que você escolher.
 
 [Baixar](https://github.com/HelioASjunior/agents-ia/releases) · [Guia de uso](docs/USER_GUIDE.md) · [Suporte a provedores](docs/PROVIDERS.md) · [Arquitetura](docs/ARCHITECTURE.md) · [Segurança](SECURITY.md) · [Novidades](CHANGELOG.md)
 
@@ -49,17 +49,16 @@ Prefere não instalar? Baixe o `XinoIA-Portable-vX.X.X.exe`, que guarda os dados
 
 ### Suas ferramentas de IA
 
-O XinoIA não as inclui: instale as que quiser e entre com a sua própria conta. Estes comandos usam o [Node.js](https://nodejs.org).
+O XinoIA não as inclui, mas o assistente ajuda: escolha a IA, instale com um clique, se ainda não tiver, e conecte a sua conta.
 
-```bash
-npm install -g @anthropic-ai/claude-code
-```
+- **Entrar pelo navegador:** abre a página oficial do fornecedor, onde você entra como sempre, inclusive com o Google, se a sua conta usar. A janela fecha sozinha quando o login termina.
+- **Usar chave de API:** para quem prefere pagar por uso. A chave fica cifrada pelo Windows, presa ao seu usuário.
 
-```bash
-npm install -g @openai/codex
-```
+<p align="center">
+  <img src="docs/assets/screens/sua-ia.png" alt="Escolha da IA no assistente: entrar pelo navegador ou usar uma chave de API." width="640">
+</p>
 
-O assistente detecta o que você tem e abre o login oficial de cada ferramenta.
+O instalador do Claude Code não precisa de Node.js. Os do Codex CLI e do Gemini CLI precisam do [Node.js](https://nodejs.org).
 
 ## O que ele faz
 
@@ -82,6 +81,7 @@ O assistente detecta o que você tem e abre o login oficial de cada ferramenta.
   </tr>
 </table>
 
+- **Escritório em estilo de jogo:** cada agente é um personagem em pixel art, com mesa na sala da função dele. Quem recebe trabalho sai da copa e vai para a mesa, o monitor acende e o balão mostra o que está fazendo. Uma telinha do escritório fica à vista em todas as outras telas.
 - **Terminal ao vivo:** a saída real de cada ferramenta, da equipe toda ou de um agente, com busca, e preservada entre reinícios. Há também um terminal interativo de verdade.
 - **Trabalho paralelo isolado:** em um projeto Git, tarefas em paralelo rodam em worktrees separados. Sua pasta só muda depois que você revisa e aprova. Um conflito vira uma tarefa, e ninguém tem o trabalho sobrescrito.
 - **Modos de execução:** supervisionado, semiautônomo e autônomo controlado, com limites de permissão, regras de negação e interrupção de comandos destrutivos.
@@ -94,19 +94,21 @@ O assistente detecta o que você tem e abre o login oficial de cada ferramenta.
 - **Perfis** mantêm cada conta em uma pasta própria, usando o isolamento que o próprio CLI oferece.
 - **Agentes** combinam um papel, uma ferramenta, um perfil, um nível de permissão e integrações.
 - **Missões** transformam um objetivo em tarefas, com dependências, revisões e um relatório final.
-- **O escritório** mostra esses eventos. Agente disponível fica à mesa: a caminhada só acontece em uma passagem de trabalho real.
+- **O escritório** mostra esses eventos, sem decidir nada: quem está disponível fica na copa, quem está trabalhando fica na mesa, e quem entrega uma tarefa leva o documento até o colega.
 - **SQLite** guarda tudo localmente, em modo WAL, com migrações versionadas e cópias de segurança automáticas. Você não instala um servidor de banco de dados.
 
 ## Ferramentas suportadas
 
-| Ferramenta | Assinatura, sem chave de API | Vários perfis | MCP | Situação |
-| --- | --- | --- | --- | --- |
-| Claude Code | Sim | Sim | Sim, com plugins | Testado com conta real |
-| Codex CLI | Sim | Sim | Só HTTP | Testado com conta real |
-| Gemini CLI | Login Google | Sim | Configurar no perfil | Escrito pela documentação, **ainda não testado** |
-| Agentes locais personalizados | Depende da ferramenta | Depende da ferramenta | Não | Testado com CLI local de teste |
+| Ferramenta | Assinatura pelo navegador | Chave de API | Vários perfis | MCP | Situação |
+| --- | --- | --- | --- | --- | --- |
+| Claude Code | Sim | Sim | Sim | Sim, com plugins | Testado com conta real |
+| Codex CLI | Sim | Sim | Sim | Só HTTP | Testado com conta real |
+| Gemini CLI | Login Google | Sim | Sim | Configurar no perfil | Escrito pela documentação, **ainda não testado** |
+| Agentes locais personalizados | Depende da ferramenta | Depende da ferramenta | Depende da ferramenta | Não | Testado com CLI local de teste |
 
-Assinatura não é acesso ilimitado: os limites do seu plano continuam valendo. O XinoIA nunca troca de conta sozinho para contornar um limite. Use apenas contas suas e respeite os termos de cada fornecedor. Veja [o suporte a provedores](docs/PROVIDERS.md) para detalhes e um resumo dos termos.
+A chave de API foi testada só com uma chave inválida, recusada pelo fornecedor nos dois CLIs reais: isso prova que é ela a credencial usada. Uma execução paga até o fim ainda não foi testada.
+
+Assinatura não é acesso ilimitado: os limites do seu plano continuam valendo. Com chave de API, cada uso é cobrado pelo fornecedor, à parte da assinatura. O XinoIA nunca troca de conta sozinho para contornar um limite. Use apenas contas suas e respeite os termos de cada fornecedor. Veja [o suporte a provedores](docs/PROVIDERS.md) para detalhes e um resumo dos termos.
 
 ## Unreal Engine
 

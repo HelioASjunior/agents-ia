@@ -8,7 +8,7 @@ Só a versão mais recente recebe correções.
 
 ## O que o XinoIA faz
 
-- **Credenciais:** o login acontece no fluxo oficial de cada CLI. O XinoIA só define a pasta do perfil e não lê os arquivos de acesso. O banco não tem colunas de credencial.
+- **Credenciais:** o login acontece no fluxo oficial de cada CLI. O XinoIA só define a pasta do perfil e não lê os arquivos de acesso. A única credencial que passa por ele é a chave de API que a pessoa escolher informar: ela fica cifrada pelo Windows (DPAPI), presa ao usuário do sistema, nunca volta para a interface, vai ao CLI só pelo ambiente e é mascarada em eventos e logs.
 - **API local:** escuta só em `127.0.0.1`, exige um token novo a cada inicialização e confere `Host` e `Origin`, o que bloqueia páginas web e DNS rebinding.
 - **Injeção de comandos:** o prompt nunca é argumento de linha de comando, e os valores variáveis passam por validação.
 - **Interface:** saída de agente é tratada como não confiável. HTML cru não é renderizado, a Política de Segurança de Conteúdo só permite recursos do próprio app, e a página não tem acesso ao Node.

@@ -111,6 +111,18 @@ async function exercise(app, label, expectedDataDir) {
   await api('DELETE', `/api/terminals/${terminal.body.id}`);
   process.stdout.write('  terminal PTY ok\n');
 
+  // Chave de API: o Windows precisa cifrar a partir do backend empacotado, e ela não volta.
+  const secret = 'chave-de-teste-do-instalador-12345';
+  const keyed = await api('POST', '/api/profiles', { provider: 'claude', label: 'Chave', apiKey: secret });
+  assert.equal(keyed.status, 201, JSON.stringify(keyed.body));
+  assert.equal(keyed.body.credential, 'api_key');
+  const checked = await api('POST', `/api/profiles/${keyed.body.id}/check`);
+  assert.equal(checked.body.auth.subscription, false);
+  const listed = await api('GET', '/api/profiles');
+  assert.ok(!JSON.stringify(listed.body).includes(secret), 'a chave não pode voltar pela API');
+  await api('DELETE', `/api/profiles/${keyed.body.id}`);
+  process.stdout.write('  chave de API cifrada ok\n');
+
   // Sem permissões do Node na página: a ponte é só a lista combinada.
   const bridge = await page.evaluate(() => ({ require: typeof window.require, process: typeof window.process, bridge: Object.keys(window.xinoia ?? {}).sort() }));
   assert.equal(bridge.require, 'undefined');

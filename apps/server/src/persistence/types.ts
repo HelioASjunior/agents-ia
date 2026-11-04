@@ -35,6 +35,8 @@ export interface ProfileRepository {
   insert(profile: Profile): Promise<void>;
   updateLabel(id: string, label: string): Promise<void>;
   updateAuth(id: string, auth: AuthStatus): Promise<void>;
+  getApiKeyCipher(id: string): Promise<string | null>;
+  setApiKeyCipher(id: string, cipher: string): Promise<void>;
   updateUsage(id: string, usage: ProfileUsage): Promise<void>;
   updateTotals(id: string, totals: ProfileTotals): Promise<void>;
   delete(id: string): Promise<void>;

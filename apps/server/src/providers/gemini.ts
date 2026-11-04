@@ -66,6 +66,8 @@ export const geminiAdapter: ProviderAdapter = {
   note: 'Adaptador escrito pela documentação, ainda sem teste com conta real. A documentação do Google informa que o Gemini CLI foi substituído pelo Antigravity CLI.',
   installCommand: 'npm install -g @google/gemini-cli',
   installUrl: 'https://geminicli.com/docs',
+  apiKeyEnv: 'GEMINI_API_KEY',
+  apiKeyUrl: 'https://aistudio.google.com/apikey',
   loginCommand: 'gemini',
   logoutArgs: null,
   statusArgs: null,

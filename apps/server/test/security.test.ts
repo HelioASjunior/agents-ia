@@ -46,12 +46,18 @@ test('Ambiente: remove cobrança por API e herança de sessão, e aponta o perfi
     CODEX_HOME: 'C:\\padrao',
   };
   const adapter = { homeEnv: 'CLAUDE_CONFIG_DIR' };
+  // O PATH ganha as pastas dos instaladores oficiais, depois do que já existia.
+  const withoutPath = ({ PATH, ...rest }: Record<string, string>) => {
+    assert.ok(PATH?.startsWith('x'), PATH);
+    assert.match(PATH ?? '', /\.local[\\/]bin/);
+    return rest;
+  };
   const env = buildEnv(adapter, 'C:\\perfil', source);
-  assert.deepEqual(env, { PATH: 'x', CLAUDE_CONFIG_DIR: 'C:\\perfil' });
+  assert.deepEqual(withoutPath(env), { CLAUDE_CONFIG_DIR: 'C:\\perfil' });
 
   // Sem pasta própria, respeita onde o usuário escolheu guardar o login padrão.
   const standard = buildEnv({ homeEnv: 'CODEX_HOME' }, null, source);
-  assert.deepEqual(standard, { PATH: 'x', CODEX_HOME: 'C:\\padrao' });
+  assert.deepEqual(withoutPath(standard), { CODEX_HOME: 'C:\\padrao' });
 
   // Agente personalizado pode depender dessas variáveis.
   assert.equal(buildEnv({ homeEnv: null, keepsApiEnv: true }, null, source).OPENAI_API_KEY, 'd');

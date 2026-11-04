@@ -9,11 +9,13 @@ Primeira versão de testes do XinoIA.
 ### Adicionado
 
 - **Aplicativo desktop para Windows**, com instalador, versão portátil e assistente de primeira execução.
-- **Escritório virtual** isométrico, com seis salas e estados vindos de eventos reais, além de uma visão compacta.
+- **Escritório virtual em estilo de jogo**, em pixel art, com sete salas e estados vindos de eventos reais: quem recebe trabalho vai para a mesa, e quem está disponível fica na copa. É a tela inicial, tem placar e visão compacta, e uma telinha fica à vista nas outras telas.
+- **Escolha da IA no assistente**, com instalação em um clique e login pelo navegador que fecha sozinho ao terminar.
+- **Chave de API como opção**, por perfil, cifrada pelo Windows e cobrada por uso.
 - **Orquestrador de missões**: plano aprovado por você, dependências, execução paralela, passagem automática de trabalho, revisão entre agentes com volta para correção, retentativas, pausa, retomada e relatório final.
 - **Chat** com streaming, Markdown, anexos, busca, menções e conversa com a equipe inteira.
 - **Terminal ao vivo**, unificado e por agente, com histórico preservado, e terminal interativo real.
-- **Claude Code e Codex CLI**, testados com contas reais, por assinatura e sem chave de API. **Gemini CLI**, escrito pela documentação e ainda sem teste real. **Agentes locais personalizados**.
+- **Claude Code e Codex CLI**, testados com contas reais por assinatura. A chave de API foi testada com uma chave inválida, recusada pelo fornecedor. **Gemini CLI**, escrito pela documentação e ainda sem teste real. **Agentes locais personalizados**.
 - **Perfis separados por conta**, com login no fluxo oficial de cada ferramenta.
 - **Git**: worktree por tarefa em paralelo, conflito tratado como tarefa, revisão antes do merge, clonagem de repositórios.
 - **Workflows** visuais com condições e tentativas, e 4 modelos prontos.

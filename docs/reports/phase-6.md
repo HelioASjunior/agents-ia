@@ -13,10 +13,10 @@
 
 | Teste | Onde | Resultado |
 | --- | --- | --- |
-| `npm run typecheck` e `npm test` (128 testes) | Local e CI | Passaram |
+| `npm run typecheck` e `npm test` (136 testes) | Local e CI | Passaram |
 | `npm run test:dist` | Local e **Windows limpo do GitHub** | Passou |
 | Atualização real com servidor local (`scripts/test-update-local.mjs`) | Local | Passou |
-| `npm run test:real` (13 testes) | Local, com contas reais | Passou |
+| `npm run test:real` (15 testes) | Local, com contas reais | Passou |
 
 **`test:dist` comprova:** instalação, primeira abertura com o assistente, nome nas propriedades do executável, backend, banco, terminal PTY, isolamento da página, fechar e reabrir com os dados, nenhum processo para trás, pacote sem dados nem chaves privadas, desinstalação preservando os dados, e versão portátil.
 
@@ -32,6 +32,18 @@
 - A barra de progresso ficava vermelha ao chegar a 100%.
 - Quem era chamado no chat da equipe não sabia o que tinha feito na última missão.
 
+## Ajustes depois da entrega
+
+Pedidos feitos ao avaliar a entrega:
+
+- **Escritório em estilo de jogo.** A cena isométrica era pequena e quase parada, e nem era a tela inicial. Agora é pixel art, abre primeiro e tem placar. Quem recebe trabalho vai da copa para a mesa, e uma telinha fica à vista nas outras telas. O custo medido é de cerca de 0,4 ms por quadro, a 24 quadros por segundo.
+- **Escolher a IA e entrar pelo navegador.** O login abre a página oficial e a janela fecha sozinha, com instalação em um clique.
+- **Chave de API como opção**, cifrada pelo Windows, por perfil.
+
+**Testes novos:** cifragem real com o DPAPI, chave que não chega a outro perfil nem aparece no banco, nos eventos ou nos logs, e chave inválida recusada pelo Claude Code e pelo Codex reais (`real-api-key.test.ts`). O endereço de login foi lido da saída real dos dois CLIs, sem concluir nenhum login. Um teste da planta do escritório exige que toda mesa seja alcançável, e pegou dois bugs: o balcão fechava a porta da copa, e uma planta fechava a sala de testes.
+
+**Não testado:** concluir um login novo de ponta a ponta pela janela, porque exige uma pessoa no navegador; execução paga com uma chave válida; instalação em um clique em uma máquina sem o CLI.
+
 ## O que depende do dono do repositório
 
 1. **Enviar a chave de assinatura ao GitHub.** O ambiente bloqueou esta gravação, com razão:
@@ -42,7 +54,7 @@
 
 2. **Publicar a primeira versão.** Publicar uma Release pública também foi bloqueado para decisão humana. Depois do passo 1, siga [Como publicar](../RELEASING.md).
 3. **Guardar a chave privada** em `%USERPROFILE%\.xinoia-release\` em um lugar seguro. Sem ela, os apps instalados não aceitam versões novas.
-4. **Ler os Termos Comerciais da Anthropic.** A página de conformidade diz que executar o Claude Code em um produto exige aceitá-los. O XinoIA foi desenhado dentro das condições descritas ali, mas essa é uma decisão de quem publica.
+4. **Ler os Termos Comerciais da Anthropic.** A página de conformidade diz que executar o Claude Code em um produto exige aceitá-los, e há um [ponto em aberto sobre o login](../PROVIDERS.md#termos-dos-fornecedores) que vale perguntar à Anthropic antes de divulgar amplamente. Essa é uma decisão de quem publica.
 5. **Certificado de assinatura de código** (opcional, pago). Sem ele, o Windows mostra o aviso do SmartScreen.
 
 ## Limitações e testes pendentes

@@ -19,8 +19,16 @@ const home = os.homedir();
 // Vale nas duas formas em que a pasta pessoal aparece: C:\Users\nome e C:/Users/nome.
 const homeVariants = home.length > 3 ? [home, home.replaceAll('\\', '\\\\'), home.replaceAll('\\', '/')] : [];
 
+// Chaves informadas pela pessoa podem não seguir nenhum formato conhecido.
+const knownSecrets = new Set<string>();
+
+export function registerSecret(value: string): void {
+  if (value.length >= 8) knownSecrets.add(value);
+}
+
 export function redact(text: string): string {
   let result = text;
+  for (const secret of knownSecrets) result = result.replaceAll(secret, '***');
   for (const [pattern, replacement] of PATTERNS) result = result.replace(pattern, replacement);
   for (const variant of homeVariants) result = result.replaceAll(variant, '~');
   return result;

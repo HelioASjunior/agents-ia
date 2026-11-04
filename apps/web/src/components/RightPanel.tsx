@@ -1,8 +1,9 @@
-import { FileDiff, Plus, SquareTerminal, TerminalSquare, Timer, Wrench, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileDiff, Gamepad2, Plus, SquareTerminal, TerminalSquare, Timer, Wrench, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { TerminalInfo } from '@xinoia/shared';
 import { api } from '../api.ts';
 import { useStore } from '../store.ts';
+import { OfficeCanvas } from './office/OfficeCanvas.tsx';
 import { PtyTerminal } from './PtyTerminal.tsx';
 import { RunLog } from './RunLog.tsx';
 import { ACTIVITY, Avatar, Empty, formatDuration, formatNumber, formatTime, IconButton, StatusPill } from './ui.tsx';
@@ -200,12 +201,52 @@ function ShellTab() {
   );
 }
 
+const MINI_KEY = 'xinoia.miniOffice';
+
+/** A telinha do escritório: acompanha o trabalho a partir de qualquer outra tela. */
+function MiniOffice() {
+  const setView = useStore((state) => state.setView);
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(MINI_KEY) !== 'closed';
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () => {
+    setOpen(!open);
+    try {
+      localStorage.setItem(MINI_KEY, open ? 'closed' : 'open');
+    } catch {
+      // Preferência visual: sem armazenamento, só não é lembrada.
+    }
+  };
+  return (
+    <div className="shrink-0 border-b border-line">
+      <div className="flex items-center gap-1 px-1.5 py-1 text-xs text-muted">
+        <button type="button" aria-expanded={open} onClick={toggle} className="flex flex-1 items-center gap-1.5 rounded px-1.5 py-0.5 text-left hover:text-ink">
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <Gamepad2 size={13} /> Escritório ao vivo
+        </button>
+        <button type="button" onClick={() => setView('office')} className="rounded px-1.5 py-0.5 hover:text-ink">Abrir</button>
+      </div>
+      {open && (
+        <button type="button" aria-label="Abrir o escritório em tela cheia" onClick={() => setView('office')} className="relative block h-[clamp(150px,22vh,240px)] w-full overflow-hidden">
+          <OfficeCanvas compact />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function RightPanel() {
   const [tab, setTab] = useState<Tab>('log');
+  const view = useStore((state) => state.view);
   const runs = useStore((state) => state.runs);
   const running = Object.values(runs).filter((run) => run.status === 'running');
   return (
     <section className="flex h-full min-h-0 flex-col bg-panel" aria-label="Painel de acompanhamento">
+      {view !== 'office' && <MiniOffice />}
       <nav className="flex items-center gap-0.5 border-b border-line px-1.5 py-1" aria-label="Abas do painel">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button

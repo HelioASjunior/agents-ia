@@ -38,13 +38,15 @@ test('Índices esperados existem', () => {
   removeDir(dir);
 });
 
-test('Nenhuma coluna guarda credenciais', () => {
+test('Nenhuma coluna guarda credenciais, fora a chave cifrada pelo sistema', () => {
   const { dir, file, backups } = paths();
   const { db } = openDatabase(file, backups);
   const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{ name: string }>;
   for (const { name } of tables) {
     const columns = db.prepare(`PRAGMA table_info(${name})`).all() as Array<{ name: string }>;
     for (const column of columns) {
+      // A única exceção: só texto cifrado pelo Windows, conferido em accounts.test.ts.
+      if (`${name}.${column.name}` === 'profiles.api_key_cipher') continue;
       assert.doesNotMatch(column.name, /password|senha|secret|token|credential|api_?key|cookie/i, `${name}.${column.name}`);
     }
   }
@@ -155,6 +157,7 @@ const profile: Profile = {
   provider: 'claude',
   label: 'Conta',
   homeDir: 'p1',
+  credential: 'login',
   auth: null,
   usage: null,
   totals: { runs: 0, inputTokens: 0, outputTokens: 0 },

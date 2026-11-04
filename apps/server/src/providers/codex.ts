@@ -105,6 +105,9 @@ export const codexAdapter: ProviderAdapter = {
   note: null,
   installCommand: 'npm install -g @openai/codex',
   installUrl: 'https://developers.openai.com/codex/cli',
+  // Só vale no `codex exec`, que é como o XinoIA roda o Codex.
+  apiKeyEnv: 'CODEX_API_KEY',
+  apiKeyUrl: 'https://platform.openai.com/api-keys',
   loginCommand: 'codex login',
   logoutArgs: ['logout'],
   statusArgs: ['login', 'status'],

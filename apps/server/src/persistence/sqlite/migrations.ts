@@ -257,4 +257,12 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE missions ADD COLUMN workflow_id TEXT;
     `,
   },
+  {
+    version: 5,
+    name: 'chave de API cifrada por perfil',
+    up: `
+      -- Só o texto cifrado pelo sistema operacional, nunca a chave.
+      ALTER TABLE profiles ADD COLUMN api_key_cipher TEXT;
+    `,
+  },
 ];

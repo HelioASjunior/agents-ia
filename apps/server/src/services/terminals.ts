@@ -15,6 +15,8 @@ import { redact } from '../security/redact.ts';
 import type { ProfileService } from './profiles.ts';
 
 const SCROLLBACK_BYTES = 256 * 1024;
+// eslint-disable-next-line no-control-regex
+const ANSI = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
 
 export interface TerminalSession extends TerminalInfo {
   write(data: string): void;
@@ -65,6 +67,16 @@ export class TerminalService {
       return this.spawn('shell', `Terminal: ${project.name}`, shell, [], project.path, env);
     }
 
+    // Só roda o comando oficial do adaptador, nunca um texto vindo da requisição.
+    if (data.kind === 'install') {
+      const adapter = this.providers.get(data.provider);
+      if (!adapter?.installCommand) throw badRequest('Esta ferramenta não tem instalador.');
+      const env = buildEnv(adapter, null);
+      return process.platform === 'win32'
+        ? this.spawn('install', `Instalar: ${adapter.label}`, 'cmd.exe', `/c ${adapter.installCommand}`, os.homedir(), env)
+        : this.spawn('install', `Instalar: ${adapter.label}`, process.env.SHELL || 'bash', ['-lc', adapter.installCommand], os.homedir(), env);
+    }
+
     const profile = await this.db.profiles.get(data.profileId);
     if (!profile) throw notFound('Perfil');
     const adapter = this.providers.get(profile.provider);
@@ -76,10 +88,19 @@ export class TerminalService {
     return this.spawn('login', `Login: ${profile.label}`, shell, [...args], os.homedir(), env);
   }
 
-  private spawn(kind: TerminalInfo['kind'], title: string, shell: string, args: string[], cwd: string, env: Record<string, string>): TerminalInfo {
+  /** Endereço que o login mostrou, para abrir de novo se o navegador não abriu sozinho. */
+  loginLink(id: string): string | null {
+    const session = this.get(id);
+    if (session.kind !== 'login') return null;
+    const text = session.scrollback().replace(ANSI, '');
+    return /https:\/\/[^\s"'<>]+/.exec(text)?.[0] ?? null;
+  }
+
+  private spawn(kind: TerminalInfo['kind'], title: string, shell: string, args: string[] | string, cwd: string, env: Record<string, string>): TerminalInfo {
     const pty = loadPty();
     const id = newId('term');
-    const child: IPty = pty.spawn(shell, args, { name: 'xterm-256color', cols: 100, rows: 28, cwd, env });
+    // Bem largo no login: o endereço não pode quebrar em duas linhas ao ser lido.
+    const child: IPty = pty.spawn(shell, args, { name: 'xterm-256color', cols: kind === 'login' ? 500 : 100, rows: 28, cwd, env });
 
     const listeners = new Set<Parameters<TerminalSession['subscribe']>[0]>();
     let buffer = '';
@@ -88,7 +109,7 @@ export class TerminalService {
 
     child.onData((data) => {
       buffer = (buffer + data).slice(-SCROLLBACK_BYTES);
-      // Login e shell não vão para o log: é onde um código ou segredo pode aparecer.
+      // Login não vai para o log: é onde um código ou segredo pode aparecer.
       if (kind !== 'login') fs.appendFile(logFile, redact(data), () => undefined);
       for (const listener of listeners) listener({ type: 'data', data });
     });

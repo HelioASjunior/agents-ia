@@ -118,10 +118,14 @@ export const CreateProfileInput = z.object({
   label: name,
   /** Usa o login já existente no computador em vez de criar uma pasta isolada. */
   useSystemDefault: z.boolean().default(false),
+  /** Conta paga por uso. Fica cifrada pelo sistema e nunca volta para a interface. */
+  apiKey: z.string().trim().min(8).max(1000).regex(/^\S+$/, 'A chave não pode ter espaços.').optional(),
 });
 export type CreateProfileInput = z.input<typeof CreateProfileInput>;
 
 export const UpdateProfileInput = z.object({ label: name });
+
+export const SetApiKeyInput = z.object({ apiKey: z.string().trim().min(8).max(1000).regex(/^\S+$/, 'A chave não pode ter espaços.') });
 
 export const CreateAgentInput = z.object({
   name,
@@ -234,6 +238,8 @@ export interface Profile {
   label: string;
   /** null: usa o login padrão do computador. */
   homeDir: string | null;
+  /** login: o do próprio CLI, normalmente por assinatura. api_key: chave guardada cifrada. */
+  credential: 'login' | 'api_key';
   auth: AuthStatus | null;
   usage: ProfileUsage | null;
   totals: ProfileTotals;
@@ -330,6 +336,9 @@ export interface ProviderInfo {
   /** O CLI permite perfis separados por pasta. */
   isolatesProfiles: boolean;
   canLogin: boolean;
+  /** O CLI aceita chave de API por variável de ambiente. */
+  supportsApiKey: boolean;
+  apiKeyUrl: string | null;
   installCommand: string | null;
   installUrl: string | null;
   models: string[];
@@ -639,12 +648,13 @@ export const SaveFileInput = z.object({ path: z.string().min(1), content: z.stri
 export const CreateTerminalInput = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('shell'), projectId: z.string().min(1) }),
   z.object({ kind: z.literal('login'), profileId: z.string().min(1) }),
+  z.object({ kind: z.literal('install'), provider: z.string().min(1) }),
 ]);
 export type CreateTerminalInput = z.input<typeof CreateTerminalInput>;
 
 export interface TerminalInfo {
   id: string;
-  kind: 'shell' | 'login';
+  kind: 'shell' | 'login' | 'install';
   title: string;
 }
 

@@ -19,9 +19,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0"></a>
 </p>
 
-XinoIA runs Claude Code, Codex CLI and other AI coding agents as one team on your own computer. You give the team a goal. A coordinator plans the work, each agent takes a task and hands its results to the next, and another agent reviews them. You follow it all in a live terminal, talk to any agent in chat, and watch the work happen in a virtual office where every animation comes from a real event.
+XinoIA runs Claude Code, Codex CLI and other AI coding agents as one team on your own computer. You give the team a goal. A coordinator plans the work, each agent takes a task and hands its results to the next, and another agent reviews them. You follow it all in a live terminal, talk to any agent in chat, and watch the work happen in a game-style virtual office where every animation comes from a real event.
 
-**Your accounts, your machine.** XinoIA drives the official CLI of each vendor, using the subscription login you made in that tool, so it needs no API keys. It never sees your passwords or tokens. Projects, conversations and history stay in a local database, and there is no XinoIA server, sign-up or telemetry. It only contacts GitHub to check for updates; your prompts go to the AI tools you choose.
+**Your accounts, your machine.** XinoIA runs on your computer and drives the official CLI of each vendor. You choose the AI and sign in through your browser with your subscription, or use an API key if you prefer. It never sees your passwords or login tokens, and an API key stays encrypted by Windows. Projects, conversations and history stay in a local database, and there is no XinoIA server, sign-up or telemetry. It only contacts GitHub to check for updates; your prompts go to the AI tools you choose.
 
 [Download](https://github.com/HelioASjunior/agents-ia/releases) · [User guide](docs/USER_GUIDE.md) · [Provider support](docs/PROVIDERS.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Changelog](CHANGELOG.md)
 
@@ -49,17 +49,16 @@ Prefer not to install? Download `XinoIA-Portable-vX.X.X.exe`, which keeps its da
 
 ### Your AI tools
 
-XinoIA doesn't include them: install the ones you want and sign in with your own account. These commands use [Node.js](https://nodejs.org).
+XinoIA doesn't include them, but the wizard helps: choose the AI, install it with one click if you don't have it yet, and connect your account.
 
-```bash
-npm install -g @anthropic-ai/claude-code
-```
+- **Sign in through the browser:** opens the vendor's official page, where you sign in as usual, including with Google if your account uses it. The window closes by itself when sign-in finishes.
+- **Use an API key:** for pay-as-you-go. The key stays encrypted by Windows, tied to your user.
 
-```bash
-npm install -g @openai/codex
-```
+<p align="center">
+  <img src="docs/assets/screens/sua-ia.png" alt="Choosing the AI in the wizard: sign in through the browser or use an API key." width="640">
+</p>
 
-The wizard detects what you have and opens each tool's official login.
+The Claude Code installer doesn't need Node.js. The Codex CLI and Gemini CLI installers do need [Node.js](https://nodejs.org).
 
 ## What it does
 
@@ -84,6 +83,7 @@ The wizard detects what you have and opens each tool's official login.
 
 The interface is in Brazilian Portuguese for now.
 
+- **Game-style office:** each agent is a pixel art character with a desk in the room of its role. When work arrives, the agent leaves the break room for the desk, the monitor lights up and a speech bubble shows what it's doing. A small live view of the office stays visible on every other screen.
 - **Live terminal:** the real output of each tool, for the whole team or one agent, searchable and kept across restarts. There's also a real interactive shell.
 - **Isolated parallel work:** in a Git project, parallel tasks run in separate worktrees. Your folder only changes after you review and approve. A conflict becomes a task, and nobody's work gets overwritten.
 - **Execution modes:** supervised, semi-autonomous and controlled autonomous, with permission limits, deny rules and interruption of destructive commands.
@@ -96,19 +96,21 @@ The interface is in Brazilian Portuguese for now.
 - **Profiles** keep each account in its own folder, using the isolation the CLI itself offers.
 - **Agents** combine a role, a tool, a profile, a permission level and integrations.
 - **Missions** turn a goal into tasks with dependencies, reviews and a final report.
-- **The office** shows those events. An available agent stays at its desk: the walk happens only on a real handoff.
+- **The office** shows those events and decides nothing: available agents stay in the break room, working agents stay at their desks, and whoever delivers a task carries the document to a colleague.
 - **SQLite** stores everything locally, in WAL mode, with versioned migrations and automatic backups. You don't install a database server.
 
 ## Supported tools
 
-| Tool | Subscription, no API key | Multiple profiles | MCP | Status |
-| --- | --- | --- | --- | --- |
-| Claude Code | Yes | Yes | Yes, with plugins | Tested with a real account |
-| Codex CLI | Yes | Yes | HTTP only | Tested with a real account |
-| Gemini CLI | Google sign-in | Yes | Configure in the profile | Written from the docs, **not tested yet** |
-| Custom local agents | Depends on the tool | Depends on the tool | No | Tested with a local test CLI |
+| Tool | Subscription through the browser | API key | Multiple profiles | MCP | Status |
+| --- | --- | --- | --- | --- | --- |
+| Claude Code | Yes | Yes | Yes | Yes, with plugins | Tested with a real account |
+| Codex CLI | Yes | Yes | Yes | HTTP only | Tested with a real account |
+| Gemini CLI | Google sign-in | Yes | Yes | Configure in the profile | Written from the docs, **not tested yet** |
+| Custom local agents | Depends on the tool | Depends on the tool | Depends on the tool | No | Tested with a local test CLI |
 
-A subscription isn't unlimited: your plan's limits still apply. XinoIA never switches accounts by itself to get around a limit. Use only your own accounts and follow each vendor's terms. See [provider support](docs/PROVIDERS.md) for details and a summary of the terms.
+API keys were tested only with an invalid key, which the vendor rejected on both real CLIs: that proves the key is the credential in use. A full paid run hasn't been tested yet.
+
+A subscription isn't unlimited: your plan's limits still apply. With an API key, each use is billed by the vendor, separately from a subscription. XinoIA never switches accounts by itself to get around a limit. Use only your own accounts and follow each vendor's terms. See [provider support](docs/PROVIDERS.md) for details and a summary of the terms.
 
 ## Unreal Engine
 

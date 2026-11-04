@@ -41,6 +41,7 @@ function toProfile(r: Row): Profile {
     provider: String(r.provider),
     label: String(r.label),
     homeDir: textOrNull(r.home_dir),
+    credential: r.api_key_cipher ? 'api_key' : 'login',
     auth: parseOrNull(r.auth_json),
     usage: parseOrNull(r.usage_json),
     totals: parse(r.totals_json),
@@ -335,6 +336,12 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
       },
       async updateLabel(id, label) {
         run('UPDATE profiles SET label = ? WHERE id = ?', label, id);
+      },
+      async getApiKeyCipher(id) {
+        return textOrNull(one('SELECT api_key_cipher FROM profiles WHERE id = ?', id)?.api_key_cipher);
+      },
+      async setApiKeyCipher(id, cipher) {
+        run('UPDATE profiles SET api_key_cipher = ? WHERE id = ?', cipher, id);
       },
       async updateAuth(id, auth) {
         run('UPDATE profiles SET auth_json = ? WHERE id = ?', JSON.stringify(auth), id);

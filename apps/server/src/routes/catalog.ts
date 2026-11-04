@@ -32,6 +32,7 @@ export function registerCatalogRoutes(app: FastifyInstance, ctx: AppContext): vo
     await ctx.profiles.remove(idParam.parse(request.params).id);
     return reply.code(204).send();
   });
+  app.put('/api/profiles/:id/api-key', async (request) => ctx.profiles.setApiKey(idParam.parse(request.params).id, request.body));
   app.post('/api/profiles/check', async () => ctx.profiles.checkAll());
   app.post('/api/profiles/:id/check', async (request) => ctx.profiles.check(idParam.parse(request.params).id));
   app.post('/api/profiles/:id/login', async (request) => ctx.profiles.openLogin(idParam.parse(request.params).id));

@@ -1,10 +1,10 @@
 import { Building2, LayoutList, MessageSquare, Square, Users, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Agent, Run } from '@xinoia/shared';
 import { ROLES } from '@xinoia/shared';
 import { api } from '../api.ts';
-import { OfficeScene } from '../components/office/scene.ts';
-import { ACTIVITY, Avatar, Button, Empty, formatDateTime, formatDuration, IconButton, StatusPill, useActivity } from '../components/ui.tsx';
+import { OfficeCanvas } from '../components/office/OfficeCanvas.tsx';
+import { ACTIVITY, Avatar, Button, formatDateTime, formatDuration, IconButton, StatusPill, useActivity } from '../components/ui.tsx';
 import { activeMission, useStore } from '../store.ts';
 
 function AgentDetails({ agent, onClose }: { agent: Agent; onClose: () => void }) {
@@ -128,17 +128,61 @@ function CompactView({ onSelect }: { onSelect: (id: string) => void }) {
 
 const MODE_KEY = 'xinoia.officeMode';
 
-export function OfficeView() {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const scene = useRef<OfficeScene | null>(null);
-  const seenEvents = useRef(new Set<number>());
-  const agents = useStore((store) => store.agents);
-  const states = useStore((store) => store.agentStates);
-  const theme = useStore((store) => store.theme);
+/** O placar do jogo: tudo aqui vem das execuções e tarefas reais. */
+function Hud() {
   const missions = useStore((store) => store.missions);
   const tasks = useStore((store) => store.tasks);
   const runs = useStore((store) => store.runs);
-  const missionEvents = useStore((store) => store.missionEvents);
+  const setView = useStore((store) => store.setView);
+  const mission = activeMission(missions);
+  const list = mission ? tasks[mission.id] ?? [] : [];
+  const all = Object.values(runs);
+  const counters: Array<[string, number, string]> = [
+    ['Trabalhando', all.filter((run) => run.status === 'running').length, 'var(--accent)'],
+    ['Concluídas', all.filter((run) => run.status === 'completed').length, 'var(--ok)'],
+    ['Falhas', all.filter((run) => run.status === 'failed').length, 'var(--danger)'],
+  ];
+  const panel = 'pointer-events-auto border-2 border-line-strong bg-panel/95 font-mono';
+  return (
+    <div className="pointer-events-none absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-2">
+      {mission ? (
+        <button type="button" onClick={() => setView('board')} className={`${panel} min-w-0 max-w-[60%] px-2.5 py-1.5 text-left hover:border-accent`}>
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-accent">Missão</span>
+          <span className="block truncate text-xs">{mission.goal}</span>
+          {list.length > 0 && (
+            <span className="mt-1 flex flex-wrap gap-0.5" aria-label={`${list.filter((task) => task.status === 'done').length} de ${list.length} tarefas`}>
+              {list.map((task) => (
+                <span
+                  key={task.id}
+                  title={task.title}
+                  className="h-2 w-4"
+                  style={{ background: task.status === 'done' || task.status === 'skipped' ? 'var(--ok)' : task.status === 'running' ? 'var(--amber)' : task.status === 'failed' ? 'var(--danger)' : 'var(--line-strong)' }}
+                />
+              ))}
+            </span>
+          )}
+        </button>
+      ) : (
+        <button type="button" onClick={() => setView('chat')} className={`${panel} px-2.5 py-1.5 text-left text-xs hover:border-accent`}>
+          <span className="block text-[10px] font-bold uppercase tracking-wider text-muted">Sem missão ativa</span>
+          Dar um objetivo à equipe
+        </button>
+      )}
+      <dl className={`${panel} flex divide-x-2 divide-line-strong`}>
+        {counters.map(([label, value, color]) => (
+          <div key={label} className="px-2.5 py-1 text-center">
+            <dd className="text-base font-bold leading-tight" style={{ color }}>{value}</dd>
+            <dt className="text-[10px] text-muted">{label}</dt>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+export function OfficeView() {
+  const agents = useStore((store) => store.agents);
+  const states = useStore((store) => store.agentStates);
   const setView = useStore((store) => store.setView);
   const [selected, setSelected] = useState<string | null>(null);
   const [mode, setMode] = useState<'office' | 'compact'>(() => {
@@ -157,70 +201,6 @@ export function OfficeView() {
       // Preferência visual: sem armazenamento, só não é lembrada.
     }
   };
-
-  useEffect(() => {
-    if (mode !== 'office' || !canvas.current) return undefined;
-    const instance = new OfficeScene(canvas.current);
-    instance.onSelect = setSelected;
-    instance.start();
-    scene.current = instance;
-    return () => {
-      instance.destroy();
-      scene.current = null;
-    };
-  }, [mode]);
-
-  useEffect(() => {
-    scene.current?.setTheme(theme);
-  }, [theme, mode]);
-
-  useEffect(() => {
-    scene.current?.setAgents(agents.map((agent) => ({
-      id: agent.id,
-      name: agent.name,
-      role: agent.role,
-      color: agent.color,
-      activity: states[agent.id]?.activity ?? 'available',
-      detail: states[agent.id]?.detail ?? null,
-    })));
-  }, [agents, states, mode]);
-
-  useEffect(() => {
-    scene.current?.setSelected(selected);
-  }, [selected, mode]);
-
-  const mission = activeMission(missions) ?? missions[0];
-  const missionTasks = mission ? tasks[mission.id] ?? [] : [];
-  useEffect(() => {
-    const list = Object.values(runs);
-    const active = activeMission(missions);
-    const shown = active ? missionTasks : [];
-    scene.current?.setStats({
-      running: list.filter((run) => run.status === 'running').length,
-      done: list.filter((run) => run.status === 'completed').length,
-      failed: list.filter((run) => run.status === 'failed').length,
-      missionTitle: active?.goal ?? null,
-      missionStatus: active?.status ?? null,
-      tasksDone: shown.filter((task) => task.status === 'done' || task.status === 'skipped').length,
-      tasksTotal: shown.length,
-    });
-  }, [mission, missionTasks, missions, runs, mode]);
-
-  // Passagens de trabalho reais viram a caminhada até a mesa do colega.
-  useEffect(() => {
-    if (!mission) return;
-    const list = missionEvents[mission.id] ?? [];
-    const firstRun = seenEvents.current.size === 0;
-    for (const event of list) {
-      if (seenEvents.current.has(event.id)) continue;
-      seenEvents.current.add(event.id);
-      // O que já tinha acontecido ao abrir a tela não é reencenado.
-      if (firstRun) continue;
-      if (event.data.type === 'handoff' && event.data.fromAgentId && event.data.toAgentId) {
-        scene.current?.playHandoff(event.data.fromAgentId, event.data.toAgentId, event.data.taskTitle);
-      }
-    }
-  }, [mission, missionEvents]);
 
   const agent = agents.find((item) => item.id === selected);
 
@@ -250,16 +230,23 @@ export function OfficeView() {
         </div>
       </div>
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {!agents.length ? (
-          <Empty title="O escritório está vazio" icon={<Users size={28} />} action={<Button kind="primary" onClick={() => setView('agents')}>Contratar agentes</Button>}>
-            Cada agente que você criar ganha uma mesa na sala da função dele.
-          </Empty>
-        ) : mode === 'compact' ? (
+        {mode === 'compact' && agents.length > 0 ? (
           <CompactView onSelect={setSelected} />
         ) : (
           <>
-            <canvas ref={canvas} role="img" aria-label="Escritório virtual com os agentes. O modo compacto mostra as mesmas informações em uma tabela." className="block touch-none" />
-            <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-muted">Clique em um agente. Arraste para mover, use a roda do mouse para aproximar, clique duas vezes para recentrar.</p>
+            <OfficeCanvas selected={selected} onSelect={setSelected} />
+            <Hud />
+            {agents.length > 0 && <p className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-muted">Clique em um agente. Arraste para mover, use a roda do mouse para aproximar, clique duas vezes para recentrar.</p>}
+            {!agents.length && (
+              <div className="absolute inset-0 flex items-center justify-center bg-bg/40 p-4">
+                <div className="max-w-sm border-2 border-line-strong bg-panel p-5 text-center font-mono">
+                  <Users size={28} className="mx-auto text-accent" />
+                  <h2 className="mt-2 text-sm font-bold">O escritório está vazio</h2>
+                  <p className="mt-1 text-xs text-muted">Contrate agentes: cada um ganha uma mesa na sala da função dele, e você vê o trabalho acontecer aqui.</p>
+                  <Button className="mt-3" kind="primary" onClick={() => setView('agents')}>Contratar agentes</Button>
+                </div>
+              </div>
+            )}
           </>
         )}
         {agent && <AgentDetails agent={agent} onClose={() => setSelected(null)} />}

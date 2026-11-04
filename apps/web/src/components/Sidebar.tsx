@@ -19,8 +19,8 @@ import { useStore, type ViewId } from '../store.ts';
 
 const GROUPS: Array<Array<{ id: ViewId; label: string; icon: typeof MessageSquare }>> = [
   [
-    { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'office', label: 'Escritório', icon: Building2 },
+    { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'board', label: 'Tarefas', icon: KanbanSquare },
     { id: 'workflows', label: 'Workflows', icon: Workflow },
   ],

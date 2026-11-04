@@ -53,6 +53,7 @@ export function registerChatRoutes(app: FastifyInstance, ctx: AppContext): void 
   // Terminais interativos
   app.get('/api/terminals', async () => ctx.terminals.list());
   app.post('/api/terminals', async (request, reply) => reply.code(201).send(await ctx.terminals.create(request.body)));
+  app.get('/api/terminals/:id/link', async (request) => ({ url: ctx.terminals.loginLink(id(request)) }));
   app.delete('/api/terminals/:id', async (request, reply) => {
     ctx.terminals.kill(id(request));
     return reply.code(204).send();

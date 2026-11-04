@@ -4,18 +4,22 @@ O XinoIA executa o CLI oficial de cada fornecedor, instalado pelo próprio usuá
 
 ## Situação de cada integração
 
-| Ferramenta | Assinatura sem API | Vários perfis | Streaming e sessão | MCP | Situação |
-| --- | --- | --- | --- | --- | --- |
-| **Claude Code** | Sim (`claude.ai`) | `CLAUDE_CONFIG_DIR` | Sim | Sim, com plugins | Testado com conta real (v2.1.318) |
-| **Codex CLI** | Sim (ChatGPT) | `CODEX_HOME` | Sim | Só HTTP; skills pelo prompt | Testado com conta real (v0.166.0) |
-| **Gemini CLI** | Login Google | `GEMINI_CLI_HOME` | Sim, pela documentação | Configurar no perfil | **Não testado**: escrito pela documentação |
-| **Agente personalizado** | Depende do CLI | Se o CLI tiver variável de pasta | Saída como texto | Não | Testado com CLI local de teste |
+| Ferramenta | Assinatura pelo navegador | Chave de API | Vários perfis | Streaming e sessão | MCP | Situação |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Claude Code** | Sim (`claude.ai`) | `ANTHROPIC_API_KEY` | `CLAUDE_CONFIG_DIR` | Sim | Sim, com plugins | Testado com conta real (v2.1.318) |
+| **Codex CLI** | Sim (ChatGPT) | `CODEX_API_KEY` | `CODEX_HOME` | Sim | Só HTTP; skills pelo prompt | Testado com conta real (v0.166.0) |
+| **Gemini CLI** | Login Google | `GEMINI_API_KEY` | `GEMINI_CLI_HOME` | Sim, pela documentação | Configurar no perfil | **Não testado**: escrito pela documentação |
+| **Agente personalizado** | Depende do CLI | Não | Se o CLI tiver variável de pasta | Saída como texto | Não | Testado com CLI local de teste |
 
 A documentação do Google informa que o Gemini CLI foi substituído pelo Antigravity CLI em junho de 2026. Quando houver como testar, ele deve ganhar um adaptador próprio; até lá, pode ser cadastrado como agente personalizado.
 
-## Assinatura não é API
+## Assinatura e chave de API
 
-O XinoIA remove do ambiente dos processos variáveis como `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` e `GEMINI_API_KEY`, para que os CLIs conhecidos usem o login do perfil e não gerem cobrança por API sem querer. A tela de contas distingue os dois casos com base no que o próprio CLI informa, e uma execução por credencial de API gera um aviso.
+Cada perfil usa uma coisa só. O XinoIA remove do ambiente dos processos variáveis como `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` e `GEMINI_API_KEY` herdadas do computador, para que um perfil de assinatura use o login dele e não gere cobrança por API sem querer. A tela de contas distingue os dois casos, e uma execução por credencial de API gera um aviso.
+
+Um perfil de **chave de API** tem pasta própria, e a chave é a única variável desse tipo que o processo recebe. Ela fica cifrada pelo Windows (DPAPI), presa ao usuário do sistema, e o banco e as cópias de segurança só têm o texto cifrado. A chave não é conferida ao ser guardada, porque isso custaria uma chamada paga: quem recusa uma chave ruim é a primeira execução.
+
+**O que foi testado:** com uma chave inválida, o Claude Code e o Codex CLI reais recusaram a chave, sem cair na assinatura da mesma máquina e sem que ela aparecesse em eventos ou logs. Uma execução paga até o fim ainda não foi testada, e o Gemini CLI, em nenhuma forma.
 
 Consumir a assinatura não é o mesmo que ter acesso ilimitado: os limites do plano continuam valendo. O XinoIA mostra uso e renovação somente quando o CLI informa. Hoje só o Claude Code expõe esses dados em cada execução, e o custo em dólar que ele calcula **não** é exibido, porque não é o que uma assinatura paga.
 
@@ -33,7 +37,9 @@ Pela [página de conformidade do Claude Code](https://code.claude.com/docs/en/le
 
 Pelo [artigo de suporte da Anthropic](https://support.claude.com/en/articles/15036540), `claude -p` continua usando os limites da assinatura; o artigo informa que a mudança anunciada para junho de 2026 foi pausada.
 
-**Como o XinoIA respeita isso:** não inclui nenhum CLI no instalador, não modifica binários, não vê credenciais, e cada instalação usa só as contas de quem a instalou. O XinoIA não tem servidor próprio nem revende acesso.
+**Como o XinoIA respeita isso:** não inclui nenhum CLI no instalador, não modifica binários, não vê credenciais de login, e cada instalação usa só as contas de quem a instalou. O XinoIA não tem servidor próprio nem revende acesso. O botão **Entrar pelo navegador** só executa `claude auth login` do binário oficial, e a entrada termina na página da própria Anthropic. A chave de API é a de cada pessoa, e o uso é cobrado dela.
+
+**Ponto em aberto:** a mesma página diz que desenvolvedores de produtos devem usar chave de API e que terceiros não podem oferecer o login do Claude.ai nos próprios apps, mas também diz que isso não impede a pessoa de entrar no binário oficial com a própria assinatura. Entendemos que o XinoIA está no segundo caso, mas isso é uma interpretação, sem confirmação da Anthropic. Antes de divulgar amplamente, vale perguntar pelo [contato comercial](https://www.anthropic.com/contact-sales), indicado na página para esse tipo de dúvida.
 
 ### Várias contas
 

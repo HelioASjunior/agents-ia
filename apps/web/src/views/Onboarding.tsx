@@ -1,10 +1,10 @@
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, CircleAlert, Copy, ExternalLink, LogIn, RefreshCw, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, Sparkles, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { Agent, Profile, Project, ProviderInfo, Run } from '@xinoia/shared';
+import type { Agent, Profile, Project, Run } from '@xinoia/shared';
 import { api } from '../api.ts';
 import { Button, Field, IconButton } from '../components/ui.tsx';
 import { useStore } from '../store.ts';
-import { PtyTerminal } from '../components/PtyTerminal.tsx';
+import { ProviderChoice } from '../components/ConnectAccount.tsx';
 
 const DONE_KEY = 'xinoia.onboarded';
 
@@ -25,7 +25,7 @@ function markDone(): void {
   }
 }
 
-const STEPS = ['Boas-vindas', 'Ferramentas', 'Contas', 'Projeto', 'Equipe', 'Teste'];
+const STEPS = ['Boas-vindas', 'Sua IA', 'Projeto', 'Equipe', 'Teste'];
 
 function Welcome() {
   return (
@@ -36,7 +36,7 @@ function Welcome() {
         Monte uma equipe de agentes de IA que trabalha junta nos seus projetos, neste computador. Cada agente tem uma função, e você acompanha tudo em um escritório virtual e em um terminal ao vivo.
       </p>
       <ul className="mx-auto mt-6 grid max-w-xl gap-3 text-left text-[13px] sm:grid-cols-3">
-        <li className="rounded-lg border border-line bg-raised p-3"><b className="block font-semibold">Suas contas</b><span className="text-muted">Usa o login que você faz em cada ferramenta. Sem chaves de API.</span></li>
+        <li className="rounded-lg border border-line bg-raised p-3"><b className="block font-semibold">Suas contas</b><span className="text-muted">Entre pelo navegador com a sua assinatura, ou use uma chave de API, se preferir.</span></li>
         <li className="rounded-lg border border-line bg-raised p-3"><b className="block font-semibold">Seu computador</b><span className="text-muted">Projetos, conversas e histórico ficam aqui. Sem cadastro.</span></li>
         <li className="rounded-lg border border-line bg-raised p-3"><b className="block font-semibold">Trabalho real</b><span className="text-muted">Agentes executam de verdade, e um revisa o que o outro fez.</span></li>
       </ul>
@@ -44,63 +44,19 @@ function Welcome() {
   );
 }
 
-function ToolsStep() {
-  const providers = useStore((state) => state.providers);
-  const toast = useStore((state) => state.toast);
-  const run = useStore((state) => state.run);
-  const loadCatalog = useStore((state) => state.loadCatalog);
-  const [checking, setChecking] = useState(false);
-  const visible = providers.filter((provider) => provider.support !== 'custom');
-
-  const refresh = async () => {
-    setChecking(true);
-    await run(() => api.post('/api/providers/refresh'));
-    await loadCatalog();
-    setChecking(false);
-  };
-
-  const Row = ({ provider }: { provider: ProviderInfo }) => (
-    <li className="rounded-lg border border-line bg-raised p-3">
-      <div className="flex items-center gap-2">
-        {provider.installed ? <CheckCircle2 size={16} className="text-ok" /> : <CircleAlert size={16} className="text-amber" />}
-        <span className="flex-1 text-[13px] font-semibold">{provider.label}</span>
-        <span className="text-xs text-muted">{provider.installed ? provider.version : 'não instalado'}</span>
-      </div>
-      {!provider.installed && provider.installCommand && (
-        <div className="mt-2">
-          <div className="flex items-center gap-2 rounded-md bg-bg px-2.5 py-1.5">
-            <code className="min-w-0 flex-1 break-all font-mono text-xs">{provider.installCommand}</code>
-            <IconButton label="Copiar comando" onClick={() => { void navigator.clipboard.writeText(provider.installCommand!); toast('ok', 'Comando copiado.'); }}><Copy size={13} /></IconButton>
-          </div>
-          {provider.installUrl && <a className="mt-1 inline-flex items-center gap-1 text-xs text-accent underline" href={provider.installUrl} target="_blank" rel="noreferrer noopener">Instruções oficiais <ExternalLink size={11} /></a>}
-        </div>
-      )}
-      {provider.note && <p className="mt-1.5 text-xs text-muted">{provider.note}</p>}
-    </li>
-  );
-
-  return (
-    <div>
-      <h2 className="font-display text-xl font-semibold">Ferramentas de IA neste computador</h2>
-      <p className="mt-1 text-[13px] text-muted">O XinoIA não inclui essas ferramentas: ele conduz as que você instalar. Você precisa de ao menos uma. As que usam Node.js pedem o <a className="text-accent underline" href="https://nodejs.org" target="_blank" rel="noreferrer noopener">Node.js instalado</a>.</p>
-      <ul className="mt-4 space-y-2">{visible.map((provider) => <Row key={provider.id} provider={provider} />)}</ul>
-      <Button className="mt-3" disabled={checking} onClick={() => void refresh()}><RefreshCw size={13} className={checking ? 'animate-spin' : ''} /> Verificar de novo</Button>
-    </div>
-  );
-}
-
 function AccountsStep() {
   const allProviders = useStore((state) => state.providers);
-  const providers = allProviders.filter((provider) => provider.installed && provider.support !== 'custom');
+  const providers = allProviders.filter((provider) => provider.support !== 'custom');
   const profiles = useStore((state) => state.profiles);
   const run = useStore((state) => state.run);
   const loadCatalog = useStore((state) => state.loadCatalog);
-  const [terminal, setTerminal] = useState<string | null>(null);
+  const installed = providers.filter((provider) => provider.installed).map((provider) => provider.id).join();
 
-  // Cadastra o login do computador de cada ferramenta instalada: quase sempre é o que se quer.
+  // Cadastra o login do computador de cada ferramenta instalada: assim, quem já entrou
+  // pelo terminal aparece como conectado, sem precisar fazer nada.
   useEffect(() => {
     void (async () => {
-      for (const provider of providers) {
+      for (const provider of providers.filter((item) => item.installed)) {
         if (!profiles.some((profile) => profile.provider === provider.id && !profile.homeDir)) {
           const created = await run(() => api.post<Profile>('/api/profiles', { provider: provider.id, label: 'Principal', useSystemDefault: true }));
           if (created) await run(() => api.post(`/api/profiles/${created.id}/check`));
@@ -108,37 +64,15 @@ function AccountsStep() {
       }
       await loadCatalog();
     })();
-    // Roda uma vez ao abrir este passo.
+    // Roda ao abrir este passo e quando uma ferramenta acaba de ser instalada.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const login = async (profile: Profile) => {
-    const created = await run(() => api.post<{ id: string }>('/api/terminals', { kind: 'login', profileId: profile.id }));
-    if (created) setTerminal(created.id);
-  };
+  }, [installed]);
 
   return (
     <div>
-      <h2 className="font-display text-xl font-semibold">Conecte suas contas</h2>
-      <p className="mt-1 text-[13px] text-muted">O login é o oficial de cada ferramenta e abre no navegador. Sua senha e seus tokens nunca passam pelo XinoIA.</p>
-      <ul className="mt-4 space-y-2">
-        {providers.flatMap((provider) => profiles.filter((profile) => profile.provider === provider.id).map((profile) => (
-          <li key={profile.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-raised p-3 text-[13px]">
-            {profile.auth?.loggedIn ? <CheckCircle2 size={16} className="text-ok" /> : <CircleAlert size={16} className="text-amber" />}
-            <span className="flex-1 font-semibold">{provider.label}</span>
-            {profile.auth?.loggedIn
-              ? <span className="text-xs text-muted">{profile.auth.subscription === false ? 'Chave de API: gera cobrança por uso' : profile.auth.plan ? `Conectado, plano ${profile.auth.plan}` : 'Conectado'}</span>
-              : <Button size="sm" kind="primary" onClick={() => void login(profile)}><LogIn size={13} /> Fazer login</Button>}
-            <IconButton label="Verificar de novo" onClick={() => void run(() => api.post(`/api/profiles/${profile.id}/check`))}><RefreshCw size={13} /></IconButton>
-          </li>
-        )))}
-        {!providers.length && <li className="rounded-lg border border-line bg-raised p-3 text-[13px] text-muted">Nenhuma ferramenta instalada ainda. Volte ao passo anterior.</li>}
-      </ul>
-      {terminal && (
-        <div className="mt-3 h-56 overflow-hidden rounded-lg border border-line bg-bg">
-          <PtyTerminal terminalId={terminal} onExit={() => { void run(() => api.post('/api/profiles/check')); }} />
-        </div>
-      )}
+      <h2 className="font-display text-xl font-semibold">Escolha a sua IA</h2>
+      <p className="mt-1 text-[13px] text-muted">Conecte ao menos uma. O login é o oficial de cada fornecedor e abre no navegador, com a sua assinatura. Quem preferir pode usar uma chave de API.</p>
+      <ul className="mt-4 space-y-2">{providers.map((provider) => <ProviderChoice key={provider.id} provider={provider} />)}</ul>
       <p className="mt-3 text-xs text-muted">Assinatura não é acesso ilimitado: os limites do seu plano continuam valendo.</p>
     </div>
   );
@@ -221,7 +155,7 @@ function TeamStep() {
           </ul>
         </>
       ) : !connected.length ? (
-        <p className="mt-3 rounded-lg bg-amber-soft px-3 py-2 text-[13px] text-amber">Conecte ao menos uma conta no passo anterior para criar a equipe.</p>
+        <p className="mt-3 rounded-lg bg-amber-soft px-3 py-2 text-[13px] text-amber">Conecte ao menos uma IA no passo Sua IA para criar a equipe.</p>
       ) : (
         <>
           <p className="mt-1 text-[13px] text-muted">Sugestão para começar. Quem planeja e revisa só lê os arquivos, e quem implementa pode editar.</p>
@@ -310,11 +244,10 @@ export function Onboarding({ onClose }: { onClose: () => void }) {
         </header>
         <div className="min-h-[360px] flex-1 overflow-y-auto px-6 py-6">
           {step === 0 && <Welcome />}
-          {step === 1 && <ToolsStep />}
-          {step === 2 && <AccountsStep />}
-          {step === 3 && <ProjectStep />}
-          {step === 4 && <TeamStep />}
-          {step === 5 && <TestStep />}
+          {step === 1 && <AccountsStep />}
+          {step === 2 && <ProjectStep />}
+          {step === 3 && <TeamStep />}
+          {step === 4 && <TestStep />}
         </div>
         <footer className="flex items-center justify-between border-t border-line px-5 py-3">
           <Button kind="ghost" disabled={step === 0} onClick={() => setStep(step - 1)}><ArrowLeft size={13} /> Voltar</Button>

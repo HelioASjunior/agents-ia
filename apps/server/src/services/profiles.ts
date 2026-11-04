@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import type { AuthStatus, Profile, ProfileUsage } from '@xinoia/shared';
-import { CreateProfileInput } from '@xinoia/shared';
+import { CreateProfileInput, SetApiKeyInput } from '@xinoia/shared';
 import type { AppConfig } from '../config.ts';
 import { badRequest, notFound } from '../errors.ts';
 import { newId } from '../ids.ts';
@@ -11,6 +11,8 @@ import type { Persistence } from '../persistence/types.ts';
 import { buildEnv, capture } from '../process/spawn.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
 import type { ProviderAdapter } from '../providers/types.ts';
+import { registerSecret } from '../security/redact.ts';
+import { windowsSecretStore, type SecretStore } from '../security/secret-store.ts';
 import type { EventHub } from '../ws/hub.ts';
 
 export interface LoginResult {
@@ -30,12 +32,14 @@ export class ProfileService {
   private readonly db: Persistence;
   private readonly providers: ProviderRegistry;
   private readonly hub: EventHub;
+  private readonly secrets: SecretStore;
 
-  constructor(config: AppConfig, db: Persistence, providers: ProviderRegistry, hub: EventHub) {
+  constructor(config: AppConfig, db: Persistence, providers: ProviderRegistry, hub: EventHub, secrets: SecretStore = windowsSecretStore) {
     this.config = config;
     this.db = db;
     this.providers = providers;
     this.hub = hub;
+    this.secrets = secrets;
   }
 
   homeOf(profile: Profile): string | null {
@@ -66,7 +70,13 @@ export class ProfileService {
       throw badRequest(`${adapter.label} não permite perfis separados. Use o login padrão do computador.`, 'no_isolation');
     }
 
-    if (data.useSystemDefault) {
+    // A chave fica em um perfil próprio, para nunca se misturar com o login do computador.
+    if (data.apiKey && !adapter.apiKeyEnv) throw badRequest(`${adapter.label} não aceita chave de API.`, 'no_api_key');
+    const cipher = data.apiKey ? await this.secrets.protect(data.apiKey) : null;
+    if (data.apiKey) registerSecret(data.apiKey);
+    const useSystemDefault = data.useSystemDefault && !data.apiKey;
+
+    if (useSystemDefault) {
       const existing = (await this.db.profiles.list()).find((p) => p.provider === data.provider && !p.homeDir);
       if (existing) return existing;
     }
@@ -76,7 +86,8 @@ export class ProfileService {
       id,
       provider: data.provider,
       label: data.label,
-      homeDir: data.useSystemDefault ? null : id,
+      homeDir: useSystemDefault ? null : id,
+      credential: cipher ? 'api_key' : 'login',
       auth: null,
       usage: null,
       totals: { runs: 0, inputTokens: 0, outputTokens: 0 },
@@ -88,7 +99,29 @@ export class ProfileService {
       adapter.prepareHome?.(home);
     }
     await this.db.profiles.insert(profile);
+    if (cipher) await this.db.profiles.setApiKeyCipher(id, cipher);
     return profile;
+  }
+
+  /** Troca a chave de um perfil que já usa chave de API. */
+  async setApiKey(id: string, input: unknown): Promise<Profile> {
+    const profile = await this.require(id);
+    if (profile.credential !== 'api_key') throw badRequest('Este perfil usa login, não chave de API.', 'not_api_key');
+    const { apiKey } = SetApiKeyInput.parse(input);
+    await this.db.profiles.setApiKeyCipher(id, await this.secrets.protect(apiKey));
+    registerSecret(apiKey);
+    return this.check(id);
+  }
+
+  /** Ambiente de uma execução: o do perfil e, só se ele usar chave, a chave dele. */
+  async envFor(profile: Profile | null, adapter: ProviderAdapter): Promise<Record<string, string>> {
+    const env = buildEnv(adapter, profile ? this.homeOf(profile) : null);
+    if (profile?.credential === 'api_key' && adapter.apiKeyEnv) {
+      const cipher = await this.db.profiles.getApiKeyCipher(profile.id);
+      if (!cipher) throw badRequest('Este perfil está sem chave de API. Informe a chave em Contas.', 'no_api_key');
+      env[adapter.apiKeyEnv] = await this.secrets.unprotect(cipher);
+    }
+    return env;
   }
 
   async rename(id: string, label: string): Promise<Profile> {
@@ -116,6 +149,8 @@ export class ProfileService {
     const home = this.homeOf(profile);
     const checkedAt = Date.now();
     const none = { loggedIn: false, subscription: null, method: null, email: null, plan: null, checkedAt };
+    // Conferir a chave de verdade custaria uma chamada paga: quem recusa é a primeira execução.
+    if (profile.credential === 'api_key') return { ...none, loggedIn: true, subscription: false, method: 'Chave de API' };
     try {
       if (adapter.statusArgs && adapter.parseStatus) {
         const result = await capture({
@@ -176,6 +211,7 @@ export class ProfileService {
   async logout(id: string): Promise<Profile> {
     const profile = await this.require(id);
     const adapter = this.adapterOf(profile);
+    if (profile.credential === 'api_key') throw badRequest('Para deixar de usar a chave, remova este perfil.', 'not_login');
     if (!adapter.logoutArgs) throw badRequest(`${adapter.label} não tem comando de saída.`);
     await capture({
       command: adapter.command,
@@ -193,7 +229,7 @@ export class ProfileService {
     const home = this.homeOf(profile);
     if (home) {
       const adapter = this.adapterOf(profile);
-      if (adapter.logoutArgs) await this.logout(id).catch(() => undefined);
+      if (adapter.logoutArgs && profile.credential === 'login') await this.logout(id).catch(() => undefined);
       const inside = path.resolve(home).startsWith(path.resolve(this.config.profilesDir) + path.sep);
       if (inside) fs.rmSync(home, { recursive: true, force: true });
     }

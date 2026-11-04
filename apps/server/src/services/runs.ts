@@ -7,7 +7,6 @@ import { badRequest, conflict, notFound } from '../errors.ts';
 import { newId } from '../ids.ts';
 import type { Persistence, RunFilter } from '../persistence/types.ts';
 import { startCliRun, type RunHandle, type RunOutcome } from '../process/runner.ts';
-import { buildEnv } from '../process/spawn.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
 import type { ProviderAdapter } from '../providers/types.ts';
 import { redact, redactDeep } from '../security/redact.ts';
@@ -314,7 +313,9 @@ export class RunService {
       } else {
         run.status = 'failed';
         run.errorKind = outcome.errorKind;
-        run.errorText = redact(outcome.errorText ?? 'A execução falhou.');
+        run.errorText = outcome.errorKind === 'auth' && profile?.credential === 'api_key'
+          ? 'O provedor recusou a chave de API deste perfil. Confira a chave em Contas.'
+          : redact(outcome.errorText ?? 'A execução falhou.');
       }
       await this.saveRun(run);
       if (profile) {
@@ -356,13 +357,13 @@ export class RunService {
       fullPrompt = [buildPersona(agent, project, team, cwd), resolved.promptNote, prompt].filter(Boolean).join('\n\n');
     }
 
-    const home = profile ? this.profiles.homeOf(profile) : null;
+    const env = await this.profiles.envFor(profile, adapter);
     const { stallMinutes, maxRunMinutes } = this.settings.get();
     const handle = startCliRun({
       adapter,
       prompt: fullPrompt,
       cwd,
-      env: buildEnv(adapter, home),
+      env,
       options,
       inactivityMs: stallMinutes * 60_000,
       maxDurationMs: maxRunMinutes * 60_000,

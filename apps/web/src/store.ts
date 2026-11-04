@@ -127,7 +127,7 @@ function applyEvent(state: State, stored: StoredRunEvent): Partial<State> {
 export const useStore = create<State>((set, get) => ({
   ready: false,
   connected: false,
-  view: 'chat',
+  view: 'office',
   theme: stored(THEME_KEY) === 'light' ? 'light' : 'dark',
   projectId: stored(PROJECT_KEY),
   channel: 'team',

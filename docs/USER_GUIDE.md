@@ -12,25 +12,33 @@ Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informa
 
 ## Primeira execução
 
-O assistente confere as ferramentas de IA, conecta suas contas, escolhe uma pasta de projeto, cria uma equipe inicial e faz um teste real de integração.
+O assistente mostra as IAs, instala a que faltar, conecta sua conta, escolhe uma pasta de projeto, cria uma equipe inicial e faz um teste real de integração.
 
 ## Ferramentas de IA
 
-O XinoIA não inclui nenhuma delas. Instale as que quiser e entre com a sua própria conta.
+O XinoIA não inclui nenhuma delas. No assistente, ou em Contas, clique em **Instalar** para rodar o instalador oficial à sua vista. Se preferir, rode em um terminal:
 
-Se ainda não tiver, instale o [Node.js](https://nodejs.org), que os comandos abaixo usam.
-
-| Ferramenta | Instalar | Entrar |
+| Ferramenta | Instalar | Precisa de Node.js |
 | --- | --- | --- |
-| Claude Code | `npm install -g @anthropic-ai/claude-code` | Pelo XinoIA, em Contas > Login |
-| Codex CLI | `npm install -g @openai/codex` | Pelo XinoIA, em Contas > Login |
-| Gemini CLI (não testado) | `npm install -g @google/gemini-cli` | Pelo XinoIA, em Contas > Login |
+| Claude Code | `irm https://claude.ai/install.ps1 \| iex` (PowerShell) | Não |
+| Codex CLI | `npm install -g @openai/codex` | Sim |
+| Gemini CLI (não testado) | `npm install -g @google/gemini-cli` | Sim |
 
-Depois de instalar, clique em **Verificar tudo** em Contas.
+Instalou por fora? Clique em **Verificar tudo** em Contas.
+
+### Entrar pelo navegador
+
+Clique em **Entrar pelo navegador**. A página oficial do fornecedor abre, e você entra como sempre, inclusive com o Google, se a sua conta usar. A janela do XinoIA fecha sozinha quando o login termina. Se o navegador não abrir, use **Abrir a página de novo**. Se a ferramenta perguntar algo, ou o navegador mostrar um código, clique em **Ver terminal** e responda lá.
+
+### Usar uma chave de API
+
+Clique em **Usar chave de API** e cole a chave. Ela fica em um perfil próprio, cifrada pelo Windows e presa ao seu usuário, e não volta para a tela. Só a ferramenta daquele perfil a recebe, ao executar. Para tirá-la daqui, remova o perfil, e para invalidá-la de vez, revogue-a no site do fornecedor.
+
+Com chave de API, cada uso é cobrado pelo fornecedor, à parte da assinatura. Por enquanto, isso só funciona no Windows. Uma cópia de segurança restaurada em outro computador ou outro usuário do Windows não consegue ler a chave: informe-a de novo com **Trocar chave**.
 
 ### Várias contas
 
-Em Contas, use **Adicionar conta** e **Criar um perfil separado**. Cada perfil guarda o login em uma pasta própria. No login, confira no navegador se a conta certa está aberta.
+Em Contas, use **Adicionar conta** e **Entrar em outra conta pelo navegador**. Cada perfil guarda o login em uma pasta própria. No login, confira no navegador se a conta certa está aberta.
 
 Use apenas contas suas e respeite os termos de cada fornecedor. O XinoIA nunca troca de conta sozinho para contornar um limite. Veja [Provedores](PROVIDERS.md).
 
@@ -108,7 +116,9 @@ Nada é enviado a um servidor do XinoIA, que não existe. Seus pedidos vão aos 
 
 ## Problemas comuns
 
-**"A conta precisa de login"**: em Contas, clique em Login. O login oficial pode expirar.
+**"A conta precisa de login"**: em Contas, clique em **Entrar pelo navegador**. O login oficial pode expirar.
+
+**"O provedor recusou a chave de API"**: a chave foi revogada, digitada errada ou está sem crédito. Em Contas, clique em **Trocar chave**.
 
 **"A ferramenta não está instalada", mas está**: feche e abra o XinoIA, ou reinicie o Windows depois de instalar a ferramenta, para o `PATH` atualizar.
 
@@ -128,9 +138,13 @@ Nada é enviado a um servidor do XinoIA, que não existe. Seus pedidos vão aos 
 
 ## Perguntas frequentes
 
-**Preciso de chave de API?** Não, para Claude Code e Codex CLI com assinatura. Os limites do plano continuam valendo.
+**Preciso de chave de API?** Não, para Claude Code e Codex CLI com assinatura, em que os limites do plano continuam valendo. A chave é uma opção para quem prefere pagar por uso.
 
-**O XinoIA vê minha senha?** Não. O login é feito no fluxo oficial de cada ferramenta, e o XinoIA não lê os arquivos em que ela guarda o acesso.
+**O que é a "chave de assinatura" citada na publicação do XinoIA?** Nada que quem usa o app precise conhecer. Ela só comprova que uma atualização veio do projeto, e fica com quem publica. Não tem relação com o login nem com a chave de API das IAs.
+
+**O XinoIA vê minha senha?** Não. O login é feito no fluxo oficial de cada ferramenta, e o XinoIA não lê os arquivos em que ela guarda o acesso. A única credencial que passa por ele é a chave de API, se você escolher usar uma.
+
+**Onde vejo os agentes trabalhando?** No **Escritório**, a primeira tela, e na telinha **Escritório ao vivo**, acima do terminal, nas outras telas. Cada agente vai para a mesa quando recebe trabalho e volta para a copa quando termina.
 
 **Quanto custa?** O XinoIA é gratuito. O uso das ferramentas segue o seu plano com cada fornecedor.
 

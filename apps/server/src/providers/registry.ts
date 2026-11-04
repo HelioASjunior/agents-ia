@@ -14,6 +14,8 @@ export function customAdapter(def: CustomProvider): ProviderAdapter {
     defaultHomeDir: null,
     support: 'custom',
     note: 'Agente personalizado: a saída é mostrada como texto, sem detalhes de ferramentas.',
+    apiKeyEnv: null,
+    apiKeyUrl: null,
     installCommand: null,
     installUrl: null,
     loginCommand: def.loginCommand,
