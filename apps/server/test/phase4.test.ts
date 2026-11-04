@@ -340,6 +340,81 @@ test('Workflow executa de verdade, e condição pula o caminho que não se aplic
   await h.cleanup();
 });
 
+/** O que a tela de aprovação envia: só o que ela sabe editar. */
+const screenDrafts = (tasks: Task[]) => tasks.map((task) => ({
+  id: task.id,
+  title: task.title,
+  description: task.description,
+  assignee: task.assigneeId ?? '',
+  type: task.type,
+  priority: task.priority,
+  dependsOn: task.dependsOn,
+}));
+
+test('Workflow: aprovar pela tela mantém as condições e as tentativas de cada etapa', async () => {
+  const h = await createHarness();
+  const { projectId } = await team(h);
+  const workflow = await h.ctx.workflows.create({
+    name: 'Com condição e aprovação',
+    nodes: [
+      { id: 'fazer', title: 'Fazer', role: 'developer', description: 'faça' },
+      { id: 'revisar', title: 'Revisar', role: 'developer', type: 'review', description: 'revise' },
+      { id: 'publicar', title: 'Publicar', role: 'developer', runIf: 'approved', description: 'publique' },
+      { id: 'consertar', title: 'Consertar', role: 'developer', runIf: 'rejected', maxAttempts: 4, description: 'conserte' },
+    ],
+    edges: [
+      { source: 'fazer', target: 'revisar' },
+      { source: 'revisar', target: 'publicar' },
+      { source: 'revisar', target: 'consertar' },
+    ],
+  });
+  const mission = await h.ctx.workflows.run(workflow.id, { projectId, goal: 'REPROVAR_SEMPRE' });
+  assert.equal((await h.ctx.orchestrator.waitForIdle(mission.id)).status, 'awaiting_approval');
+
+  await h.ctx.orchestrator.approve(mission.id, {
+    tasks: [
+      ...screenDrafts(await h.ctx.orchestrator.tasks(mission.id)),
+      { id: 'novo-1', title: 'Avisar', assignee: (await h.ctx.agents.list())[0]!.id, dependsOn: [] },
+    ],
+  });
+  const state = await h.ctx.orchestrator.waitForIdle(mission.id);
+  assert.equal(state.status, 'completed', state.pauseReason ?? '');
+  const tasks = await h.ctx.orchestrator.tasks(mission.id);
+  const byTitle = Object.fromEntries(tasks.map((task) => [task.title, task]));
+  assert.equal(byTitle.Revisar?.verdict, 'REPROVADO');
+  assert.equal(byTitle.Publicar?.status, 'skipped');
+  assert.equal(byTitle.Consertar?.status, 'done', 'o caminho de reprovação foi seguido');
+  assert.equal(byTitle.Consertar?.maxAttempts, 4);
+  assert.equal(byTitle.Avisar?.runIf, 'always', 'tarefa nova não herda condição');
+  assert.equal(tasks.some((task) => task.isFix), false, 'não abriu rodada de correção');
+  await h.cleanup();
+});
+
+test('Workflow: o tipo mostrado na aprovação é o que vale, mesmo para quem revisa', async () => {
+  const h = await createHarness();
+  const { projectId } = await team(h);
+  const profile = await h.ctx.profiles.create({ provider: 'fake', label: 'T' });
+  await h.ctx.agents.create({ name: 'Tina', role: 'tester', provider: 'fake', profileId: profile.id });
+  const workflow = await h.ctx.workflows.create({
+    name: 'Entrega',
+    nodes: [{ id: 'entregar', title: 'Entregar', role: 'tester', type: 'work', description: 'entregue' }],
+    edges: [],
+  });
+  const mission = await h.ctx.workflows.run(workflow.id, { projectId, goal: 'objetivo' });
+  await h.ctx.orchestrator.waitForIdle(mission.id);
+  const drafts = screenDrafts(await h.ctx.orchestrator.tasks(mission.id));
+  assert.equal(drafts[0]?.type, 'work');
+
+  await h.ctx.orchestrator.approve(mission.id, { tasks: drafts });
+  const state = await h.ctx.orchestrator.waitForIdle(mission.id);
+  assert.equal(state.status, 'completed', state.pauseReason ?? '');
+  const [task] = await h.ctx.orchestrator.tasks(mission.id);
+  assert.equal(task?.type, 'work');
+  assert.equal(task?.assigneeName, 'Tina');
+  assert.equal(task?.verdict, null);
+  await h.cleanup();
+});
+
 test('Memória: decisões registradas pelo agente chegam às próximas tarefas e missões', async () => {
   assert.deepEqual(extractDecisions('a <decisao>Usar SQLite</decisao> b <decisão> Sem ORM </decisão>'), ['Usar SQLite', 'Sem ORM']);
   const h = await createHarness();

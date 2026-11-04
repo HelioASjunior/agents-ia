@@ -8,6 +8,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 - Guia de estudo em PDF, em português e inglês, para aprender como o sistema funciona e como usá-lo.
 
+### Corrigido
+
+- **Aprovar e iniciar** apagava as condições ("só se a revisão aprovar" ou "reprovar") e as tentativas das etapas de um workflow. Com isso, uma reprovação abria uma rodada de correção em vez de seguir pelo caminho desenhado.
+- O tipo **Trabalho** escolhido para uma tarefa de quem testa ou revisa era trocado por revisão na aprovação, e ela falhava por não ter veredito.
+
 ## [0.1.2] - 2026-11-04
 
 ### Corrigido

@@ -54,6 +54,7 @@ test('Plano: valida responsável, tarefas e dependências', () => {
   assert.equal(tasks[0]?.assigneeName, 'Ana');
   assert.deepEqual(tasks[1]?.dependsOn, [tasks[0]?.id]);
   assert.equal(tasks[1]?.type, 'review', 'tarefa de revisor sempre devolve veredito');
+  assert.equal(buildTasks('m', [{ title: 'Olhar', assignee: 'a2', type: 'work' }], team)[0]?.type, 'review', 'o coordenador não dispensa o veredito');
   assert.throws(() => buildTasks('m', [], team), /não tem tarefas/);
   assert.throws(() => buildTasks('m', [{ title: 'x', assignee: 'ninguem' }], team), /quem não está na equipe/);
   assert.throws(() => buildTasks('m', [{ assignee: 'a1' }], team), /inválida/);

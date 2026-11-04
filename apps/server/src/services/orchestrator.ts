@@ -349,7 +349,8 @@ export class Orchestrator {
       const mission = await this.requireMission(id);
       if (mission.status !== 'awaiting_approval') throw conflict('A missão não está aguardando aprovação.');
       if (data.tasks) {
-        const tasks = buildTasks(mission.id, data.tasks, await this.missionAgents(mission));
+        const current = await this.db.tasks.listForMission(mission.id);
+        const tasks = buildTasks(mission.id, data.tasks, await this.missionAgents(mission), current);
         await this.db.tasks.replaceForMission(mission.id, tasks);
         this.hub.publish({ kind: 'tasks_replaced', missionId: mission.id, data: tasks });
       }

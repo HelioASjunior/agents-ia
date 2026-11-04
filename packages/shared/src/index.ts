@@ -471,7 +471,7 @@ export const PlanTaskInput = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().max(20_000).default(''),
   assignee: z.string().min(1),
-  type: z.enum(['work', 'review']).default('work'),
+  type: z.enum(['work', 'review']).optional(),
   priority: z.number().int().min(1).max(3).default(2),
   dependsOn: z.array(z.string()).default([]),
 });

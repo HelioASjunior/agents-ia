@@ -36,8 +36,12 @@ export function findCycle(items: Array<{ id: string; dependsOn: string[] }>): st
   return remaining.size ? [...remaining.keys()] : null;
 }
 
-/** Valida o plano e o transforma em tarefas com IDs definitivos. */
-export function buildTasks(missionId: string, rawTasks: unknown[], agents: Agent[]): Task[] {
+/**
+ * Valida o plano e o transforma em tarefas com IDs definitivos. `approved` é o plano
+ * que estava na tela: o que ela não edita continua igual em cada tarefa, casada pelo
+ * ID, e o tipo escolhido pelo usuário vale.
+ */
+export function buildTasks(missionId: string, rawTasks: unknown[], agents: Agent[], approved?: Task[]): Task[] {
   if (!rawTasks.length) throw new Error('O plano não tem tarefas.');
   const byId = new Map(agents.map((agent) => [agent.id, agent]));
   const byName = new Map(agents.map((agent) => [agent.name.toLowerCase(), agent]));
@@ -63,9 +67,11 @@ export function buildTasks(missionId: string, rawTasks: unknown[], agents: Agent
   if (cycle) throw new Error(`As tarefas dependem umas das outras em círculo: ${cycle.join(', ')}`);
 
   const ids = new Map(parsed.map((task) => [task.key, newId('task')]));
+  const previous = new Map(approved?.map((task) => [task.id, task]));
   return parsed.map((task, position) => {
     const agent = byId.get(task.assignee) ?? byName.get(task.assignee.toLowerCase());
     if (!agent) throw new Error(`A tarefa "${task.title}" foi atribuída a quem não está na equipe: ${task.assignee}`);
+    const kept = previous.get(task.key);
     return {
       id: ids.get(task.key)!,
       missionId,
@@ -74,8 +80,8 @@ export function buildTasks(missionId: string, rawTasks: unknown[], agents: Agent
       description: task.description,
       assigneeId: agent.id,
       assigneeName: agent.name,
-      // Tarefa de quem revisa sempre devolve veredito, mesmo que o plano esqueça.
-      type: task.type === 'review' || ROLES[agent.role].reviews ? 'review' : 'work',
+      // No plano do coordenador, tarefa de quem revisa sempre devolve veredito, mesmo que ele esqueça.
+      type: (approved && task.type) || (ROLES[agent.role].reviews ? 'review' : task.type ?? 'work'),
       priority: task.priority,
       dependsOn: task.dependsOn.filter((dep) => keys.has(dep) && dep !== task.key).map((dep) => ids.get(dep)!),
       status: 'pending',
@@ -90,8 +96,8 @@ export function buildTasks(missionId: string, rawTasks: unknown[], agents: Agent
       errorText: null,
       startedAt: null,
       endedAt: null,
-      runIf: 'always',
-      maxAttempts: null,
+      runIf: kept?.runIf ?? 'always',
+      maxAttempts: kept?.maxAttempts ?? null,
       mergeFrom: null,
       approvedAt: null,
     };
