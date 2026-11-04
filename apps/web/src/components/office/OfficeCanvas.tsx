@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { activeMission, useStore } from '../../store.ts';
 import { OfficeScene } from './scene.ts';
 
 /** A cena viva do escritório, ligada ao estado real. Serve à tela cheia e à telinha. */
 export function OfficeCanvas({ compact = false, selected = null, onSelect }: { compact?: boolean; selected?: string | null; onSelect?: (id: string | null) => void }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
+  const host = useRef<HTMLDivElement>(null);
+  const [failed, setFailed] = useState(false);
   const scene = useRef<OfficeScene | null>(null);
   const seenEvents = useRef(new Set<number>());
   const agents = useStore((store) => store.agents);
@@ -16,8 +17,15 @@ export function OfficeCanvas({ compact = false, selected = null, onSelect }: { c
   const missionEvents = useStore((store) => store.missionEvents);
 
   useEffect(() => {
-    if (!canvas.current) return undefined;
-    const instance = new OfficeScene(canvas.current, { compact });
+    if (!host.current) return undefined;
+    let instance: OfficeScene;
+    try {
+      instance = new OfficeScene(host.current, { compact });
+    } catch {
+      // Sem WebGL, o resto do app continua funcionando.
+      setFailed(true);
+      return undefined;
+    }
     instance.onSelect = (id) => onSelect?.(id);
     instance.setTheme(useStore.getState().theme);
     instance.start();
@@ -75,5 +83,13 @@ export function OfficeCanvas({ compact = false, selected = null, onSelect }: { c
     }
   }, [mission, missions, missionEvents]);
 
-  return <canvas ref={canvas} role="img" aria-label="Escritório virtual com os agentes. O modo compacto mostra as mesmas informações em uma tabela." className="block touch-none" />;
+  return (
+    <div ref={host} role="img" aria-label="Escritório virtual com os agentes. O modo compacto mostra as mesmas informações em uma tabela." className="absolute inset-0 overflow-hidden">
+      {failed && (
+        <p className="flex h-full items-center justify-center p-4 text-center text-xs text-muted">
+          Este computador não conseguiu abrir o escritório em 3D. A visão Compacta mostra as mesmas informações.
+        </p>
+      )}
+    </div>
+  );
 }

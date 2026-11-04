@@ -325,6 +325,13 @@ export interface CustomProvider {
 
 export type SupportLevel = 'tested' | 'documented' | 'custom';
 
+export interface ModelOption {
+  id: string;
+  label: string;
+  /** Níveis de esforço que este modelo aceita. */
+  efforts: string[];
+}
+
 export interface ProviderInfo {
   id: string;
   label: string;
@@ -342,6 +349,8 @@ export interface ProviderInfo {
   installCommand: string | null;
   installUrl: string | null;
   models: string[];
+  /** Modelos para escolher. Quando o CLI informa um catálogo, é o dele. */
+  modelOptions: ModelOption[];
   efforts: string[];
   note: string | null;
 }

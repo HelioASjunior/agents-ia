@@ -24,5 +24,5 @@ Valem para qualquer pessoa ou agente que trabalhe aqui.
 - O prompt nunca é passado como argumento de linha de comando, só por stdin.
 - O produto nunca lê, copia ou guarda credenciais dos CLIs, e não tem agentes simulados.
 - A chave de API informada pela pessoa só existe cifrada pelo sistema (`security/secret-store.ts`), nunca volta para a interface e nunca vai por argumento.
-- O escritório só representa estados recebidos do backend. Nada na cena decide o que um agente faz.
+- O escritório (Three.js, com modelos feitos por código) só representa estados recebidos do backend. Nada na cena decide o que um agente faz.
 - Nada de dados inventados: consumo, limites e estados só aparecem quando vêm de um evento real.

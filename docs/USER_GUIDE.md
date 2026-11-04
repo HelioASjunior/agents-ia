@@ -44,12 +44,12 @@ Use apenas contas suas e respeite os termos de cada fornecedor. O XinoIA nunca t
 
 ## Agentes
 
-Cada agente tem função, ferramenta, conta, modelo e nível de permissão.
+Cada agente tem função, ferramenta, conta, modelo e nível de permissão. Os modelos do Codex vêm do catálogo da versão instalada. Nem toda conta tem acesso a todos: se a execução recusar, escolha outro modelo ou outra conta. Em **Outro…**, dá para digitar um nome fora da lista.
 
 | Permissão | Pode fazer |
 | --- | --- |
 | Somente leitura | Lê o projeto. Não altera arquivos, não roda comandos e não usa ferramentas MCP. |
-| Editar | Altera arquivos do projeto. No Codex, roda comandos na área protegida. No Claude, comandos de terminal continuam bloqueados. |
+| Editar | Altera arquivos do projeto. No Codex, roda comandos na área protegida, que não grava fora da pasta do projeto: programas como o Unreal Engine precisam de "total" para compilar. No Claude, comandos de terminal continuam bloqueados. |
 | Total | Roda qualquer comando, com o acesso da sua conta no computador. Só vale no modo autônomo. |
 
 **Dica:** quem revisa em "somente leitura" só lê o código. Para alguém rodar os testes, use um agente Codex em "editar".
@@ -145,6 +145,8 @@ Nada é enviado a um servidor do XinoIA, que não existe. Seus pedidos vão aos 
 **O XinoIA vê minha senha?** Não. O login é feito no fluxo oficial de cada ferramenta, e o XinoIA não lê os arquivos em que ela guarda o acesso. A única credencial que passa por ele é a chave de API, se você escolher usar uma.
 
 **Onde vejo os agentes trabalhando?** No **Escritório**, a primeira tela, e na telinha **Escritório ao vivo**, acima do terminal, nas outras telas. Cada agente vai para a mesa quando recebe trabalho e volta para a copa quando termina.
+
+**O escritório em 3D pesa no computador?** Ele usa a placa de vídeo, com no máximo 30 quadros por segundo, e para quando a janela fica oculta. Se você usa outro programa pesado em 3D, como o Unreal Editor, escolha **Compacto** no Escritório e recolha a telinha **Escritório ao vivo**: a cena deixa de ser desenhada, e as mesmas informações aparecem em uma tabela.
 
 **Quanto custa?** O XinoIA é gratuito. O uso das ferramentas segue o seu plano com cada fornecedor.
 

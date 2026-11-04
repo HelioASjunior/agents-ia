@@ -28,6 +28,8 @@ interface Draft {
   toolkitIds: string[];
 }
 
+const OTHER_MODEL = '__outro';
+
 function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => void }) {
   const providers = useStore((state) => state.providers);
   const profiles = useStore((state) => state.profiles);
@@ -54,6 +56,11 @@ function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => voi
   const options = profiles.filter((profile) => profile.provider === draft.provider);
   const set = (change: Partial<Draft>) => setDraft((current) => ({ ...current, ...change }));
   const permission = PERMISSIONS.find((item) => item.id === draft.permission);
+  const modelOptions = provider?.modelOptions ?? [];
+  const chosenModel = modelOptions.find((item) => item.id === draft.model);
+  // Um nome fora da lista continua valendo: o catálogo pode estar atrasado, ou faltar.
+  const [typingModel, setTypingModel] = useState(() => Boolean(agent?.model) && !chosenModel);
+  const efforts = chosenModel?.efforts.length ? chosenModel.efforts : provider?.efforts ?? [];
 
   const submit = async () => {
     const body = { ...draft, profileId: draft.profileId || null };
@@ -108,12 +115,15 @@ function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => voi
             <select
               className="field"
               value={draft.provider}
-              onChange={(event) => set({
-                provider: event.target.value,
-                profileId: profiles.find((profile) => profile.provider === event.target.value)?.id ?? '',
-                model: '',
-                effort: '',
-              })}
+              onChange={(event) => {
+                setTypingModel(false);
+                set({
+                  provider: event.target.value,
+                  profileId: profiles.find((profile) => profile.provider === event.target.value)?.id ?? '',
+                  model: '',
+                  effort: '',
+                });
+              }}
             >
               {providers.map((item) => <option key={item.id} value={item.id}>{item.label}{item.installed ? '' : ' (não instalado)'}</option>)}
             </select>
@@ -125,13 +135,33 @@ function AgentForm({ agent, onClose }: { agent: Agent | null; onClose: () => voi
             </select>
           </Field>
           <Field label="Modelo" hint="Vazio usa o padrão da ferramenta.">
-            <input className="field" list="models" value={draft.model} onChange={(event) => set({ model: event.target.value })} placeholder="Padrão" />
-            <datalist id="models">{provider?.models.map((model) => <option key={model} value={model} />)}</datalist>
+            {modelOptions.length > 0 && (
+              <select
+                aria-label="Modelo"
+                className="field"
+                value={typingModel ? OTHER_MODEL : draft.model}
+                onChange={(event) => {
+                  const typed = event.target.value === OTHER_MODEL;
+                  setTypingModel(typed);
+                  if (typed) return;
+                  const next = modelOptions.find((item) => item.id === event.target.value);
+                  // Um esforço que o novo modelo não aceita faria a execução falhar.
+                  set({ model: event.target.value, effort: next?.efforts.length && !next.efforts.includes(draft.effort) ? '' : draft.effort });
+                }}
+              >
+                <option value="">Padrão</option>
+                {modelOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+                <option value={OTHER_MODEL}>Outro…</option>
+              </select>
+            )}
+            {(typingModel || !modelOptions.length) && (
+              <input aria-label="Nome do modelo" className={`field ${modelOptions.length ? 'mt-1.5' : ''}`} value={draft.model} onChange={(event) => set({ model: event.target.value })} placeholder="Nome exato do modelo" />
+            )}
           </Field>
           <Field label="Esforço">
-            <select className="field" disabled={!provider?.efforts.length} value={draft.effort} onChange={(event) => set({ effort: event.target.value })}>
+            <select className="field" disabled={!efforts.length} value={draft.effort} onChange={(event) => set({ effort: event.target.value })}>
               <option value="">Padrão</option>
-              {provider?.efforts.map((effort) => <option key={effort} value={effort}>{effort}</option>)}
+              {efforts.map((effort) => <option key={effort} value={effort}>{effort}</option>)}
             </select>
           </Field>
         </div>

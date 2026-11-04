@@ -19,7 +19,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-Apache--2.0-blue?style=flat-square" alt="Licença: Apache-2.0"></a>
 </p>
 
-O XinoIA coloca Claude Code, Codex CLI e outros agentes de programação para trabalhar como uma equipe no seu computador. Você passa um objetivo. Um coordenador planeja, cada agente assume uma tarefa e entrega o resultado para o próximo, e outro agente revisa. Você acompanha tudo em um terminal ao vivo, conversa com qualquer agente pelo chat e vê o trabalho acontecer em um escritório virtual em estilo de jogo, onde cada animação vem de um evento real.
+O XinoIA coloca Claude Code, Codex CLI e outros agentes de programação para trabalhar como uma equipe no seu computador. Você passa um objetivo. Um coordenador planeja, cada agente assume uma tarefa e entrega o resultado para o próximo, e outro agente revisa. Você acompanha tudo em um terminal ao vivo, conversa com qualquer agente pelo chat e vê o trabalho acontecer em um escritório virtual em 3D, em estilo de jogo, onde cada animação vem de um evento real.
 
 **Suas contas, sua máquina.** O XinoIA roda no seu computador e usa o CLI oficial de cada fornecedor. Você escolhe a IA e entra pelo navegador, com a sua assinatura, ou usa uma chave de API, se preferir. Ele nunca vê suas senhas ou tokens de login, e uma chave de API fica cifrada pelo Windows. Projetos, conversas e histórico ficam em um banco de dados local, e não existe servidor, cadastro nem telemetria do XinoIA. Ele só consulta o GitHub para saber de atualizações, e seus pedidos vão para as ferramentas de IA que você escolher.
 
@@ -78,7 +78,7 @@ O instalador do Claude Code não precisa de Node.js. Os do Codex CLI e do Gemini
   </tr>
 </table>
 
-- **Escritório em estilo de jogo:** cada agente é um personagem em pixel art, com mesa na sala da função dele. Quem recebe trabalho sai da copa e vai para a mesa, o monitor acende e o balão mostra o que está fazendo. Uma telinha do escritório fica à vista em todas as outras telas.
+- **Escritório em 3D:** cada agente é um personagem com mesa na sala da função dele. Quem recebe trabalho sai da copa, vai a pé até a mesa e começa a digitar, o monitor acende e o balão mostra o que está fazendo. Uma telinha do escritório fica à vista nas outras telas. Precisa de WebGL, e a visão Compacta mostra as mesmas informações em uma tabela.
 - **Terminal ao vivo:** a saída real de cada ferramenta, da equipe toda ou de um agente, com busca, e preservada entre reinícios. Há também um terminal interativo de verdade.
 - **Trabalho paralelo isolado:** em um projeto Git, tarefas em paralelo rodam em worktrees separados. Sua pasta só muda depois que você revisa e aprova. Um conflito vira uma tarefa, e ninguém tem o trabalho sobrescrito.
 - **Modos de execução:** supervisionado, semiautônomo e autônomo controlado, com limites de permissão, regras de negação e interrupção de comandos destrutivos.

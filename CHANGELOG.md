@@ -4,18 +4,20 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+## [0.1.1] - 2026-11-04
+
 ### Adicionado
 
+- **Escritório em 3D**, com luz e sombra, personagens que andam, sentam e digitam, e a missão real no quadro da sala. A visão Compacta continua disponível, e é a indicada ao lado de programas pesados em 3D.
 - Guia para outra IA verificar o XinoIA ou levar um projeto para ele, e `npm run verify`, uma verificação completa que não usa contas nem cota.
 - Política de privacidade e preparação para a assinatura de código pela SignPath Foundation, que fica desligada. O pedido ainda não foi feito.
 
 ### Corrigido
 
 - O Codex em um perfil separado não rodava nenhum comando no Windows ("blocked by policy"), porque o perfil não tinha a área protegida definida. Agora o XinoIA usa a opção que não pede administrador, a menos que a configuração do Codex já escolha outra.
-
-- Os testes de instalação se recusam a rodar em um computador com o XinoIA instalado ou aberto. Antes, podiam encerrar o programa e apagar o registro da instalação.
-
+- Os modelos do Codex agora aparecem para escolher, vindos do catálogo da versão instalada, com os níveis de esforço que cada um aceita. Um nome fora da lista ainda pode ser digitado em **Outro…**.
 - `SHA256SUMS.txt` não lista mais um arquivo interno do empacotador, que não é publicado. O arquivo da versão 0.1.0 foi corrigido no próprio GitHub, e os outros arquivos dela não mudaram.
+- Os testes de instalação se recusam a rodar em um computador com o XinoIA instalado ou aberto. Antes, podiam encerrar o programa e apagar o registro da instalação.
 
 ## [0.1.0] - 2026-11-04
 
@@ -24,7 +26,7 @@ Primeira versão de testes do XinoIA.
 ### Adicionado
 
 - **Aplicativo desktop para Windows**, com instalador, versão portátil e assistente de primeira execução.
-- **Escritório virtual em estilo de jogo**, em pixel art, com sete salas e estados vindos de eventos reais: quem recebe trabalho vai para a mesa, e quem está disponível fica na copa. É a tela inicial, tem placar e visão compacta, e uma telinha fica à vista nas outras telas.
+- **Escritório virtual em estilo de jogo**, com sete salas e estados vindos de eventos reais: quem recebe trabalho vai para a mesa, e quem está disponível fica na copa. É a tela inicial, tem placar e visão compacta, e uma telinha fica à vista nas outras telas.
 - **Escolha da IA no assistente**, com instalação em um clique e login pelo navegador que fecha sozinho ao terminar.
 - **Chave de API como opção**, por perfil, cifrada pelo Windows e cobrada por uso.
 - **Orquestrador de missões**: plano aprovado por você, dependências, execução paralela, passagem automática de trabalho, revisão entre agentes com volta para correção, retentativas, pausa, retomada e relatório final.

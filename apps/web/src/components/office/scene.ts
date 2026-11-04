@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { AgentActivity, RoleId, TaskStatus } from '@xinoia/shared';
 import {
   buildBlocked,
@@ -15,23 +17,26 @@ import {
   RUG,
   SEATS,
   SOFA,
-  TILE,
   WALL_BANDS,
   WALL_COLUMNS,
   type Seat,
 } from './layout.ts';
 
-// Escritório em pixel art, desenhado em canvas, sem imagens externas. Nada aqui decide
-// o que um agente faz: a cena só representa o estado recebido de fora, que vem dos
-// eventos reais do backend. Quem está trabalhando vai para a mesa; quem está disponível
-// fica na copa. A tela do monitor, os balões e a caminhada seguem esse estado.
+// Escritório em 3D, com modelos feitos por código, sem arquivos externos. Nada aqui decide o
+// que um agente faz: a cena só representa o estado recebido de fora, que vem dos eventos
+// reais do backend. Quem está trabalhando vai para a mesa; quem está disponível fica na copa.
 
-const WORLD_W = COLS * TILE;
-const WORLD_H = ROWS * TILE;
 const WALK_SPEED = 3.4;
-// Pixel art não precisa de 60 quadros, e o app roda ao lado de agentes que usam a CPU.
-const FRAME_MS = 1000 / 24;
-const COMPACT_FRAME_MS = 1000 / 12;
+const TALL_WALL = 3;
+const LOW_WALL = 1.15;
+// Proporção de boneco: maior que o tamanho real em relação à mobília, para ler bem de longe.
+const BODY_SCALE = 1.32;
+const SEATED_DROP = 0.2;
+const HEAD_STANDING = 2.05;
+const HEAD_SEATED = 1.8;
+// A cena roda ao lado de agentes que usam o computador, às vezes com um editor 3D aberto.
+const FRAME_MS = 1000 / 30;
+const COMPACT_FRAME_MS = 1000 / 15;
 const FONT = "'Cascadia Mono','Consolas',ui-monospace,monospace";
 
 export interface SceneAgent {
@@ -65,14 +70,6 @@ function hash(text: string): number {
   return Math.abs(h);
 }
 
-function shade(hex: string, factor: number): string {
-  const value = parseInt(hex.slice(1), 16);
-  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n * factor)));
-  return `rgb(${clamp((value >> 16) & 255)},${clamp((value >> 8) & 255)},${clamp(value & 255)})`;
-}
-
-type Facing = 'down' | 'up' | 'left' | 'right';
-
 interface Step {
   kind: 'walk' | 'wait';
   x?: number;
@@ -82,11 +79,27 @@ interface Step {
   bubble?: string;
 }
 
+interface Body {
+  root: THREE.Group;
+  torso: THREE.Group;
+  head: THREE.Group;
+  hipL: THREE.Group;
+  hipR: THREE.Group;
+  kneeL: THREE.Group;
+  kneeR: THREE.Group;
+  armL: THREE.Group;
+  armR: THREE.Group;
+  paper: THREE.Mesh;
+  ring: THREE.Mesh;
+  shirt: THREE.MeshStandardMaterial;
+  shirtDark: THREE.MeshStandardMaterial;
+}
+
 interface Actor extends SceneAgent {
   /** Em ladrilhos: o centro do ladrilho x fica em x + 0,5. */
   x: number;
   y: number;
-  facing: Facing;
+  angle: number;
   seat: Seat | null;
   spot: [number, number] | null;
   path: Array<{ x: number; y: number }>;
@@ -98,73 +111,127 @@ interface Actor extends SceneAgent {
   walkPhase: number;
   hop: number;
   wanderIn: number;
-  skin: string;
-  hair: string;
-  pants: string;
-  hairStyle: number;
+  body: Body;
 }
 
-interface Floors {
-  base: string;
-  alt: string;
-  line: string;
+interface Screen {
+  seat: Seat;
+  mesh: THREE.Mesh;
+  material: THREE.MeshBasicMaterial;
+  code: THREE.Texture;
 }
 
-const FLOORS: Record<string, Floors> = {
-  planning: { base: '#5f7fa8', alt: '#587799', line: '#4e6c8e' },
-  architecture: { base: '#8a78b5', alt: '#8170ab', line: '#74649c' },
-  monitoring: { base: '#55636f', alt: '#4d5b66', line: '#434f59' },
-  development: { base: '#b98d5e', alt: '#ad8255', line: '#9a724a' },
-  tests: { base: '#6fa77f', alt: '#669c76', line: '#5a8c69' },
-  review: { base: '#a97aa0', alt: '#9e7196', line: '#8e6487' },
-  lounge: { base: '#d8b98a', alt: '#cdae7f', line: '#bd9e70' },
+const FLOORS: Record<string, { base: string; line: string; kind: 'wood' | 'carpet' | 'tile' }> = {
+  planning: { base: '#6d8fb8', line: '#5f80a8', kind: 'carpet' },
+  architecture: { base: '#9483bf', line: '#8675b0', kind: 'carpet' },
+  monitoring: { base: '#5d6b78', line: '#4f5c68', kind: 'tile' },
+  development: { base: '#c09468', line: '#a57c54', kind: 'wood' },
+  tests: { base: '#79b089', line: '#6aa07a', kind: 'carpet' },
+  review: { base: '#b083a8', line: '#a07498', kind: 'carpet' },
+  lounge: { base: '#dcbd8e', line: '#c6a677', kind: 'wood' },
 };
-const HALL_FLOOR: Floors = { base: '#a6adb4', alt: '#9ca3aa', line: '#8e959c' };
 
-const C = {
-  wallFace: '#d9d3c4',
-  wallFaceLow: '#c4bdac',
-  wallCap: '#3f4a57',
-  wallCapLight: '#566373',
-  deskTop: '#a9744a',
-  deskFront: '#7f5535',
-  deskLeg: '#5a3d27',
-  monitor: '#20262e',
-  screenOff: '#10151b',
-  chair: '#37404c',
-  chairLight: '#4a5563',
-  metal: '#6f7b88',
-  metalDark: '#47515c',
-  leaf: '#3f9d5d',
-  leafLight: '#5cc27a',
-  pot: '#a86a45',
-  potDark: '#85523a',
-  sofa: '#c7564f',
-  sofaDark: '#a2433d',
-  rug: '#3d8c88',
-  rugLight: '#4aa39f',
-  paper: '#f4f1e6',
-  ink: '#1c2530',
-};
+function drawFloorTexture(kind: 'wood' | 'carpet' | 'tile', base: string, line: string): THREE.CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = line;
+  ctx.lineWidth = 2;
+  if (kind === 'wood') {
+    for (let row = 0; row < 4; row += 1) {
+      const y = row * 32;
+      ctx.fillStyle = row % 2 ? 'rgba(0,0,0,0.045)' : 'rgba(255,255,255,0.03)';
+      ctx.fillRect(0, y, size, 32);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(size, y);
+      const seam = row % 2 ? 40 : 96;
+      ctx.moveTo(seam, y);
+      ctx.lineTo(seam, y + 32);
+      ctx.stroke();
+    }
+  } else if (kind === 'tile') {
+    ctx.strokeRect(0, 0, size, size);
+  } else {
+    // Trama leve, fixa: a mesma imagem a cada abertura.
+    let seed = 7;
+    for (let i = 0; i < 900; i += 1) {
+      seed = (seed * 16807) % 2147483647;
+      ctx.fillStyle = seed % 2 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+      ctx.fillRect(seed % size, (seed >> 7) % size, 2, 2);
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function drawCodeTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#0a141a';
+  ctx.fillRect(0, 0, 128, 256);
+  let seed = 11;
+  for (let row = 0; row < 26; row += 1) {
+    seed = (seed * 16807) % 2147483647;
+    let x = 6 + (seed % 4) * 7;
+    const words = 1 + (seed >> 5) % 4;
+    for (let word = 0; word < words && x < 118; word += 1) {
+      seed = (seed * 16807) % 2147483647;
+      const length = 8 + seed % 26;
+      ctx.fillStyle = seed % 3 === 0 ? '#ffffff' : seed % 3 === 1 ? '#b8c4cc' : '#7f8c95';
+      ctx.fillRect(x, 5 + row * 10, Math.min(length, 124 - x), 4);
+      x += length + 5;
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.repeat.set(1, 0.32);
+  return texture;
+}
 
 export class OfficeScene {
+  private readonly host: HTMLElement;
   private readonly canvas: HTMLCanvasElement;
-  private readonly ctx: CanvasRenderingContext2D;
-  private readonly world = document.createElement('canvas');
-  private readonly wctx: CanvasRenderingContext2D;
-  private readonly staticLayer = document.createElement('canvas');
-  private readonly upscaled = document.createElement('canvas');
+  private readonly overlay: HTMLCanvasElement;
+  private readonly labels: CanvasRenderingContext2D;
+  private readonly renderer: THREE.WebGLRenderer;
+  private readonly scene = new THREE.Scene();
+  private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 200);
+  private readonly hemi = new THREE.HemisphereLight('#ffffff', '#555555', 1);
+  private readonly sun = new THREE.DirectionalLight('#ffffff', 1);
+  private readonly lamps: THREE.PointLight[] = [];
+  private readonly compact: boolean;
   private readonly actors = new Map<string, Actor>();
   private readonly owners = new Map<Seat, string>();
   private readonly blocked = buildBlocked();
-  private readonly compact: boolean;
-  private mode: 'dark' | 'light' = 'dark';
-  private staticDirty = true;
+  private readonly screens: Screen[] = [];
+  private readonly leds: Array<{ material: THREE.MeshBasicMaterial; row: number; rack: number }> = [];
+  private readonly windows: THREE.MeshBasicMaterial[] = [];
+  private readonly materials = new Map<string, THREE.MeshStandardMaterial>();
+  private readonly boxes = new Map<string, THREE.BufferGeometry>();
+  private readonly unitBox = new THREE.BoxGeometry(1, 1, 1);
+  private readonly screenOff = new THREE.MeshBasicMaterial({ color: '#0c1116', toneMapped: false });
+  private readonly codeSource = drawCodeTexture();
+  private boardTexture: THREE.CanvasTexture | null = null;
+  private boardKey = '';
   private missionTitle: string | null = null;
   private taskStatuses: TaskStatus[] = [];
   private scale = 1;
-  private offsetX = 0;
-  private offsetY = 0;
+  private fitScale = 1;
+  private panX = 0;
+  private panY = 0;
   private userMoved = false;
   private width = 0;
   private height = 0;
@@ -173,29 +240,56 @@ export class OfficeScene {
   private running = false;
   private selectedId: string | null = null;
   private hoverId: string | null = null;
-  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   private dragging: { x: number; y: number; moved: boolean } | null = null;
+  private readonly center = new THREE.Vector3(COLS / 2, 0.8, ROWS / 2);
+  private readonly projected = new THREE.Vector3();
+  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   private readonly observer: ResizeObserver;
   onSelect: ((id: string | null) => void) | null = null;
 
-  constructor(canvas: HTMLCanvasElement, options: { compact?: boolean } = {}) {
-    this.canvas = canvas;
+  /** Lança erro se o computador não tiver WebGL: quem chama oferece a visão compacta. */
+  constructor(host: HTMLElement, options: { compact?: boolean } = {}) {
+    this.host = host;
     this.compact = Boolean(options.compact);
-    this.ctx = canvas.getContext('2d')!;
-    this.world.width = WORLD_W;
-    this.world.height = WORLD_H;
-    this.wctx = this.world.getContext('2d')!;
-    this.staticLayer.width = WORLD_W;
-    this.staticLayer.height = WORLD_H;
+    this.canvas = document.createElement('canvas');
+    this.canvas.style.cssText = 'position:absolute;inset:0;display:block;touch-action:none';
+    this.overlay = document.createElement('canvas');
+    this.overlay.style.cssText = 'position:absolute;inset:0;display:block;pointer-events:none';
+    host.append(this.canvas, this.overlay);
+    this.labels = this.overlay.getContext('2d')!;
+    try {
+      this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+    } catch (error) {
+      this.canvas.remove();
+      this.overlay.remove();
+      throw error;
+    }
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.shadowMap.enabled = !this.compact;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Vista de três quartos, um pouco mais de frente que a isométrica: as telas das mesas
+    // ficam viradas para quem olha, e os personagens aparecem maiores.
+    const direction = new THREE.Vector3(0.38, 1.02, 1).normalize();
+    this.camera.position.copy(this.center).addScaledVector(direction, 60);
+    this.camera.lookAt(this.center);
+    this.camera.updateMatrixWorld();
+
+    this.buildLights();
+    this.buildFloors();
+    this.buildWalls();
+    this.buildFurniture();
+    this.setTheme('dark');
+
     this.observer = new ResizeObserver(() => this.resize());
-    this.observer.observe(canvas.parentElement ?? canvas);
+    this.observer.observe(host);
     this.resize();
     if (!this.compact) {
-      canvas.addEventListener('pointerdown', this.onPointerDown);
+      this.canvas.addEventListener('pointerdown', this.onPointerDown);
       window.addEventListener('pointermove', this.onPointerMove);
       window.addEventListener('pointerup', this.onPointerUp);
-      canvas.addEventListener('wheel', this.onWheel, { passive: false });
-      canvas.addEventListener('dblclick', this.resetView);
+      this.canvas.addEventListener('wheel', this.onWheel, { passive: false });
+      this.canvas.addEventListener('dblclick', this.resetView);
     }
   }
 
@@ -208,6 +302,19 @@ export class OfficeScene {
     window.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('wheel', this.onWheel);
     this.canvas.removeEventListener('dblclick', this.resetView);
+    this.scene.traverse((object) => {
+      if (object instanceof THREE.Mesh) {
+        (object.geometry as THREE.BufferGeometry).dispose();
+        const material = object.material as THREE.Material & { map?: THREE.Texture | null };
+        material.map?.dispose();
+        material.dispose();
+      }
+    });
+    this.renderer.dispose();
+    // O navegador limita quantos contextos 3D ficam abertos.
+    this.renderer.forceContextLoss();
+    this.canvas.remove();
+    this.overlay.remove();
   }
 
   start(): void {
@@ -228,13 +335,25 @@ export class OfficeScene {
   }
 
   setTheme(mode: 'dark' | 'light'): void {
-    if (mode !== this.mode) this.staticDirty = true;
-    this.mode = mode;
+    const dark = mode === 'dark';
+    this.scene.background = new THREE.Color(dark ? '#0b0f14' : '#e9ebe6');
+    this.hemi.color.set(dark ? '#8fa6d6' : '#ffffff');
+    this.hemi.groundColor.set(dark ? '#3a3440' : '#b5ab9c');
+    this.hemi.intensity = dark ? 1.15 : 2;
+    this.sun.color.set(dark ? '#a9bde8' : '#fff1dc');
+    this.sun.intensity = dark ? 1.1 : 2.6;
+    // De noite, as luzes do teto é que iluminam as salas.
+    for (const lamp of this.lamps) lamp.intensity = dark ? 26 : 0;
+    this.renderer.toneMappingExposure = dark ? 1.05 : 1;
+    const hour = new Date().getHours();
+    const sky = hour < 6 || hour >= 19 ? '#25376a' : hour < 8 || hour >= 17 ? '#f0a56c' : '#9fdcff';
+    for (const glass of this.windows) glass.color.set(sky);
   }
 
   setMission(title: string | null, statuses: TaskStatus[]): void {
     this.missionTitle = title;
     this.taskStatuses = statuses;
+    this.drawBoard();
   }
 
   setSelected(id: string | null): void {
@@ -253,7 +372,7 @@ export class OfficeScene {
           ...agent,
           x: 0,
           y: 0,
-          facing: 'down',
+          angle: 0.4,
           seat: this.claimSeat(agent),
           spot: null,
           path: [],
@@ -265,29 +384,31 @@ export class OfficeScene {
           walkPhase: 0,
           hop: 0,
           wanderIn: 4 + (h % 8),
-          skin: SKINS[h % SKINS.length]!,
-          hair: HAIRS[(h >> 3) % HAIRS.length]!,
-          pants: PANTS[(h >> 5) % PANTS.length]!,
-          hairStyle: (h >> 7) % 4,
+          body: this.buildBody(agent, h),
         };
         this.actors.set(agent.id, actor);
         // Quem já estava ali ao abrir a tela aparece no lugar, sem atravessar a sala.
         const [x, y] = this.desiredTile(actor);
         actor.x = x;
         actor.y = y;
-        actor.facing = this.isWorking(actor) ? 'up' : 'down';
+        if (this.isWorking(actor)) actor.angle = Math.PI;
       } else {
         if (actor.seat && actor.seat.room !== ROOM_OF_ROLE[agent.role]) {
           this.owners.delete(actor.seat);
           actor.seat = this.claimSeat(agent);
         }
         if (agent.activity === 'finished' && actor.activity !== 'finished') actor.hop = 1;
+        if (agent.color !== actor.color) {
+          actor.body.shirt.color.set(agent.color);
+          actor.body.shirtDark.color.set(agent.color).multiplyScalar(0.75);
+        }
         Object.assign(actor, agent);
       }
     }
     for (const [id, actor] of this.actors) {
       if (seen.has(id)) continue;
       if (actor.seat) this.owners.delete(actor.seat);
+      this.scene.remove(actor.body.root);
       this.actors.delete(id);
     }
   }
@@ -338,7 +459,7 @@ export class OfficeScene {
 
   private freeTileNear(x: number, y: number): { x: number; y: number } | null {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [1, 1], [-1, 1], [2, 0], [-2, 0]] as Array<[number, number]>) {
-      if (!this.blocked.has(`${x + dx},${y + dy}`) && y + dy < ROWS - 1) return { x: x + dx, y: y + dy };
+      if (!this.blocked.has(`${x + dx},${y + dy}`)) return { x: x + dx, y: y + dy };
     }
     return null;
   }
@@ -360,7 +481,8 @@ export class OfficeScene {
 
   private tick(dt: number): void {
     for (const actor of this.actors.values()) {
-      if (actor.hop > 0) actor.hop = Math.max(0, actor.hop - dt * 1.4);
+      if (actor.hop > 0) actor.hop = Math.max(0, actor.hop - dt * 1.1);
+      let wanted: number | null = null;
 
       if (!actor.path.length && actor.script.length) {
         const step = actor.script[0]!;
@@ -383,7 +505,7 @@ export class OfficeScene {
         const [x, y] = this.desiredTile(actor);
         if (actor.goal !== `${x},${y}`) this.walkTo(actor, x, y);
         if (!actor.path.length) {
-          actor.facing = this.isWorking(actor) ? 'up' : actor.facing;
+          wanted = this.isWorking(actor) ? Math.PI : 0.45;
           this.wander(actor, dt);
         }
       }
@@ -402,8 +524,13 @@ export class OfficeScene {
           actor.x += (dx / distance) * move;
           actor.y += (dy / distance) * move;
         }
-        actor.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
-        actor.walkPhase += dt * 10;
+        wanted = Math.atan2(dx, dy);
+        actor.walkPhase += dt * 9;
+      }
+
+      if (wanted !== null) {
+        const delta = Math.atan2(Math.sin(wanted - actor.angle), Math.cos(wanted - actor.angle));
+        actor.angle += this.reducedMotion ? delta : delta * Math.min(1, dt * 10);
       }
     }
   }
@@ -417,7 +544,6 @@ export class OfficeScene {
     const taken = new Set([...this.actors.values()].filter((other) => other.spot).map((other) => other.spot!.join()));
     const free = LOUNGE_SPOTS.filter((spot) => !taken.has(spot.join()));
     if (free.length) actor.spot = free[Math.floor(Math.random() * free.length)]!;
-    else actor.facing = (['down', 'left', 'right'] as Facing[])[Math.floor(Math.random() * 3)]!;
   }
 
   private isSeated(actor: Actor): boolean {
@@ -426,431 +552,612 @@ export class OfficeScene {
   }
 
   // -------------------------------------------------------------------------
-  // Desenho: cenário fixo
+  // Peças
   // -------------------------------------------------------------------------
 
-  private floor(ctx: CanvasRenderingContext2D, area: { x: number; y: number; w: number; h: number }, colors: Floors, planks: boolean): void {
-    for (let i = 0; i < area.w; i += 1) {
-      for (let j = 0; j < area.h; j += 1) {
-        const px = (area.x + i) * TILE;
-        const py = (area.y + j) * TILE;
-        ctx.fillStyle = (i + j) % 2 ? colors.alt : colors.base;
-        if (planks) ctx.fillStyle = j % 2 ? colors.alt : colors.base;
-        ctx.fillRect(px, py, TILE, TILE);
-        ctx.fillStyle = colors.line;
-        if (planks) {
-          ctx.fillRect(px, py + TILE - 1, TILE, 1);
-          if ((i + j * 3) % 3 === 0) ctx.fillRect(px, py, 1, TILE);
-        } else {
-          ctx.fillRect(px, py, TILE, 1);
-          ctx.fillRect(px, py, 1, TILE);
+  private material(color: string, roughness = 0.85, metalness = 0): THREE.MeshStandardMaterial {
+    const key = `${color}|${roughness}|${metalness}`;
+    let found = this.materials.get(key);
+    if (!found) {
+      found = new THREE.MeshStandardMaterial({ color, roughness, metalness });
+      this.materials.set(key, found);
+    }
+    return found;
+  }
+
+  private add<T extends THREE.Object3D>(object: T, parent: THREE.Object3D = this.scene): T {
+    parent.add(object);
+    return object;
+  }
+
+  /** Caixa de cantos retos. O centro da base fica em (x, y, z). */
+  private box(w: number, h: number, d: number, color: string | THREE.Material, x: number, y: number, z: number, parent?: THREE.Object3D): THREE.Mesh {
+    const mesh = new THREE.Mesh(this.unitBox, typeof color === 'string' ? this.material(color) : color);
+    mesh.scale.set(w, h, d);
+    mesh.position.set(x, y + h / 2, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return this.add(mesh, parent);
+  }
+
+  /** Caixa de cantos arredondados: é o que tira a cara de blocos da mobília. */
+  private soft(w: number, h: number, d: number, color: string | THREE.Material, x: number, y: number, z: number, parent?: THREE.Object3D, radius = 0.04): THREE.Mesh {
+    const key = `${w}|${h}|${d}|${radius}`;
+    let geometry = this.boxes.get(key);
+    if (!geometry) {
+      geometry = new RoundedBoxGeometry(w, h, d, 2, Math.min(radius, Math.min(w, h, d) / 2.01));
+      this.boxes.set(key, geometry);
+    }
+    const mesh = new THREE.Mesh(geometry, typeof color === 'string' ? this.material(color) : color);
+    mesh.position.set(x, y + h / 2, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return this.add(mesh, parent);
+  }
+
+  private cylinder(radiusTop: number, radiusBottom: number, h: number, color: string, x: number, y: number, z: number, parent?: THREE.Object3D): THREE.Mesh {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBottom, h, 16), this.material(color));
+    mesh.position.set(x, y + h / 2, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return this.add(mesh, parent);
+  }
+
+  private sphere(radius: number, color: string, x: number, y: number, z: number, parent?: THREE.Object3D): THREE.Mesh {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 20, 14), this.material(color));
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    return this.add(mesh, parent);
+  }
+
+  private buildLights(): void {
+    this.add(this.hemi);
+    this.sun.position.set(COLS / 2 + 12, 34, ROWS / 2 + 22);
+    this.sun.target.position.copy(this.center);
+    this.add(this.sun.target);
+    if (!this.compact) {
+      this.sun.castShadow = true;
+      this.sun.shadow.mapSize.set(2048, 2048);
+      const area = this.sun.shadow.camera;
+      area.left = -26;
+      area.right = 26;
+      area.top = 24;
+      area.bottom = -24;
+      area.near = 1;
+      area.far = 90;
+      this.sun.shadow.bias = -0.0006;
+      this.sun.shadow.normalBias = 0.03;
+    }
+    this.add(this.sun);
+    // Sem sombra própria: luz de ambiente de cada ala, para a noite não ficar chapada.
+    for (const [x, z] of [[6, 4], [20, 4], [6, 15], [20, 15]] as Array<[number, number]>) {
+      const lamp = new THREE.PointLight('#ffd9a8', 0, 22, 1.6);
+      lamp.position.set(x, 5.5, z);
+      this.lamps.push(lamp);
+      this.add(lamp);
+    }
+  }
+
+  private buildFloors(): void {
+    const plane = (x: number, z: number, w: number, d: number, material: THREE.Material, y = 0) => {
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, d), material);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(x + w / 2, y, z + d / 2);
+      mesh.receiveShadow = true;
+      return this.add(mesh);
+    };
+    const textured = (kind: 'wood' | 'carpet' | 'tile', base: string, line: string, w: number, d: number) => {
+      const map = drawFloorTexture(kind, base, line);
+      map.repeat.set(w, d);
+      return new THREE.MeshStandardMaterial({ map, roughness: kind === 'tile' ? 0.45 : 0.92 });
+    };
+
+    // Base do corredor, inclusive sob as portas.
+    plane(0, 0, COLS, ROWS, textured('tile', '#aeb5bc', '#99a0a7', COLS, ROWS));
+    for (const room of ROOMS) {
+      const floor = FLOORS[room.id]!;
+      plane(room.x, room.y, room.w, room.h, textured(floor.kind, floor.base, floor.line, room.w, room.h), 0.01);
+    }
+    // Passadeira do corredor.
+    plane(HALL.x, HALL.y + 0.45, HALL.w, HALL.h - 0.9, this.material('#8f4d4d', 0.95), 0.02);
+    plane(HALL.x, HALL.y + 0.6, HALL.w, HALL.h - 1.2, this.material('#a85e5e', 0.95), 0.025);
+    // Tapete da copa.
+    plane(RUG.x, RUG.y, RUG.w, RUG.h, this.material('#3a8a86', 0.95), 0.02);
+    plane(RUG.x + 0.25, RUG.y + 0.25, RUG.w - 0.5, RUG.h - 0.5, this.material('#4ea9a4', 0.95), 0.025);
+  }
+
+  private wall(x0: number, z0: number, x1: number, z1: number, height: number): void {
+    const w = x1 - x0;
+    const d = z1 - z0;
+    const cx = x0 + w / 2;
+    const cz = z0 + d / 2;
+    this.box(w, height, d, '#ded8ca', cx, 0, cz);
+    // Topo e rodapé: é o que dá leitura de parede cortada.
+    this.box(w + 0.02, 0.06, d + 0.02, '#46515e', cx, height, cz);
+    this.box(w + 0.02, 0.14, d + 0.02, '#a89f90', cx, 0, cz);
+  }
+
+  private buildWalls(): void {
+    // Fundo e esquerda inteiros. Frente e direita baixas, para não cobrirem nada.
+    this.wall(0, 0.55, COLS, 1, TALL_WALL);
+    this.wall(0.55, 1, 1, ROWS, TALL_WALL);
+    this.wall(COLS - 1, 1, COLS - 0.75, ROWS, 0.3);
+    this.wall(0.55, ROWS - 1, COLS - 0.75, ROWS - 0.75, 0.3);
+
+    // Paredes internas baixas: quem está na sala aparece por cima delas.
+    for (const band of WALL_BANDS) {
+      if (band.y === 0 || band.y === ROWS - 1) continue;
+      let start: number | null = null;
+      for (let x = 1; x <= COLS - 1; x += 1) {
+        const solid = x < COLS - 1 && !band.doors.includes(x);
+        if (solid && start === null) start = x;
+        if (!solid && start !== null) {
+          this.wall(start, band.y + 0.35, x, band.y + 0.65, LOW_WALL);
+          start = null;
+        }
+      }
+    }
+    for (const column of WALL_COLUMNS) this.wall(column.x + 0.35, column.from - 0.1, column.x + 0.65, column.to + 1.1, LOW_WALL);
+
+    // Janelas de verdade na parede do fundo e na da esquerda, com o céu da hora.
+    const glass = () => {
+      const material = new THREE.MeshBasicMaterial({ color: '#9fdcff', toneMapped: false });
+      this.windows.push(material);
+      return material;
+    };
+    for (const x of [12.2, 15, 20, 22.6]) {
+      this.box(2.1, 1.25, 0.05, '#47515c', x, 1.25, 1.02);
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 1.1), glass());
+      pane.position.set(x, 1.875, 1.05);
+      this.add(pane);
+      this.box(0.05, 1.1, 0.03, '#47515c', x, 1.325, 1.07);
+    }
+    for (const z of [10, 14, 17]) {
+      this.box(0.05, 1.25, 2.1, '#47515c', 1.02, 1.25, z);
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(1.95, 1.1), glass());
+      pane.rotation.y = Math.PI / 2;
+      pane.position.set(1.05, 1.875, z);
+      this.add(pane);
+    }
+
+    // Placas das salas: nas paredes altas, ou na parede baixa que fica atrás da sala.
+    for (const room of ROOMS) {
+      const top = room.y === 1;
+      this.sign(room.title, room.x + room.w / 2, top ? 2.68 : 0.72, top ? 1.04 : room.y - 0.33);
+    }
+    this.sign('XinoIA', 10.5, 0.72, 8.67);
+
+    // Quadro branco com a missão real.
+    this.box(5.9, 1.42, 0.05, '#47515c', 5.5, 0.98, 1.02);
+    const canvas = document.createElement('canvas');
+    canvas.width = 720;
+    canvas.height = 160;
+    this.boardTexture = new THREE.CanvasTexture(canvas);
+    this.boardTexture.colorSpace = THREE.SRGBColorSpace;
+    this.boardTexture.anisotropy = 4;
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(5.75, 1.28), new THREE.MeshBasicMaterial({ map: this.boardTexture, toneMapped: false }));
+    board.position.set(5.5, 1.69, 1.06);
+    this.add(board);
+    this.drawBoard();
+  }
+
+  private sign(text: string, x: number, y: number, z: number): void {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const font = `700 34px ${FONT}`;
+    ctx.font = font;
+    const width = Math.ceil(ctx.measureText(text).width) + 44;
+    canvas.width = width;
+    canvas.height = 58;
+    ctx.fillStyle = '#26303b';
+    ctx.fillRect(0, 0, width, 58);
+    ctx.font = font;
+    ctx.fillStyle = '#f2efe4';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, width / 2, 30);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry((width / 58) * 0.46, 0.46), new THREE.MeshBasicMaterial({ map: texture }));
+    mesh.position.set(x, y, z);
+    this.add(mesh);
+  }
+
+  /** A missão no quadro é real: é o objetivo em andamento e as tarefas dele. */
+  private drawBoard(): void {
+    const texture = this.boardTexture;
+    if (!texture) return;
+    const key = `${this.missionTitle}|${this.taskStatuses.join()}`;
+    if (key === this.boardKey) return;
+    this.boardKey = key;
+    const canvas = texture.image as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#f5f2e8';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#1c2530';
+    ctx.textBaseline = 'top';
+    ctx.font = `600 32px ${FONT}`;
+    const text = this.missionTitle ?? 'Nenhuma missão ativa';
+    const max = 38;
+    ctx.fillText(text.length > max ? `${text.slice(0, max - 1)}…` : text, 24, 24);
+    this.taskStatuses.slice(0, 18).forEach((status, index) => {
+      const done = status === 'done' || status === 'skipped';
+      ctx.fillStyle = done ? '#2f9d62' : status === 'running' ? '#e0a020' : status === 'failed' ? '#d04848' : '#c6c1b2';
+      ctx.fillRect(24 + index * 37, 96, 30, 34);
+    });
+    texture.needsUpdate = true;
+  }
+
+  private addScreen(seat: Seat, mesh: THREE.Mesh): void {
+    const code = this.codeSource.clone();
+    code.needsUpdate = true;
+    const material = new THREE.MeshBasicMaterial({ color: '#ffffff', map: code, toneMapped: false });
+    mesh.material = this.screenOff;
+    this.screens.push({ seat, mesh, material, code });
+  }
+
+  private buildChair(group: THREE.Object3D, x: number, z: number): void {
+    this.soft(0.62, 0.1, 0.58, '#37404c', x, 0.44, z, group);
+    this.soft(0.58, 0.26, 0.07, '#2e3641', x, 0.54, z + 0.3, group);
+    this.cylinder(0.04, 0.04, 0.36, '#6f7b88', x, 0.08, z, group);
+    this.cylinder(0.24, 0.26, 0.05, '#47515c', x, 0.03, z, group);
+  }
+
+  private buildDesk(seat: Seat): void {
+    const group = this.add(new THREE.Group());
+    group.position.set(seat.x + 0.5, 0, seat.y - 0.5);
+    this.soft(2.75, 0.08, 0.86, '#b07c50', 0, 0.72, 0, group);
+    for (const [x, z] of [[-1.25, -0.32], [1.25, -0.32], [-1.25, 0.32], [1.25, 0.32]] as Array<[number, number]>) {
+      this.box(0.08, 0.72, 0.08, '#5c4029', x, 0, z, group);
+    }
+    this.box(2.6, 0.46, 0.04, '#8a6240', 0, 0.26, -0.34, group);
+    // Monitor com a tela virada para a cadeira, e para quem olha.
+    this.cylinder(0.14, 0.17, 0.03, '#47515c', 0, 0.8, -0.14, group);
+    this.box(0.07, 0.24, 0.05, '#47515c', 0, 0.82, -0.17, group);
+    this.soft(1.22, 0.72, 0.07, '#1a2027', 0, 1.0, -0.17, group, 0.03);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.12, 0.62));
+    screen.position.set(0, 1.36, -0.13);
+    this.add(screen, group);
+    this.addScreen(seat, screen);
+    // Teclado, mouse, xícara e papéis.
+    this.soft(0.62, 0.025, 0.2, '#3c4652', 0, 0.8, 0.17, group, 0.01);
+    this.soft(0.09, 0.03, 0.14, '#3c4652', 0.44, 0.8, 0.17, group, 0.012);
+    this.cylinder(0.05, 0.045, 0.1, '#f4f1e6', 0.92, 0.8, 0.1, group);
+    this.box(0.36, 0.015, 0.46, '#f4f1e6', -0.9, 0.8, 0.05, group).rotation.y = 0.12;
+    this.box(0.34, 0.015, 0.44, '#dcd7c6', -0.88, 0.815, 0.03, group).rotation.y = -0.1;
+    const chair = this.add(new THREE.Group());
+    chair.position.set(seat.x + 0.5, 0, seat.y + 0.52);
+    this.buildChair(chair, 0, 0);
+  }
+
+  private buildMeetingTable(): void {
+    const { x, y, w, h } = MEETING_TABLE;
+    const cx = x + w / 2;
+    const cz = y + h / 2;
+    this.soft(w - 0.3, 0.1, h - 0.25, '#b07c50', cx, 0.72, cz, undefined, 0.05);
+    for (const [dx, dz] of [[-w / 2 + 0.5, -h / 2 + 0.45], [w / 2 - 0.5, -h / 2 + 0.45], [-w / 2 + 0.5, h / 2 - 0.45], [w / 2 - 0.5, h / 2 - 0.45]] as Array<[number, number]>) {
+      this.cylinder(0.05, 0.07, 0.72, '#5c4029', cx + dx, 0, cz + dz);
+    }
+    for (const seat of SEATS.filter((item) => item.kind === 'table')) {
+      const group = this.add(new THREE.Group());
+      group.position.set(seat.x + 0.5, 0.82, y + h - 0.42);
+      this.soft(0.62, 0.02, 0.42, '#6f7b88', 0, 0, 0.04, group, 0.008);
+      const lid = this.soft(0.62, 0.42, 0.02, '#47515c', 0, 0.02, -0.18, group, 0.008);
+      lid.rotation.x = -0.18;
+      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.36));
+      screen.position.set(0, 0.23, -0.155);
+      screen.rotation.x = -0.18;
+      this.add(screen, group);
+      this.addScreen(seat, screen);
+      const chair = this.add(new THREE.Group());
+      chair.position.set(seat.x + 0.5, 0, seat.y + 0.52);
+      this.buildChair(chair, 0, 0);
+    }
+    // Pastas e um vaso no centro da mesa.
+    this.box(0.46, 0.02, 0.34, '#f4f1e6', cx - 2.4, 0.82, cz - 0.3);
+    this.box(0.46, 0.02, 0.34, '#dcd7c6', cx + 2.4, 0.82, cz - 0.25);
+    this.cylinder(0.1, 0.08, 0.16, '#a86a45', cx, 0.82, cz - 0.3);
+    this.sphere(0.17, '#4aa96c', cx, 1.12, cz - 0.3);
+  }
+
+  private buildPlant(x: number, z: number): void {
+    const group = this.add(new THREE.Group());
+    group.position.set(x + 0.5, 0, z + 0.5);
+    this.cylinder(0.26, 0.19, 0.42, '#b06f49', 0, 0, 0, group);
+    this.cylinder(0.25, 0.25, 0.02, '#3a2a1f', 0, 0.41, 0, group);
+    this.cylinder(0.03, 0.04, 0.32, '#5c4029', 0, 0.42, 0, group);
+    const color = hash(`${x},${z}`) % 2 ? '#3f9d5d' : '#4cae6a';
+    for (const [dx, dy, dz, r] of [[0, 0.98, 0, 0.3], [0.2, 0.84, 0.1, 0.22], [-0.2, 0.86, -0.08, 0.23], [0.05, 1.18, -0.08, 0.19], [-0.08, 0.82, 0.2, 0.17]] as Array<[number, number, number, number]>) {
+      const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), this.material(color));
+      leaf.position.set(dx, dy, dz);
+      leaf.castShadow = true;
+      this.add(leaf, group);
+    }
+  }
+
+  private buildRacks(): void {
+    const { x, y, w } = RACKS;
+    for (let i = 0; i < w; i += 1) {
+      const group = this.add(new THREE.Group());
+      group.position.set(x + i + 0.5, 0, y + 0.5);
+      this.soft(0.9, 2.3, 0.8, '#2d353f', 0, 0, 0, group, 0.03);
+      for (let row = 0; row < 7; row += 1) {
+        this.box(0.74, 0.22, 0.02, '#191f26', 0, 0.28 + row * 0.28, 0.41, group);
+        for (let led = 0; led < 3; led += 1) {
+          const material = new THREE.MeshBasicMaterial({ color: '#2a3540', toneMapped: false });
+          const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.05), material);
+          mesh.position.set(-0.26 + led * 0.14, 0.39 + row * 0.28, 0.425);
+          this.add(mesh, group);
+          this.leds.push({ material, row: row + led * 2, rack: i });
         }
       }
     }
   }
 
-  private drawStatic(): void {
-    const ctx = this.staticLayer.getContext('2d')!;
-    ctx.clearRect(0, 0, WORLD_W, WORLD_H);
-    ctx.fillStyle = C.wallCap;
-    ctx.fillRect(0, 0, WORLD_W, WORLD_H);
+  private buildCoffeeBar(): void {
+    const { x, y, w } = COFFEE_BAR;
+    const cx = x + w / 2;
+    const cz = y + 0.5;
+    this.soft(w, 0.95, 0.9, '#7b5a3f', cx, 0, cz);
+    this.soft(w + 0.06, 0.06, 0.96, '#e4dfd2', cx, 0.95, cz);
+    this.soft(0.5, 0.62, 0.42, '#2f3741', cx - 0.9, 1.01, cz - 0.08, undefined, 0.04);
+    this.box(0.26, 0.08, 0.02, '#ff6b6b', cx - 0.9, 1.45, cz + 0.135);
+    this.cylinder(0.05, 0.045, 0.1, '#f4f1e6', cx - 0.25, 1.01, cz + 0.2);
+    this.cylinder(0.05, 0.045, 0.1, '#f4f1e6', cx - 0.05, 1.01, cz + 0.05);
+    this.cylinder(0.22, 0.14, 0.12, '#b0523b', cx + 0.75, 1.01, cz);
+    this.sphere(0.08, '#e0b040', cx + 0.7, 1.15, cz);
+    this.sphere(0.08, '#7fb24a', cx + 0.84, 1.15, cz + 0.04);
+    this.sphere(0.08, '#d0503c', cx + 0.74, 1.16, cz - 0.1);
+  }
 
-    this.floor(ctx, HALL, HALL_FLOOR, false);
-    for (const room of ROOMS) this.floor(ctx, room, FLOORS[room.id]!, room.id === 'development' || room.id === 'lounge');
-
-    // Portas: o chão continua pela abertura da parede.
-    for (const band of WALL_BANDS) {
-      for (const x of band.doors) this.floor(ctx, { x, y: band.y, w: 1, h: 2 }, HALL_FLOOR, false);
+  private buildSofa(): void {
+    const { x, y, w } = SOFA;
+    const cx = x + w / 2;
+    const cz = y + 0.5;
+    this.soft(w, 0.32, 0.9, '#a2433d', cx, 0.08, cz, undefined, 0.08);
+    this.soft(w, 0.68, 0.24, '#a2433d', cx, 0.28, cz + 0.36, undefined, 0.08);
+    for (let i = 0; i < w; i += 1) this.soft(0.94, 0.16, 0.66, '#c7564f', x + i + 0.5, 0.38, cz - 0.08, undefined, 0.07);
+    this.soft(0.24, 0.5, 0.92, '#a2433d', x - 0.02, 0.1, cz, undefined, 0.08);
+    this.soft(0.24, 0.5, 0.92, '#a2433d', x + w + 0.02, 0.1, cz, undefined, 0.08);
+    // Mesinha em frente.
+    this.soft(1.6, 0.06, 0.7, '#8a6240', cx, 0.4, y - 0.9);
+    for (const [dx, dz] of [[-0.68, -0.26], [0.68, -0.26], [-0.68, 0.26], [0.68, 0.26]] as Array<[number, number]>) {
+      this.cylinder(0.025, 0.025, 0.4, '#3c4652', cx + dx, 0, y - 0.9 + dz);
     }
+  }
 
-    // Faixas de parede: topo escuro e face clara, com rodapé.
-    for (const band of WALL_BANDS) {
-      for (let x = 0; x < COLS; x += 1) {
-        if (band.doors.includes(x)) continue;
-        const px = x * TILE;
-        ctx.fillStyle = C.wallCap;
-        ctx.fillRect(px, band.y * TILE, TILE, TILE);
-        ctx.fillStyle = C.wallCapLight;
-        ctx.fillRect(px, band.y * TILE + TILE - 2, TILE, 2);
-        ctx.fillStyle = C.wallFace;
-        ctx.fillRect(px, (band.y + 1) * TILE, TILE, TILE);
-        ctx.fillStyle = C.wallFaceLow;
-        ctx.fillRect(px, (band.y + 1) * TILE + TILE - 3, TILE, 3);
-      }
-    }
-    for (const column of WALL_COLUMNS) {
-      ctx.fillStyle = C.wallCap;
-      ctx.fillRect(column.x * TILE, column.from * TILE, TILE, (column.to - column.from + 1) * TILE);
-      ctx.fillStyle = C.wallCapLight;
-      ctx.fillRect(column.x * TILE + 7, column.from * TILE, 2, (column.to - column.from + 1) * TILE);
-    }
-    ctx.fillStyle = C.wallCap;
-    ctx.fillRect(0, (ROWS - 1) * TILE, WORLD_W, TILE);
-
-    // Janelas na parede do fundo, com o céu da hora de verdade.
-    const hour = new Date().getHours();
-    const sky = hour < 6 || hour >= 19 ? '#1c2a4a' : hour < 8 || hour >= 17 ? '#e0a070' : '#8fcdee';
-    for (const x of [11.5, 14, 16, 20, 22]) {
-      const px = x * TILE;
-      ctx.fillStyle = C.metalDark;
-      ctx.fillRect(px, 18, 24, 12);
-      ctx.fillStyle = sky;
-      ctx.fillRect(px + 1, 19, 22, 10);
-      ctx.fillStyle = C.metalDark;
-      ctx.fillRect(px + 11, 19, 2, 10);
-    }
-
-    // Tapete da copa.
-    ctx.fillStyle = C.rug;
-    ctx.fillRect(RUG.x * TILE, RUG.y * TILE, RUG.w * TILE, RUG.h * TILE);
-    ctx.fillStyle = C.rugLight;
-    ctx.fillRect(RUG.x * TILE + 4, RUG.y * TILE + 4, RUG.w * TILE - 8, RUG.h * TILE - 8);
-
-    // Passadeira do corredor.
-    ctx.fillStyle = '#8a4b4b';
-    ctx.fillRect(HALL.x * TILE, HALL.y * TILE + 8, HALL.w * TILE, 2 * TILE - 16);
-    ctx.fillStyle = '#a05a5a';
-    ctx.fillRect(HALL.x * TILE, HALL.y * TILE + 10, HALL.w * TILE, 2 * TILE - 20);
-
-    // Quadro branco da sala de planejamento.
-    ctx.fillStyle = C.metalDark;
-    ctx.fillRect(2 * TILE - 1, 17, 7 * TILE + 2, 14);
-    ctx.fillStyle = C.paper;
-    ctx.fillRect(2 * TILE, 18, 7 * TILE, 12);
-
-    // A noite é uma camada por cima: as pessoas e as telas ficam acima dela e se destacam.
-    if (this.mode === 'dark') {
-      ctx.fillStyle = 'rgba(14,20,48,0.38)';
-      ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-    }
-    this.staticDirty = false;
+  private buildFurniture(): void {
+    for (const seat of SEATS) if (seat.kind === 'desk') this.buildDesk(seat);
+    this.buildMeetingTable();
+    for (const [x, z] of PLANTS) this.buildPlant(x, z);
+    this.buildRacks();
+    this.buildCoffeeBar();
+    this.buildSofa();
   }
 
   // -------------------------------------------------------------------------
-  // Desenho: mobília e pessoas, ordenadas pela base
+  // Personagens
   // -------------------------------------------------------------------------
 
-  private r(x: number, y: number, w: number, h: number, color: string): void {
-    this.wctx.fillStyle = color;
-    this.wctx.fillRect(Math.round(x), Math.round(y), w, h);
-  }
+  private buildBody(agent: SceneAgent, h: number): Body {
+    const skin = SKINS[h % SKINS.length]!;
+    const hair = HAIRS[(h >> 3) % HAIRS.length]!;
+    const pants = PANTS[(h >> 5) % PANTS.length]!;
+    const hairStyle = (h >> 7) % 4;
+    const shirt = new THREE.MeshStandardMaterial({ color: agent.color, roughness: 0.8 });
+    const shirtDark = new THREE.MeshStandardMaterial({ color: new THREE.Color(agent.color).multiplyScalar(0.75), roughness: 0.8 });
 
-  private drawDesk(seat: Seat, now: number): void {
-    const cx = seat.x * TILE + 8;
-    const top = (seat.y - 1) * TILE;
-    const ownerId = this.owners.get(seat);
-    const owner = ownerId ? this.actors.get(ownerId) : undefined;
-    // Pés e tampo da mesa.
-    this.r(cx - 22, top + 13, 2, 3, C.deskLeg);
-    this.r(cx + 20, top + 13, 2, 3, C.deskLeg);
-    this.r(cx - 23, top + 3, 46, 8, C.deskTop);
-    this.r(cx - 23, top + 3, 46, 1, shade(C.deskTop, 1.15));
-    this.r(cx - 23, top + 11, 46, 3, C.deskFront);
-    // Monitor.
-    this.r(cx - 2, top, 4, 5, C.metalDark);
-    this.r(cx - 11, top - 11, 22, 13, C.monitor);
-    this.drawScreen(cx - 10, top - 10, 20, 11, owner, now);
-    // Teclado, xícara e papéis.
-    this.r(cx - 7, top + 6, 14, 3, C.metalDark);
-    this.r(cx - 6, top + 7, 12, 1, C.metal);
-    this.r(cx + 12, top + 5, 3, 3, C.paper);
-    this.r(cx + 13, top + 4, 1, 1, '#b9a07a');
-    this.r(cx - 19, top + 5, 7, 5, C.paper);
-    this.r(cx - 18, top + 6, 5, 1, '#c9c4b5');
-    this.r(cx - 18, top + 8, 4, 1, '#c9c4b5');
-  }
+    const root = this.add(new THREE.Group());
+    root.scale.setScalar(BODY_SCALE);
+    const capsule = (radius: number, length: number, color: string | THREE.Material, parent: THREE.Object3D, y: number) => {
+      const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 4, 10), typeof color === 'string' ? this.material(color) : color);
+      mesh.position.y = y;
+      mesh.castShadow = true;
+      return this.add(mesh, parent);
+    };
 
-  /** O monitor só mostra atividade quando o agente está trabalhando de verdade. */
-  private drawScreen(x: number, y: number, w: number, h: number, owner: Actor | undefined, now: number): void {
-    const activity = owner && this.isSeated(owner) ? owner.activity : 'available';
-    if (activity === 'available') {
-      this.r(x, y, w, h, C.screenOff);
-      return;
+    const leg = (side: number) => {
+      const hip = this.add(new THREE.Group(), root);
+      hip.position.set(side * 0.1, 0.58, 0);
+      capsule(0.085, 0.2, pants, hip, -0.14);
+      const knee = this.add(new THREE.Group(), hip);
+      knee.position.y = -0.29;
+      capsule(0.075, 0.18, pants, knee, -0.13);
+      this.soft(0.15, 0.08, 0.26, '#1f242c', 0, -0.33, 0.05, knee, 0.03);
+      return { hip, knee };
+    };
+    const left = leg(-1);
+    const right = leg(1);
+
+    const torso = this.add(new THREE.Group(), root);
+    torso.position.y = 0.58;
+    this.soft(0.42, 0.5, 0.26, shirt, 0, 0, 0, torso, 0.1);
+
+    const arm = (side: number) => {
+      const shoulder = this.add(new THREE.Group(), torso);
+      shoulder.position.set(side * 0.27, 0.44, 0);
+      capsule(0.06, 0.26, shirtDark, shoulder, -0.17);
+      this.sphere(0.065, skin, 0, -0.37, 0, shoulder);
+      return shoulder;
+    };
+    const armL = arm(-1);
+    const armR = arm(1);
+
+    const paper = this.box(0.26, 0.3, 0.02, '#f4f1e6', 0, 0.12, 0.2, torso);
+    paper.visible = false;
+
+    // Detalhe na roupa conforme a função, para reconhecer quem é quem de relance.
+    if (agent.role === 'coordinator') this.box(0.05, 0.28, 0.02, '#b83a3a', 0, 0.18, 0.135, torso);
+    if (agent.role === 'tester') this.box(0.3, 0.04, 0.02, '#f4f1e6', 0, 0.3, 0.135, torso);
+    if (agent.role === 'architect') this.box(0.3, 0.03, 0.02, '#f4f1e6', 0, 0.12, 0.135, torso);
+    if (agent.role === 'reviewer') this.box(0.07, 0.07, 0.02, '#f4f1e6', -0.1, 0.34, 0.135, torso);
+
+    const head = this.add(new THREE.Group(), torso);
+    head.position.y = 0.72;
+    this.sphere(0.2, skin, 0, 0, 0, head);
+    for (const side of [-1, 1]) {
+      const eye = this.sphere(0.024, '#17181c', side * 0.075, 0.015, 0.183, head);
+      eye.castShadow = false;
     }
-    const tones: Partial<Record<AgentActivity, string>> = { error: '#3a1216', finished: '#0f2a1b', waiting: '#2a220f', thinking: '#111f33' };
-    this.r(x, y, w, h, tones[activity] ?? '#0c1f26');
-    const accent = STATE_COLORS[activity];
-    if (activity === 'error') {
-      if (Math.floor(now / 400) % 2 === 0) {
-        this.r(x + w / 2 - 1, y + 2, 2, 5, accent);
-        this.r(x + w / 2 - 1, y + 8, 2, 2, accent);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.215, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), this.material(hair));
+    cap.position.y = 0.012;
+    cap.rotation.x = -0.32;
+    cap.castShadow = true;
+    this.add(cap, head);
+    if (hairStyle === 1) this.soft(0.34, 0.3, 0.1, hair, 0, -0.26, -0.15, head, 0.05);
+    if (hairStyle === 2) this.sphere(0.09, hair, 0, 0.13, -0.2, head);
+    if (hairStyle === 3) {
+      for (const side of [-1, 0, 1]) {
+        const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.14, 8), this.material(hair));
+        tuft.position.set(side * 0.09, 0.22, 0);
+        tuft.rotation.z = -side * 0.35;
+        this.add(tuft, head);
       }
-      return;
     }
-    if (activity === 'finished') {
-      this.r(x + 6, y + 6, 2, 2, accent);
-      this.r(x + 8, y + 8, 2, 2, accent);
-      this.r(x + 10, y + 6, 2, 2, accent);
-      this.r(x + 12, y + 4, 2, 2, accent);
-      return;
+    if (agent.role === 'reviewer') {
+      for (const side of [-1, 1]) {
+        const lens = new THREE.Mesh(new THREE.TorusGeometry(0.046, 0.009, 6, 14), this.material('#3a2a1f'));
+        lens.position.set(side * 0.075, 0.015, 0.186);
+        this.add(lens, head);
+      }
     }
-    if (activity === 'waiting' || activity === 'thinking') {
-      const dots = Math.floor(now / 350) % 4;
-      for (let i = 0; i < dots; i += 1) this.r(x + 5 + i * 4, y + 5, 2, 2, accent);
-      return;
-    }
-    // Linhas rolando. O texto é só desenho: o conteúdo real está no terminal ao lado.
-    const scroll = this.reducedMotion ? 0 : Math.floor(now / 200);
-    const seed = hash(owner!.id);
-    for (let i = 0; i < 4; i += 1) {
-      const n = (seed + (scroll + i) * 7) % 13;
-      this.r(x + 1 + (n % 3) * 2, y + 1 + i * 2.5, 4 + (n % 11), 1, i % 2 ? accent : shade(accent, 0.7));
-    }
+
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.42, 0.5, 32),
+      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, toneMapped: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.04;
+    ring.visible = false;
+    this.add(ring, root);
+
+    return { root, torso, head, hipL: left.hip, hipR: right.hip, kneeL: left.knee, kneeR: right.knee, armL, armR, paper, ring, shirt, shirtDark };
   }
 
-  private drawChair(x: number, y: number): void {
-    this.r(x - 5, y + 8, 10, 4, C.chair);
-    this.r(x - 1, y + 12, 2, 3, C.metalDark);
-    this.r(x - 4, y + 15, 8, 1, C.metalDark);
-  }
-
-  private drawCharacter(actor: Actor, now: number): void {
-    const cx = (actor.x + 0.5) * TILE;
-    const feet = (actor.y + 1) * TILE - 2;
+  private pose(actor: Actor, now: number): void {
+    const { body } = actor;
     const seated = this.isSeated(actor);
     const walking = actor.path.length > 0;
-    const hopY = actor.hop > 0 ? Math.round(Math.sin(actor.hop * Math.PI * 3) ** 2 * 6) : 0;
-    const shirt = actor.color;
-    const shirtDark = shade(shirt, 0.78);
+    const motion = !this.reducedMotion;
+    const t = now / 1000;
+    const seed = hash(actor.id) % 100;
 
-    // Sombra e seleção.
-    if (actor.id === this.selectedId || actor.id === this.hoverId) {
-      this.wctx.strokeStyle = actor.id === this.selectedId ? '#ffffff' : 'rgba(255,255,255,0.55)';
-      this.wctx.lineWidth = 1;
-      this.wctx.strokeRect(Math.round(cx) - 8.5, feet - 3.5, 17, 7);
-    }
-    this.r(cx - 5, feet - 1, 10, 2, 'rgba(0,0,0,0.3)');
+    const hopY = actor.hop > 0 ? Math.abs(Math.sin(actor.hop * Math.PI * 3)) * 0.34 : 0;
+    // Sentado fica um pouco atrás do centro do ladrilho, sobre a cadeira.
+    body.root.position.set(actor.x + 0.5, hopY - (seated ? SEATED_DROP : 0), actor.y + (seated ? 0.52 : 0.5));
+    body.root.rotation.y = actor.angle;
+    body.paper.visible = actor.carrying;
+    body.ring.visible = actor.id === this.selectedId || actor.id === this.hoverId;
+    (body.ring.material as THREE.MeshBasicMaterial).color.set(actor.id === this.selectedId ? '#ffffff' : '#9fb0c2');
+
+    let hipL = 0;
+    let hipR = 0;
+    let kneeL = 0;
+    let kneeR = 0;
+    let armL = 0;
+    let armR = 0;
+    let headX = 0;
+    let headY = 0;
+    let bob = 0;
 
     if (seated) {
-      // De costas, sentado de frente para o monitor.
-      const typing = actor.activity === 'executing' && !this.reducedMotion;
-      const reading = actor.activity === 'reviewing' && !this.reducedMotion;
-      const arm = typing ? Math.floor(now / 110 + hash(actor.id)) % 2 : 0;
-      const nod = reading ? Math.floor(now / 900) % 2 : 0;
-      const top = feet - 18;
-      this.drawChair(cx, top + 2);
-      this.r(cx - 5, top + 8, 10, 8, shirt);
-      this.r(cx - 7, top + 9 - arm, 2, 5, shirtDark);
-      this.r(cx + 5, top + 9 - (1 - arm) * (typing ? 1 : 0), 2, 5, shirtDark);
-      this.drawHead(actor, cx, top + nod, 'up');
-      this.r(cx - 6, top + 14, 12, 3, C.chairLight);
-      return;
-    }
-
-    const legA = walking ? (Math.sin(actor.walkPhase) > 0 ? 1 : 0) : 0;
-    const legB = walking ? 1 - legA : 0;
-    const base = feet - hopY;
-    const bob = walking ? Math.abs(Math.sin(actor.walkPhase)) > 0.7 ? 1 : 0 : 0;
-    this.r(cx - 4, base - 5, 3, 5 - legA, actor.pants);
-    this.r(cx + 1, base - 5, 3, 5 - legB, actor.pants);
-    this.r(cx - 4, base - legA - 1, 3, 1, '#20242c');
-    this.r(cx + 1, base - legB - 1, 3, 1, '#20242c');
-    const bodyTop = base - 12 - bob;
-    this.r(cx - 5, bodyTop, 10, 8, shirt);
-    if (actor.facing === 'left' || actor.facing === 'right') {
-      this.r(cx - 1, bodyTop + 1, 3, 6, shirtDark);
-    } else {
-      this.r(cx - 7, bodyTop + 1, 2, 6, shirtDark);
-      this.r(cx + 5, bodyTop + 1, 2, 6, shirtDark);
-      if (actor.facing === 'down') this.drawRoleMark(actor, cx, bodyTop);
+      hipL = -Math.PI / 2 + 0.04;
+      hipR = -Math.PI / 2 - 0.04;
+      kneeL = Math.PI / 2;
+      kneeR = Math.PI / 2;
+      if (actor.activity === 'executing' && motion) {
+        armL = -1.25 + Math.sin(t * 15 + seed) * 0.09;
+        armR = -1.25 + Math.sin(t * 13 + seed + 1.4) * 0.09;
+        headX = 0.08;
+      } else if (actor.activity === 'reviewing') {
+        armL = -1.1;
+        armR = -1.1;
+        headX = 0.14 + (motion ? Math.sin(t * 1.4 + seed) * 0.05 : 0);
+        headY = motion ? Math.sin(t * 0.8 + seed) * 0.16 : 0;
+      } else if (actor.activity === 'thinking') {
+        armL = -1.1;
+        armR = -2.35;
+        headX = -0.08;
+        headY = motion ? Math.sin(t * 0.7 + seed) * 0.2 : 0;
+      } else if (actor.activity === 'waiting') {
+        armL = -0.7;
+        armR = motion ? -2.8 + Math.sin(t * 5 + seed) * 0.12 : -2.8;
+        headX = -0.12;
+      } else if (actor.activity === 'error') {
+        armL = -2.5;
+        armR = -2.5;
+        headX = 0.2;
+        headY = motion ? Math.sin(t * 7) * 0.22 : 0;
+      } else if (actor.activity === 'finished') {
+        armL = -2.9;
+        armR = -2.9;
+        headX = -0.15;
+      }
+    } else if (walking) {
+      const swing = Math.sin(actor.walkPhase);
+      hipL = swing * 0.62;
+      hipR = -swing * 0.62;
+      kneeL = Math.max(0, -swing) * 0.85;
+      kneeR = Math.max(0, swing) * 0.85;
+      armL = -swing * 0.5;
+      armR = swing * 0.5;
+      bob = Math.abs(swing) * 0.03;
+    } else if (motion) {
+      // Parado na copa: respira e olha em volta.
+      bob = Math.sin(t * 1.6 + seed) * 0.008;
+      armL = Math.sin(t * 1.6 + seed) * 0.03;
+      armR = -armL;
+      headY = Math.sin(t * 0.5 + seed) * 0.28;
     }
     if (actor.carrying) {
-      this.r(cx - 4, bodyTop + 2, 8, 6, C.paper);
-      this.r(cx - 3, bodyTop + 3, 6, 1, '#9aa3ad');
-      this.r(cx - 3, bodyTop + 5, 4, 1, '#9aa3ad');
+      armL = -1.1;
+      armR = -1.1;
     }
-    this.drawHead(actor, cx, bodyTop - 8, actor.facing);
+
+    body.hipL.rotation.x = hipL;
+    body.hipR.rotation.x = hipR;
+    body.kneeL.rotation.x = kneeL;
+    body.kneeR.rotation.x = kneeR;
+    body.armL.rotation.x = armL;
+    body.armR.rotation.x = armR;
+    body.head.rotation.set(headX, headY, 0);
+    body.torso.position.y = 0.58 + bob;
+    body.hipL.position.y = 0.58 + bob;
+    body.hipR.position.y = 0.58 + bob;
   }
 
-  /** Um detalhe na roupa conforme a função, para reconhecer quem é quem de relance. */
-  private drawRoleMark(actor: Actor, cx: number, y: number): void {
-    if (actor.role === 'coordinator') {
-      this.r(cx, y, 1, 5, '#b83a3a');
-    } else if (actor.role === 'tester') {
-      this.r(cx - 3, y + 2, 6, 1, '#f4f1e6');
-    } else if (actor.role === 'reviewer') {
-      this.r(cx - 3, y + 1, 2, 2, '#f4f1e6');
-    } else if (actor.role === 'architect') {
-      this.r(cx - 3, y + 4, 6, 1, 'rgba(255,255,255,0.65)');
-    }
-  }
-
-  private drawHead(actor: Actor, cx: number, y: number, facing: Facing): void {
-    const { skin, hair, hairStyle } = actor;
-    this.r(cx - 4, y, 8, 8, skin);
-    if (facing === 'up') {
-      this.r(cx - 5, y - 1, 10, 7, hair);
-      if (hairStyle === 1) this.r(cx - 5, y + 6, 10, 3, hair);
-      if (hairStyle === 2) this.r(cx - 1, y - 3, 2, 2, hair);
-      return;
-    }
-    this.r(cx - 5, y - 1, 10, 3, hair);
-    if (hairStyle === 1) {
-      this.r(cx - 5, y + 2, 2, 7, hair);
-      this.r(cx + 3, y + 2, 2, 7, hair);
-    } else if (hairStyle === 2) {
-      this.r(cx - 1, y - 3, 2, 2, hair);
-      this.r(cx - 4, y - 2, 2, 1, hair);
-      this.r(cx + 2, y - 2, 2, 1, hair);
-    } else if (hairStyle === 3) {
-      this.r(cx - 5, y + 2, 1, 2, hair);
-      this.r(cx + 4, y + 2, 1, 2, hair);
-    }
-    const eye = '#1a1a1a';
-    if (facing === 'down') {
-      this.r(cx - 3, y + 4, 2, 2, eye);
-      this.r(cx + 1, y + 4, 2, 2, eye);
-      if (actor.role === 'reviewer') this.r(cx - 4, y + 3, 8, 1, '#6b4b2a');
-      this.r(cx - 1, y + 6, 2, 1, shade(skin, 0.8));
-    } else if (facing === 'left') {
-      this.r(cx - 4, y + 4, 2, 2, eye);
-      this.r(cx + 2, y + 2, 2, 5, hair);
-    } else {
-      this.r(cx + 2, y + 4, 2, 2, eye);
-      this.r(cx - 4, y + 2, 2, 5, hair);
-    }
-  }
-
-  private drawPlant(x: number, y: number): void {
-    const px = x * TILE;
-    const py = y * TILE;
-    this.r(px + 4, py + 9, 8, 6, C.pot);
-    this.r(px + 4, py + 13, 8, 2, C.potDark);
-    this.r(px + 2, py + 1, 12, 9, C.leaf);
-    this.r(px + 4, py - 2, 8, 4, C.leaf);
-    this.r(px + 5, py + 1, 3, 3, C.leafLight);
-    this.r(px + 9, py + 4, 3, 3, C.leafLight);
-  }
-
-  private drawMeetingTable(): void {
-    const { x, y, w, h } = MEETING_TABLE;
-    const px = x * TILE + 2;
-    const py = y * TILE;
-    const width = w * TILE - 4;
-    const height = h * TILE - 5;
-    this.r(px, py, width, height, C.deskTop);
-    this.r(px, py, width, 1, shade(C.deskTop, 1.15));
-    this.r(px, py + height, width, 4, C.deskFront);
-    // Papéis e notebooks em cima da mesa.
-    for (const seat of SEATS.filter((item) => item.kind === 'table')) {
-      const cx = seat.x * TILE + 8;
-      this.r(cx - 6, py + height - 11, 12, 8, C.monitor);
-      this.r(cx - 5, py + height - 10, 10, 6, C.screenOff);
-      this.r(cx - 6, py + height - 3, 12, 2, C.metal);
-    }
-    this.r(px + 8, py + 4, 8, 6, C.paper);
-    this.r(px + width - 18, py + 4, 8, 6, C.paper);
-  }
-
-  private drawLaptopScreen(seat: Seat, now: number): void {
-    const ownerId = this.owners.get(seat);
-    const owner = ownerId ? this.actors.get(ownerId) : undefined;
-    if (!owner || !this.isSeated(owner)) return;
-    const py = MEETING_TABLE.y * TILE;
-    const height = MEETING_TABLE.h * TILE - 5;
-    this.drawScreen(seat.x * TILE + 3, py + height - 10, 10, 6, owner, now);
-  }
-
-  private drawRacks(now: number, running: number): void {
-    const { x, y, w } = RACKS;
-    for (let i = 0; i < w; i += 1) {
-      const px = (x + i) * TILE + 1;
-      const py = y * TILE - 12;
-      this.r(px, py, 14, 27, C.metalDark);
-      this.r(px, py, 14, 2, C.metal);
-      for (let row = 0; row < 5; row += 1) {
-        this.r(px + 2, py + 4 + row * 4, 10, 3, '#222a33');
-        // As luzes acompanham o que está rodando: sem trabalho, ficam apagadas.
-        const lit = running > 0 && row + i < running + 2 && (this.reducedMotion || Math.sin(now / 200 + row * 1.7 + i) > -0.2);
-        this.r(px + 3, py + 5 + row * 4, 2, 1, lit ? '#2dd4bf' : '#3a4652');
-        this.r(px + 7, py + 5 + row * 4, 2, 1, lit && (row + i) % 2 ? '#f5b544' : '#3a4652');
+  private animateScreens(now: number): void {
+    for (const screen of this.screens) {
+      const ownerId = this.owners.get(screen.seat);
+      const owner = ownerId ? this.actors.get(ownerId) : undefined;
+      const activity = owner && this.isSeated(owner) ? owner.activity : 'available';
+      if (activity === 'available') {
+        screen.mesh.material = this.screenOff;
+        continue;
       }
+      screen.mesh.material = screen.material;
+      const blink = activity === 'error' && !this.reducedMotion && Math.floor(now / 400) % 2 === 0;
+      screen.material.color.set(blink ? '#3a1216' : STATE_COLORS[activity]);
+      // O texto rolando é só desenho: o conteúdo real está no terminal ao lado.
+      const rolling = !this.reducedMotion && (activity === 'executing' || activity === 'reviewing');
+      if (rolling) screen.code.offset.y = (now / 2600 + hash(owner!.id) * 0.13) % 1;
     }
-  }
-
-  private drawCoffeeBar(now: number): void {
-    const { x, y, w } = COFFEE_BAR;
-    const px = x * TILE;
-    const py = y * TILE;
-    this.r(px, py + 2, w * TILE, 10, '#8c6a4c');
-    this.r(px, py + 2, w * TILE, 1, '#a78260');
-    this.r(px, py + 12, w * TILE, 4, '#6d5139');
-    // Cafeteira.
-    this.r(px + 6, py - 8, 12, 12, C.metalDark);
-    this.r(px + 8, py - 6, 8, 4, C.screenOff);
-    this.r(px + 9, py - 5, 2, 1, '#ff6b6b');
-    if (!this.reducedMotion && Math.floor(now / 600) % 2 === 0) this.r(px + 11, py - 11, 1, 2, 'rgba(255,255,255,0.5)');
-    // Xícaras e frutas.
-    this.r(px + 22, py + 4, 3, 3, C.paper);
-    this.r(px + 27, py + 4, 3, 3, C.paper);
-    this.r(px + 35, py + 3, 10, 5, '#b0523b');
-    this.r(px + 37, py + 1, 3, 3, '#e0b040');
-    this.r(px + 41, py + 1, 3, 3, '#7fb24a');
-  }
-
-  private drawSofa(): void {
-    const { x, y, w } = SOFA;
-    const px = x * TILE;
-    const py = y * TILE;
-    this.r(px, py - 4, w * TILE, 8, C.sofaDark);
-    this.r(px, py + 3, w * TILE, 9, C.sofa);
-    this.r(px - 2, py, 4, 13, C.sofaDark);
-    this.r(px + w * TILE - 2, py, 4, 13, C.sofaDark);
-    for (let i = 1; i < w; i += 1) this.r(px + i * TILE, py + 3, 1, 9, C.sofaDark);
-  }
-
-  private drawWhiteboardProgress(): void {
-    // Uma casa por tarefa real da missão ativa.
-    const statuses = this.taskStatuses;
-    const left = 2 * TILE + 4;
-    statuses.slice(0, 16).forEach((status, index) => {
-      const done = status === 'done' || status === 'skipped';
-      const color = done ? '#3aa368' : status === 'running' ? '#e0a020' : status === 'failed' ? '#d04848' : '#c2bdae';
-      this.r(left + index * 6, 25, 5, 3, color);
-    });
-  }
-
-  private drawWorld(now: number): void {
-    const ctx = this.wctx;
-    if (this.staticDirty) this.drawStatic();
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.staticLayer, 0, 0);
-    this.drawWhiteboardProgress();
-
     const running = [...this.actors.values()].filter((actor) => ['executing', 'thinking', 'reviewing'].includes(actor.activity)).length;
-    const items: Array<{ base: number; draw: () => void }> = [];
-    for (const [x, y] of PLANTS) items.push({ base: (y + 1) * TILE, draw: () => this.drawPlant(x, y) });
-    for (const seat of SEATS) {
-      if (seat.kind === 'desk') items.push({ base: seat.y * TILE, draw: () => this.drawDesk(seat, now) });
-      const owner = this.owners.get(seat);
-      const occupant = owner ? this.actors.get(owner) : undefined;
-      if (!occupant || !this.isSeated(occupant)) {
-        items.push({ base: seat.y * TILE + 1, draw: () => this.drawChair(seat.x * TILE + 8, seat.y * TILE - 2) });
-      }
+    for (const led of this.leds) {
+      // As luzes acompanham o que está rodando: sem trabalho, ficam apagadas.
+      const lit = running > 0 && (led.row + led.rack) % 5 < running + 2 && (this.reducedMotion || Math.sin(now / 210 + led.row * 1.7 + led.rack) > -0.2);
+      led.material.color.set(!lit ? '#27313b' : led.row % 3 === 0 ? '#f5b544' : '#2dd4bf');
     }
-    items.push({
-      base: (MEETING_TABLE.y + MEETING_TABLE.h) * TILE,
-      draw: () => {
-        this.drawMeetingTable();
-        for (const seat of SEATS) if (seat.kind === 'table') this.drawLaptopScreen(seat, now);
-      },
-    });
-    items.push({ base: (RACKS.y + RACKS.h) * TILE, draw: () => this.drawRacks(now, running) });
-    items.push({ base: (COFFEE_BAR.y + 1) * TILE, draw: () => this.drawCoffeeBar(now) });
-    items.push({ base: (SOFA.y + 1) * TILE, draw: () => this.drawSofa() });
-    for (const actor of this.actors.values()) {
-      items.push({ base: (actor.y + 1) * TILE, draw: () => this.drawCharacter(actor, now) });
-    }
-    items.sort((a, b) => a.base - b.base);
-    for (const item of items) item.draw();
   }
 
   // -------------------------------------------------------------------------
   // Textos, em resolução de tela para continuarem legíveis
   // -------------------------------------------------------------------------
 
-  private toScreen(worldX: number, worldY: number): [number, number] {
-    return [this.offsetX + worldX * this.scale, this.offsetY + worldY * this.scale];
+  private toScreen(x: number, y: number, z: number): [number, number] {
+    this.projected.set(x, y, z).project(this.camera);
+    return [(this.projected.x + 1) * 0.5 * this.width, (1 - this.projected.y) * 0.5 * this.height];
   }
 
   private truncate(text: string, max: number): string {
@@ -858,40 +1165,14 @@ export class OfficeScene {
   }
 
   private plate(x: number, y: number, w: number, h: number, fill: string, border: string): void {
-    const { ctx } = this;
+    const ctx = this.labels;
+    ctx.beginPath();
+    ctx.roundRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h), 4);
     ctx.fillStyle = fill;
-    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    ctx.fill();
     ctx.strokeStyle = border;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(Math.round(x) + 1, Math.round(y) + 1, Math.round(w) - 2, Math.round(h) - 2);
-  }
-
-  private drawSigns(): void {
-    const { ctx } = this;
-    if (this.scale < 1.1) return;
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'center';
-    ctx.font = `700 ${Math.max(9, Math.round(4.6 * this.scale))}px ${FONT}`;
-    const sign = (text: string, wx: number, wy: number) => {
-      const [sx, sy] = this.toScreen(wx, wy);
-      const width = ctx.measureText(text).width + 10;
-      const height = Math.round(7.5 * this.scale);
-      ctx.fillStyle = '#26303b';
-      ctx.fillRect(Math.round(sx - width / 2), Math.round(sy - height / 2), Math.round(width), height);
-      ctx.fillStyle = '#f2efe4';
-      ctx.fillText(text, sx, sy + 0.5);
-    };
-    // A placa de cada sala fica no topo da parede, onde não cobre janela nem quadro.
-    for (const room of ROOMS) sign(room.title, (room.x + room.w / 2) * TILE, (room.y - 2) * TILE + 8);
-    sign('XinoIA', 10.5 * TILE, 10 * TILE + 7);
-
-    // A missão no quadro branco é real: é o objetivo em andamento.
-    const [bx, by] = this.toScreen(2 * TILE + 4, 21);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#1c2530';
-    ctx.font = `600 ${Math.max(9, Math.round(4 * this.scale))}px ${FONT}`;
-    const chars = Math.floor((7 * TILE - 8) * this.scale / ctx.measureText('m').width);
-    ctx.fillText(this.truncate(this.missionTitle ?? 'Nenhuma missão ativa', chars), bx, by);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   }
 
   /** Procura a primeira posição livre, afastando na direção indicada até não sobrepor. */
@@ -907,17 +1188,20 @@ export class OfficeScene {
   }
 
   private drawLabels(now: number): void {
-    const { ctx } = this;
+    const ctx = this.labels;
+    const ratio = window.devicePixelRatio || 1;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, this.width, this.height);
     const ordered = [...this.actors.values()].sort((a, b) => b.y - a.y);
-    const size = this.compact ? 10 : Math.max(10, Math.min(13, Math.round(5.6 * this.scale)));
+    const size = this.compact ? 10 : 12;
     const placed: Array<{ x: number; y: number; w: number; h: number }> = [];
     const clampX = (x: number, w: number) => Math.max(2, Math.min(this.width - w - 2, x));
 
     for (const actor of ordered) {
       const state = STATE_COLORS[actor.activity];
-      const [sx, feetY] = this.toScreen((actor.x + 0.5) * TILE, (actor.y + 1) * TILE);
       const seated = this.isSeated(actor);
-      const headY = feetY - (seated ? 20 : 22) * this.scale;
+      const [sx, feetY] = this.toScreen(actor.x + 0.5, 0, actor.y + 0.5);
+      const [, headY] = this.toScreen(actor.x + 0.5, seated ? HEAD_SEATED : HEAD_STANDING, actor.y + 0.5);
 
       // Plaquinha com o nome e a ferramenta. Na telinha, só de quem está trabalhando.
       if (!this.compact || actor.activity !== 'available') {
@@ -925,16 +1209,17 @@ export class OfficeScene {
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'left';
         const label = this.compact ? actor.name : `${actor.name} · ${actor.tool}`;
-        const width = ctx.measureText(label).width + size + 8;
-        const height = size + 5;
+        const width = ctx.measureText(label).width + size + 10;
+        const height = size + 6;
         const x = clampX(sx - width / 2, width);
-        const y = this.place(placed, x, feetY + 1, width, height, height + 1);
-        ctx.fillStyle = 'rgba(18,23,30,0.9)';
-        ctx.fillRect(Math.round(x), Math.round(y), Math.round(width), height);
+        const y = this.place(placed, x, feetY + 3, width, height, height + 1);
+        this.plate(x, y, width, height, 'rgba(18,23,30,0.88)', 'rgba(255,255,255,0.14)');
+        ctx.beginPath();
+        ctx.arc(x + 8, y + height / 2, 3.2, 0, Math.PI * 2);
         ctx.fillStyle = state;
-        ctx.fillRect(Math.round(x) + 3, Math.round(y + height / 2 - 3), 6, 6);
+        ctx.fill();
         ctx.fillStyle = '#f2f4f7';
-        ctx.fillText(label, x + size + 2, y + height / 2 + 0.5);
+        ctx.fillText(label, x + size + 3, y + height / 2 + 0.5);
       }
 
       // Balão: a atividade real, ou o ícone do estado.
@@ -945,32 +1230,49 @@ export class OfficeScene {
         ctx.font = `${size}px ${FONT}`;
         ctx.textAlign = 'left';
         const text = this.truncate(bubble, 30);
-        const w = ctx.measureText(text).width + 12;
-        const h = size + 8;
+        const w = ctx.measureText(text).width + 14;
+        const h = size + 9;
         const bx = clampX(sx - w / 2, w);
-        const by = this.place(placed, bx, headY - h - 6, w, h, -(h + 2));
+        const by = this.place(placed, bx, headY - h - 7, w, h, -(h + 2));
         this.plate(bx, by, w, h, '#fbfaf5', state);
+        ctx.beginPath();
+        ctx.moveTo(sx - 4, by + h);
+        ctx.lineTo(sx + 4, by + h);
+        ctx.lineTo(sx, by + h + 5);
+        ctx.closePath();
         ctx.fillStyle = state;
-        ctx.fillRect(Math.round(sx) - 3, Math.round(by + h), 6, 4);
+        ctx.fill();
         ctx.fillStyle = '#1c2530';
-        ctx.fillText(text, bx + 6, by + h / 2 + 0.5);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + 7, by + h / 2 + 0.5);
         top = by;
       } else if (actor.activity === 'thinking') {
         const dots = this.reducedMotion ? 3 : (Math.floor(now / 350) % 3) + 1;
-        const w = this.compact ? 16 : 24;
-        const h = this.compact ? 9 : 14;
-        this.plate(sx - w / 2, headY - h - 3, w, h, '#fbfaf5', state);
+        const w = this.compact ? 18 : 28;
+        const h = this.compact ? 10 : 15;
+        this.plate(sx - w / 2, headY - h - 4, w, h, '#fbfaf5', state);
         ctx.fillStyle = state;
-        const gap = this.compact ? 4 : 6;
-        for (let i = 0; i < dots; i += 1) ctx.fillRect(Math.round(sx - gap - 1 + i * gap), Math.round(headY - h / 2 - 4), 2, 2);
+        const gap = this.compact ? 4 : 7;
+        for (let i = 0; i < dots; i += 1) {
+          ctx.beginPath();
+          ctx.arc(sx - gap + i * gap, headY - h / 2 - 4, this.compact ? 1.2 : 1.9, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       if (icon) {
-        const iconSize = this.compact ? 12 : 17;
-        const iy = top - iconSize - 3;
-        this.plate(sx - iconSize / 2, iy, iconSize, iconSize, state, '#12171e');
+        const iconSize = this.compact ? 13 : 19;
+        const iy = top - iconSize - 4;
+        ctx.beginPath();
+        ctx.arc(sx, iy + iconSize / 2, iconSize / 2, 0, Math.PI * 2);
+        ctx.fillStyle = state;
+        ctx.fill();
+        ctx.strokeStyle = '#12171e';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
         ctx.fillStyle = '#12171e';
         ctx.textAlign = 'center';
-        ctx.font = `700 ${iconSize - 5}px ${FONT}`;
+        ctx.textBaseline = 'middle';
+        ctx.font = `700 ${iconSize - 6}px ${FONT}`;
         ctx.fillText(icon, sx, iy + iconSize / 2 + 0.5);
       }
     }
@@ -980,55 +1282,71 @@ export class OfficeScene {
   // Quadro
   // -------------------------------------------------------------------------
 
+  private applyCamera(): void {
+    const halfW = this.width / 2 / this.scale;
+    const halfH = this.height / 2 / this.scale;
+    this.camera.left = -halfW - this.panX;
+    this.camera.right = halfW - this.panX;
+    this.camera.top = halfH + this.panY;
+    this.camera.bottom = -halfH + this.panY;
+    this.camera.updateProjectionMatrix();
+  }
+
+  /** Enquadra o prédio inteiro, medindo os cantos na direção em que a câmera olha. */
   private fit(): void {
-    const scale = Math.min(this.width / WORLD_W, this.height / WORLD_H);
-    this.scale = Math.max(0.25, Math.min(4, scale));
-    this.offsetX = (this.width - WORLD_W * this.scale) / 2;
-    this.offsetY = (this.height - WORLD_H * this.scale) / 2;
+    if (!this.width || !this.height) return;
+    const corner = new THREE.Vector3();
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const x of [0, COLS]) {
+      for (const y of [0, TALL_WALL]) {
+        for (const z of [0, ROWS]) {
+          corner.set(x, y, z).applyMatrix4(this.camera.matrixWorldInverse);
+          minX = Math.min(minX, corner.x);
+          maxX = Math.max(maxX, corner.x);
+          minY = Math.min(minY, corner.y);
+          maxY = Math.max(maxY, corner.y);
+        }
+      }
+    }
+    const margin = this.compact ? 1.02 : 1.06;
+    this.fitScale = Math.min(this.width / ((maxX - minX) * margin), this.height / ((maxY - minY) * margin));
+    this.scale = this.fitScale;
+    this.panX = -(maxX + minX) / 2;
+    this.panY = (maxY + minY) / 2;
   }
 
   private readonly resetView = () => {
     this.userMoved = false;
     this.fit();
+    this.applyCamera();
   };
 
   private resize(): void {
-    const parent = this.canvas.parentElement;
-    if (!parent) return;
     const ratio = window.devicePixelRatio || 1;
-    this.width = parent.clientWidth;
-    this.height = parent.clientHeight;
-    this.canvas.width = Math.max(1, Math.floor(this.width * ratio));
-    this.canvas.height = Math.max(1, Math.floor(this.height * ratio));
+    this.width = this.host.clientWidth;
+    this.height = this.host.clientHeight;
+    if (!this.width || !this.height) return;
+    // Acima disso o ganho é pouco, e o custo na placa de vídeo é grande.
+    this.renderer.setPixelRatio(Math.min(ratio, this.compact ? 1 : 1.5));
+    this.renderer.setSize(this.width, this.height, false);
     this.canvas.style.width = `${this.width}px`;
     this.canvas.style.height = `${this.height}px`;
+    this.overlay.width = Math.floor(this.width * ratio);
+    this.overlay.height = Math.floor(this.height * ratio);
+    this.overlay.style.width = `${this.width}px`;
+    this.overlay.style.height = `${this.height}px`;
     if (!this.userMoved) this.fit();
+    this.applyCamera();
   }
 
   private render(now: number): void {
-    const { ctx } = this;
     if (!this.width || !this.height) return;
-    this.drawWorld(now);
-
-    const ratio = window.devicePixelRatio || 1;
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    ctx.fillStyle = this.mode === 'dark' ? '#0b0f14' : '#e9ebe6';
-    ctx.fillRect(0, 0, this.width, this.height);
-
-    // Amplia primeiro por um múltiplo inteiro, sem suavizar, e só depois ajusta ao
-    // tamanho final: os pixels ficam nítidos e iguais em qualquer tamanho de janela.
-    const factor = Math.max(1, Math.ceil(this.scale * ratio));
-    if (this.upscaled.width !== WORLD_W * factor) {
-      this.upscaled.width = WORLD_W * factor;
-      this.upscaled.height = WORLD_H * factor;
-    }
-    const up = this.upscaled.getContext('2d')!;
-    up.imageSmoothingEnabled = false;
-    up.drawImage(this.world, 0, 0, this.upscaled.width, this.upscaled.height);
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(this.upscaled, this.offsetX, this.offsetY, WORLD_W * this.scale, WORLD_H * this.scale);
-
-    this.drawSigns();
+    for (const actor of this.actors.values()) this.pose(actor, now);
+    this.animateScreens(now);
+    this.renderer.render(this.scene, this.camera);
     this.drawLabels(now);
   }
 
@@ -1038,13 +1356,14 @@ export class OfficeScene {
 
   private actorAt(clientX: number, clientY: number): string | null {
     const rect = this.canvas.getBoundingClientRect();
-    const wx = (clientX - rect.left - this.offsetX) / this.scale;
-    const wy = (clientY - rect.top - this.offsetY) / this.scale;
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
     let best: { id: string; depth: number } | null = null;
     for (const actor of this.actors.values()) {
-      const cx = (actor.x + 0.5) * TILE;
-      const feet = (actor.y + 1) * TILE;
-      const onBody = wx > cx - 10 && wx < cx + 10 && wy > feet - 26 && wy < feet + 8;
+      const [sx, feet] = this.toScreen(actor.x + 0.5, 0, actor.y + 0.5);
+      const [, head] = this.toScreen(actor.x + 0.5, HEAD_STANDING, actor.y + 0.5);
+      const half = Math.max(12, this.scale * 0.45);
+      const onBody = px > sx - half && px < sx + half && py > head && py < feet + 18;
       if (onBody && (!best || actor.y > best.depth)) best = { id: actor.id, depth: actor.y };
     }
     return best?.id ?? null;
@@ -1063,10 +1382,11 @@ export class OfficeScene {
         this.userMoved = true;
       }
       if (this.dragging.moved) {
-        this.offsetX += dx;
-        this.offsetY += dy;
+        this.panX += dx / this.scale;
+        this.panY += dy / this.scale;
         this.dragging.x = event.clientX;
         this.dragging.y = event.clientY;
+        this.applyCamera();
       }
       return;
     }
@@ -1089,12 +1409,14 @@ export class OfficeScene {
   private readonly onWheel = (event: WheelEvent) => {
     event.preventDefault();
     const rect = this.canvas.getBoundingClientRect();
-    const mx = event.clientX - rect.left;
-    const my = event.clientY - rect.top;
-    const next = Math.max(0.5, Math.min(6, this.scale * (event.deltaY < 0 ? 1.12 : 0.89)));
-    this.offsetX = mx - ((mx - this.offsetX) * next) / this.scale;
-    this.offsetY = my - ((my - this.offsetY) * next) / this.scale;
+    const mx = event.clientX - rect.left - this.width / 2;
+    const my = event.clientY - rect.top - this.height / 2;
+    const next = Math.max(this.fitScale * 0.6, Math.min(this.fitScale * 5, this.scale * (event.deltaY < 0 ? 1.12 : 0.89)));
+    // Mantém parado o ponto sob o mouse.
+    this.panX += mx / next - mx / this.scale;
+    this.panY -= my / next - my / this.scale;
     this.scale = next;
     this.userMoved = true;
+    this.applyCamera();
   };
 }

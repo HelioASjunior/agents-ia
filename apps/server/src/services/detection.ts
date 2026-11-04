@@ -1,4 +1,4 @@
-import type { ProviderInfo } from '@xinoia/shared';
+import type { ModelOption, ProviderInfo } from '@xinoia/shared';
 import type { AppConfig } from '../config.ts';
 import { buildEnv, capture } from '../process/spawn.ts';
 import type { ProviderRegistry } from '../providers/registry.ts';
@@ -8,6 +8,7 @@ interface Detected {
   installed: boolean;
   version: string | null;
   capabilities: Record<string, boolean>;
+  modelOptions: ModelOption[];
 }
 
 export class DetectionService {
@@ -28,7 +29,7 @@ export class DetectionService {
       noShell: adapter.noShell,
     };
     const version = await capture({ ...spec, args: ['--version'] }, 15_000);
-    if (version.code !== 0) return { installed: false, version: null, capabilities: {} };
+    if (version.code !== 0) return { installed: false, version: null, capabilities: {}, modelOptions: [] };
 
     const capabilities: Record<string, boolean> = {};
     if (adapter.capabilityProbe) {
@@ -38,7 +39,12 @@ export class DetectionService {
         capabilities[name] = text.includes(flag);
       }
     }
-    return { installed: true, version: version.stdout.trim().split('\n')[0] ?? null, capabilities };
+    let modelOptions: ModelOption[] = [];
+    if (adapter.modelProbe) {
+      const catalog = await capture({ ...spec, args: adapter.modelProbe.args }, 15_000);
+      if (catalog.code === 0) modelOptions = adapter.modelProbe.parse(catalog.stdout);
+    }
+    return { installed: true, version: version.stdout.trim().split('\n')[0] ?? null, capabilities, modelOptions };
   }
 
   async refresh(): Promise<ProviderInfo[]> {
@@ -55,6 +61,10 @@ export class DetectionService {
   list(): ProviderInfo[] {
     return this.providers.list().map((adapter) => {
       const detected = this.cache.get(adapter.id);
+      const catalog = detected?.modelOptions ?? [];
+      const modelOptions = catalog.length
+        ? catalog
+        : adapter.models.map((id) => ({ id, label: id, efforts: adapter.efforts }));
       return {
         id: adapter.id,
         label: adapter.label,
@@ -68,8 +78,10 @@ export class DetectionService {
         apiKeyUrl: adapter.apiKeyUrl,
         installCommand: adapter.installCommand,
         installUrl: adapter.installUrl,
-        models: adapter.models,
-        efforts: adapter.efforts,
+        models: modelOptions.map((option) => option.id),
+        modelOptions,
+        // Do catálogo, em ordem: o Codex tem níveis que a lista fixa não conhece.
+        efforts: catalog.length ? [...new Set(catalog.flatMap((option) => option.efforts))] : adapter.efforts,
         note: adapter.note,
       };
     });

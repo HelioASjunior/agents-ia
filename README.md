@@ -19,7 +19,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0"></a>
 </p>
 
-XinoIA runs Claude Code, Codex CLI and other AI coding agents as one team on your own computer. You give the team a goal. A coordinator plans the work, each agent takes a task and hands its results to the next, and another agent reviews them. You follow it all in a live terminal, talk to any agent in chat, and watch the work happen in a game-style virtual office where every animation comes from a real event.
+XinoIA runs Claude Code, Codex CLI and other AI coding agents as one team on your own computer. You give the team a goal. A coordinator plans the work, each agent takes a task and hands its results to the next, and another agent reviews them. You follow it all in a live terminal, talk to any agent in chat, and watch the work happen in a game-style 3D virtual office where every animation comes from a real event.
 
 **Your accounts, your machine.** XinoIA runs on your computer and drives the official CLI of each vendor. You choose the AI and sign in through your browser with your subscription, or use an API key if you prefer. It never sees your passwords or login tokens, and an API key stays encrypted by Windows. Projects, conversations and history stay in a local database, and there is no XinoIA server, sign-up or telemetry. It only contacts GitHub to check for updates; your prompts go to the AI tools you choose.
 
@@ -80,7 +80,7 @@ The Claude Code installer doesn't need Node.js. The Codex CLI and Gemini CLI ins
 
 The interface is in Brazilian Portuguese for now.
 
-- **Game-style office:** each agent is a pixel art character with a desk in the room of its role. When work arrives, the agent leaves the break room for the desk, the monitor lights up and a speech bubble shows what it's doing. A small live view of the office stays visible on every other screen.
+- **3D office:** each agent is a character with a desk in the room of its role. When work arrives, the agent walks from the break room to the desk and starts typing, the monitor lights up and a speech bubble shows what it's doing. A small live view of the office stays visible on the other screens. It needs WebGL, and the Compact view shows the same information in a table.
 - **Live terminal:** the real output of each tool, for the whole team or one agent, searchable and kept across restarts. There's also a real interactive shell.
 - **Isolated parallel work:** in a Git project, parallel tasks run in separate worktrees. Your folder only changes after you review and approve. A conflict becomes a task, and nobody's work gets overwritten.
 - **Execution modes:** supervised, semi-autonomous and controlled autonomous, with permission limits, deny rules and interruption of destructive commands.

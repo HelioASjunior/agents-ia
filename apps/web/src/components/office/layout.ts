@@ -3,9 +3,8 @@ import type { RoleId } from '@xinoia/shared';
 // Planta do escritório, em ladrilhos. Só dados e cálculo, sem desenho, para poder ser
 // testada: toda mesa e todo lugar da copa precisam ser alcançáveis a pé.
 
-export const TILE = 16;
 export const COLS = 30;
-export const ROWS = 23;
+export const ROWS = 20;
 
 export interface Room {
   id: string;
@@ -17,30 +16,31 @@ export interface Room {
 }
 
 export const ROOMS: Room[] = [
-  { id: 'planning', title: 'PLANEJAMENTO', x: 1, y: 2, w: 9, h: 7 },
-  { id: 'architecture', title: 'ARQUITETURA', x: 11, y: 2, w: 7, h: 7 },
-  { id: 'monitoring', title: 'SERVIDORES', x: 19, y: 2, w: 10, h: 7 },
-  { id: 'development', title: 'DESENVOLVIMENTO', x: 1, y: 15, w: 10, h: 7 },
-  { id: 'tests', title: 'TESTES', x: 12, y: 15, w: 4, h: 7 },
-  { id: 'review', title: 'REVISÃO', x: 17, y: 15, w: 4, h: 7 },
-  { id: 'lounge', title: 'COPA', x: 22, y: 15, w: 7, h: 7 },
+  { id: 'planning', title: 'PLANEJAMENTO', x: 1, y: 1, w: 9, h: 7 },
+  { id: 'architecture', title: 'ARQUITETURA', x: 11, y: 1, w: 7, h: 7 },
+  { id: 'monitoring', title: 'SERVIDORES', x: 19, y: 1, w: 10, h: 7 },
+  { id: 'development', title: 'DESENVOLVIMENTO', x: 1, y: 12, w: 10, h: 7 },
+  { id: 'tests', title: 'TESTES', x: 12, y: 12, w: 4, h: 7 },
+  { id: 'review', title: 'REVISÃO', x: 17, y: 12, w: 4, h: 7 },
+  { id: 'lounge', title: 'COPA', x: 22, y: 12, w: 7, h: 7 },
 ];
 
-export const HALL = { x: 1, y: 11, w: 28, h: 2 };
+export const HALL = { x: 1, y: 9, w: 28, h: 2 };
 
-/** Faixas de parede que correm na horizontal: a linha de cima é o topo, a de baixo, a face. */
+/** Paredes que correm na horizontal, cada uma com um ladrilho de espessura. */
 export const WALL_BANDS = [
   { y: 0, doors: [] as number[] },
-  { y: 9, doors: [5, 6, 14, 15, 23, 24] },
-  { y: 13, doors: [4, 5, 14, 15, 19, 20, 24, 25] },
+  { y: 8, doors: [5, 6, 14, 15, 23, 24] },
+  { y: 11, doors: [4, 5, 14, 15, 19, 20, 24, 25] },
+  { y: ROWS - 1, doors: [] as number[] },
 ];
 
 export const WALL_COLUMNS = [
-  { x: 10, from: 2, to: 8 },
-  { x: 18, from: 2, to: 8 },
-  { x: 11, from: 15, to: 21 },
-  { x: 16, from: 15, to: 21 },
-  { x: 21, from: 15, to: 21 },
+  { x: 10, from: 1, to: 7 },
+  { x: 18, from: 1, to: 7 },
+  { x: 11, from: 12, to: 18 },
+  { x: 16, from: 12, to: 18 },
+  { x: 21, from: 12, to: 18 },
 ];
 
 export const ROOM_OF_ROLE: Record<RoleId, string> = {
@@ -59,7 +59,7 @@ export const ROOM_OF_ROLE: Record<RoleId, string> = {
 
 export interface Seat {
   room: string;
-  /** Ladrilho da cadeira. A mesa fica logo acima, ocupando três ladrilhos. */
+  /** Ladrilho da cadeira. A mesa fica logo atrás dela, ocupando três ladrilhos. */
   x: number;
   y: number;
   kind: 'desk' | 'table';
@@ -71,27 +71,27 @@ const desks = (room: string, positions: Array<[number, number]>): Seat[] =>
 // Entre uma fileira e a seguinte sobra uma linha livre: sem ela, o monitor de trás
 // cobriria quem está sentado na frente.
 export const SEATS: Seat[] = [
-  { room: 'planning', x: 3, y: 6, kind: 'table' },
-  { room: 'planning', x: 5, y: 6, kind: 'table' },
-  { room: 'planning', x: 7, y: 6, kind: 'table' },
-  ...desks('architecture', [[12, 4], [16, 4], [12, 7], [16, 7]]),
-  ...desks('development', [[2, 17], [6, 17], [9, 17], [2, 20], [6, 20], [9, 20]]),
-  ...desks('tests', [[13, 17], [13, 20]]),
-  ...desks('review', [[18, 17], [18, 20]]),
-  ...desks('monitoring', [[20, 4], [23, 4], [20, 7], [23, 7]]),
+  { room: 'planning', x: 3, y: 5, kind: 'table' },
+  { room: 'planning', x: 5, y: 5, kind: 'table' },
+  { room: 'planning', x: 7, y: 5, kind: 'table' },
+  ...desks('architecture', [[12, 3], [16, 3], [12, 6], [16, 6]]),
+  ...desks('development', [[2, 14], [6, 14], [9, 14], [2, 17], [6, 17], [9, 17]]),
+  ...desks('tests', [[13, 14], [13, 17]]),
+  ...desks('review', [[18, 14], [18, 17]]),
+  ...desks('monitoring', [[20, 3], [23, 3], [20, 6], [23, 6]]),
 ];
 
 /** Mesa de reunião, em ladrilhos. */
-export const MEETING_TABLE = { x: 2, y: 4, w: 7, h: 2 };
-export const RACKS = { x: 25, y: 2, w: 4, h: 1 };
+export const MEETING_TABLE = { x: 2, y: 3, w: 7, h: 2 };
+export const RACKS = { x: 25, y: 1, w: 4, h: 1 };
 // Ao lado da porta da copa, nunca na frente dela.
-export const COFFEE_BAR = { x: 26, y: 15, w: 3, h: 1 };
-export const SOFA = { x: 23, y: 21, w: 4, h: 1 };
-export const RUG = { x: 23, y: 18, w: 5, h: 2 };
-export const PLANTS: Array<[number, number]> = [[1, 2], [9, 2], [17, 2], [28, 8], [1, 11], [28, 11], [13, 12], [10, 15], [12, 15], [28, 21], [1, 8], [9, 8]];
+export const COFFEE_BAR = { x: 26, y: 12, w: 3, h: 1 };
+export const SOFA = { x: 23, y: 18, w: 4, h: 1 };
+export const RUG = { x: 23, y: 15, w: 5, h: 2 };
+export const PLANTS: Array<[number, number]> = [[1, 1], [9, 1], [17, 1], [28, 7], [1, 9], [28, 9], [13, 10], [10, 12], [12, 12], [28, 18], [1, 7], [9, 7]];
 
 /** Onde quem está disponível fica, na copa. */
-export const LOUNGE_SPOTS: Array<[number, number]> = [[23, 17], [25, 17], [27, 17], [24, 19], [26, 19], [22, 18], [28, 18], [23, 19], [27, 19], [25, 18], [22, 20], [28, 19]];
+export const LOUNGE_SPOTS: Array<[number, number]> = [[23, 14], [25, 14], [27, 14], [24, 16], [26, 16], [22, 15], [28, 15], [23, 16], [27, 16], [25, 15], [22, 17], [28, 16]];
 
 export function buildBlocked(): Set<string> {
   const blocked = new Set<string>();
@@ -100,11 +100,8 @@ export function buildBlocked(): Set<string> {
     for (let i = 0; i < a.w; i += 1) for (let j = 0; j < a.h; j += 1) add(a.x + i, a.y + j);
   };
   for (let x = 0; x < COLS; x += 1) {
-    add(x, ROWS - 1);
     for (const band of WALL_BANDS) {
-      if (band.doors.includes(x)) continue;
-      add(x, band.y);
-      add(x, band.y + 1);
+      if (!band.doors.includes(x)) add(x, band.y);
     }
   }
   for (let y = 0; y < ROWS; y += 1) {

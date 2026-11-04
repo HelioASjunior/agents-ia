@@ -5,7 +5,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import type { AgentEvent, Toolkit } from '@xinoia/shared';
 import { claudeAdapter, createClaudeParser } from '../src/providers/claude.ts';
-import { codexAdapter, createCodexParser } from '../src/providers/codex.ts';
+import { codexAdapter, createCodexParser, parseCodexModels } from '../src/providers/codex.ts';
 import { classifyError, safeArg } from '../src/providers/common.ts';
 import { createGeminiParser, geminiAdapter } from '../src/providers/gemini.ts';
 import { customAdapter } from '../src/providers/registry.ts';
@@ -251,4 +251,22 @@ test('Codex no Windows: perfil sem área protegida recebe uma, e a escolha da pe
   assert.deepEqual(sandboxArgs!(dir, 'full', 'win32'), []);
   assert.deepEqual(sandboxArgs!(dir, 'edit', 'linux'), []);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('Codex: modelos vêm do catálogo do CLI, sem os escondidos, e um formato novo não quebra', () => {
+  const catalog = JSON.stringify({
+    models: [
+      { slug: 'modelo-a', display_name: 'Modelo A', visibility: 'list', supported_reasoning_levels: [{ effort: 'low' }, { effort: 'ultra' }] },
+      { slug: 'modelo-oculto', display_name: 'Oculto', visibility: 'hide', supported_reasoning_levels: [] },
+      { slug: 'modelo-b', visibility: 'list' },
+    ],
+  });
+  assert.deepEqual(parseCodexModels(catalog), [
+    { id: 'modelo-a', label: 'Modelo A', efforts: ['low', 'ultra'] },
+    { id: 'modelo-b', label: 'modelo-b', efforts: [] },
+  ]);
+  assert.deepEqual(parseCodexModels('não é json'), []);
+  assert.deepEqual(parseCodexModels('{"outra":1}'), []);
+  assert.equal(codexAdapter.buildArgs({ permission: 'edit', model: 'gpt-6.1-sol', effort: 'ultra' }).join(' ').includes('--model gpt-6.1-sol'), true);
+  assert.match(codexAdapter.buildArgs({ permission: 'edit', effort: 'ultra' }).join(' '), /model_reasoning_effort=ultra/);
 });

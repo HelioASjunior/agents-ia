@@ -13,7 +13,7 @@
 
 | Teste | Onde | Resultado |
 | --- | --- | --- |
-| `npm run typecheck` e `npm test` (139 testes) | Local e CI | Passaram |
+| `npm run typecheck` e `npm test` (141 testes) | Local e CI | Passaram |
 | `npm run test:dist` | Local e **Windows limpo do GitHub** | Passou |
 | Atualização real com servidor local (`scripts/test-update-local.mjs`) | Local | Passou |
 | `npm run test:real` (15 testes) | Local, com contas reais | Passou |
@@ -51,6 +51,16 @@ Pedidos feitos ao avaliar a entrega:
 A versão 0.1.0 saiu pelo workflow `Release`, de ponta a ponta. Depois, os arquivos foram baixados do GitHub e conferidos: checksums e assinaturas válidos com a chave pública do app, e a assinatura recusada em um arquivo errado. O teste de instalação (`test:dist`) rodou nos próprios arquivos baixados.
 
 O histórico foi reescrito antes de publicar, para os commits usarem o endereço privado do GitHub em vez de um e-mail pessoal.
+
+## Versão 0.1.1
+
+- **Escritório em 3D**, com Three.js e modelos feitos por código, sem arquivos externos. Continua sem decidir nada: só representa os estados recebidos do backend.
+- **Perfil separado do Codex:** sem `[windows] sandbox`, todo comando era rejeitado. Reproduzido e corrigido com uma conta real, em uma execução pelo próprio XinoIA, com o modelo `gpt-6.1-sol`.
+- **Modelos do Codex:** vêm de `codex debug models`, com os esforços de cada um.
+
+**O que uma missão real mostrou:** em "editar", o build do Unreal falha, porque a área protegida nega escrever em `%LOCALAPPDATA%\UnrealBuildTool`. Em "total", no modo Autônomo controlado, os comandos rodam. Isso é uma limitação conhecida, não um defeito: a escolha fica com quem usa.
+
+**Não medido:** o consumo real de placa de vídeo do 3D, porque os testes rodam sem placa. Para isso, a cena é limitada a 30 quadros por segundo, e a visão Compacta não a desenha.
 
 ## Preparação da assinatura de código
 

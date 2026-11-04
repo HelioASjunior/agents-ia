@@ -54,7 +54,7 @@ visualmente executa de verdade.
 
 ## Fase 5: escritório virtual e identidade visual
 
-Escritório original em pixel art, com salas e avatares dirigidos por eventos reais, além de uma
+Escritório original em 3D, com salas e avatares dirigidos por eventos reais, além de uma
 visualização compacta. Identidade XinoIA: logotipo, ícone, splash, boas-vindas, modo claro e
 escuro, onboarding.
 

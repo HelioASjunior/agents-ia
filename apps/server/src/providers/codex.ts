@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { AgentEvent } from '@xinoia/shared';
+import type { AgentEvent, ModelOption } from '@xinoia/shared';
 import { baseName, classifyError, clip, parseJsonLine, safeArg } from './common.ts';
 import type { LineParser, ProviderAdapter } from './types.ts';
 
@@ -96,6 +96,25 @@ export function createCodexParser(): LineParser {
   };
 }
 
+/** Catálogo de `codex debug models`, sem os modelos que o próprio Codex esconde. */
+export function parseCodexModels(stdout: string): ModelOption[] {
+  try {
+    const { models } = JSON.parse(stdout) as { models: Array<Record<string, unknown>> };
+    return models.flatMap((model) => {
+      if (typeof model.slug !== 'string' || model.visibility !== 'list') return [];
+      const levels = Array.isArray(model.supported_reasoning_levels) ? model.supported_reasoning_levels as Array<{ effort?: unknown }> : [];
+      return [{
+        id: model.slug,
+        label: typeof model.display_name === 'string' ? model.display_name : model.slug,
+        efforts: levels.flatMap((level) => (typeof level?.effort === 'string' ? [level.effort] : [])),
+      }];
+    });
+  } catch {
+    // Comando de diagnóstico, que pode mudar: sem catálogo, o modelo pode ser digitado.
+    return [];
+  }
+}
+
 /** A configuração do Codex já escolhe a área protegida do Windows? */
 export function definesWindowsSandbox(toml: string): boolean {
   if (/^\s*windows\.sandbox\s*=/m.test(toml)) return true;
@@ -133,6 +152,7 @@ export const codexAdapter: ProviderAdapter = {
   },
   models: [],
   efforts: ['low', 'medium', 'high', 'xhigh'],
+  modelProbe: { args: ['debug', 'models'], parse: parseCodexModels },
   requiresProfile: true,
 
   prepareHome(homeDir) {

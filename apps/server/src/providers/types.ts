@@ -1,4 +1,4 @@
-import type { AgentEvent, ErrorKind, PermissionLevel, Profile, SupportLevel, Toolkit } from '@xinoia/shared';
+import type { AgentEvent, ErrorKind, ModelOption, PermissionLevel, Profile, SupportLevel, Toolkit } from '@xinoia/shared';
 
 export interface BuildArgsOptions {
   model?: string | null;
@@ -52,6 +52,8 @@ export interface ProviderAdapter {
   capabilityProbe: { args: string[]; flags: Record<string, string> } | null;
   models: string[];
   efforts: string[];
+  /** Comando que lista os modelos da versão instalada, quando o CLI oferece um. */
+  modelProbe?: { args: string[]; parse(stdout: string): ModelOption[] };
   /** Variável em que o CLI lê a chave de API. null: não aceita chave por aqui. */
   apiKeyEnv: string | null;
   apiKeyUrl: string | null;
