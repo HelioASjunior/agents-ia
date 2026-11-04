@@ -6,7 +6,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ### Adicionado
 
-- Política de privacidade e preparação para a assinatura de código pela SignPath Foundation, que fica desligada até o pedido ser aprovado.
+- Política de privacidade e preparação para a assinatura de código pela SignPath Foundation, que fica desligada. O pedido ainda não foi feito.
 
 ### Corrigido
 

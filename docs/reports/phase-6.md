@@ -52,7 +52,7 @@ O histórico foi reescrito antes de publicar, para os commits usarem o endereço
 
 ## Preparação da assinatura de código
 
-Os passos da SignPath estão no workflow, desligados até a aprovação, com a política em `README.md` e `PRIVACY.md`. O caminho completo, com um certificado descartável, roda no workflow **Teste de atualização**. A assinatura real pela SignPath só pode ser testada depois da aprovação, inclusive as regras de metadados de `.signpath/artifact-configurations/`.
+Os passos da SignPath estão no workflow, desligados, com a política em `README.md` e `PRIVACY.md`. O pedido ainda não foi feito: a decisão foi ganhar usuários antes, porque o formulário pede provas de reputação. O caminho completo, com um certificado descartável, roda no workflow **Teste de atualização**. A assinatura real pela SignPath só pode ser testada depois da aprovação, inclusive as regras de metadados de `.signpath/artifact-configurations/`.
 
 Um teste de instalação rodou enquanto a primeira cópia real estava sendo instalada, na mesma máquina, e tudo indica que apagou o registro dela no Windows, porque os dois usam a mesma chave. Por isso, esses testes agora se recusam a rodar com o programa instalado ou aberto.
 

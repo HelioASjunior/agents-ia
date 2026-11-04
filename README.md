@@ -40,7 +40,7 @@ XinoIA runs Claude Code, Codex CLI and other AI coding agents as one team on you
 You don't need Node.js or developer tools to run XinoIA itself. Updates arrive inside the app, and your data is kept across updates.
 
 > [!NOTE]
-> The installer doesn't have a Microsoft code signing certificate yet, so Windows may show a SmartScreen warning. Choose **More info**, then **Run anyway**. [Why this happens](SECURITY.md#instalador-e-smartscreen). The project is applying for free signing from SignPath Foundation: see the [Code signing policy](#code-signing-policy).
+> The installer doesn't have a Microsoft code signing certificate yet, so Windows may show a SmartScreen warning. Choose **More info**, then **Run anyway**. [Why this happens](SECURITY.md#instalador-e-smartscreen). The signing plan is in the [Code signing policy](#code-signing-policy).
 
 Prefer not to install? Download `XinoIA-Portable-vX.X.X.exe`, which keeps its data in a folder next to it.
 
@@ -135,7 +135,7 @@ Plugin loading and configuration are tested. Tool calls against a running editor
 
 ## Code signing policy
 
-**Signing isn't active yet:** the application to SignPath Foundation is pending, and files ship without code signing until it's approved. Once approved, the following applies:
+**Signing isn't active yet:** the project plans to apply for free signing from SignPath Foundation, but hasn't applied yet, and files ship without code signing. If approved, the following applies:
 
 Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
