@@ -168,7 +168,9 @@ O que já deu errado, e o que nunca fazer.
 - **Agentes no mesmo editor trabalham um de cada vez.** A integração **Unreal Engine** já funciona assim. Mais agentes não deixam esse trabalho mais rápido.
 - **Abra o editor antes:** com os plugins **ModelContextProtocol** e **AllToolsets**, e `ModelContextProtocol.StartServer` no console. Em Contas > Integrações, use **Adicionar Unreal Engine** e confira a indicação "Respondendo".
 - **A permissão importa:** em "somente leitura", as ferramentas MCP ficam bloqueadas. Ligue a integração em cada agente que for usar o editor, em "editar" ou "total".
-- **Compilar é rodar comando:** use o Codex em "editar", ou "total", que só vale no modo autônomo e tem o acesso da conta da pessoa no computador.
+- **Compilar é rodar comando:** use o Codex em "editar". Abrir o Unreal por um agente nessa permissão ainda não foi testado, e pode falhar por causa da área protegida do Codex. Teste primeiro, e pare no erro.
+- **Se "editar" não bastar:** a saída é "total", que só vale no modo **Autônomo controlado** e dá ao agente o acesso da conta da pessoa no computador. Nesse modo, um comando destrutivo só gera aviso. Essa decisão é da pessoa: se ela aceitar, use só no agente que precisa, com o Git limpo antes.
+- **Branch:** o XinoIA trabalha na branch que estiver aberta na pasta. Se o trabalho está em outra, deixe-a aberta antes de começar.
 - **Salve antes de trocar de sessão:** salve os mapas no editor e confirme com `git status` o que ficou pendente.
 
 **Limite conhecido:** o carregamento do plugin e a configuração têm testes, mas as chamadas de ferramenta com o editor aberto **ainda não foram testadas** pelo XinoIA. Comece por uma alteração pequena e fácil de desfazer, e confira o resultado no editor.
