@@ -6,6 +6,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ### Adicionado
 
+- Guia para outra IA verificar o XinoIA ou levar um projeto para ele, e `npm run verify`, uma verificação completa que não usa contas nem cota.
 - Política de privacidade e preparação para a assinatura de código pela SignPath Foundation, que fica desligada. O pedido ainda não foi feito.
 
 ### Corrigido

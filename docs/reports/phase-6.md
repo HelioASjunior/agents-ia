@@ -42,7 +42,9 @@ Pedidos feitos ao avaliar a entrega:
 
 **Testes novos:** cifragem real com o DPAPI, chave que não chega a outro perfil nem aparece no banco, nos eventos ou nos logs, e chave inválida recusada pelo Claude Code e pelo Codex reais (`real-api-key.test.ts`). O endereço de login foi lido da saída real dos dois CLIs, sem concluir nenhum login. Um teste da planta do escritório exige que toda mesa seja alcançável, e pegou dois bugs: o balcão fechava a porta da copa, e uma planta fechava a sala de testes.
 
-**Não testado:** concluir um login novo de ponta a ponta pela janela, porque exige uma pessoa no navegador; execução paga com uma chave válida; instalação em um clique em uma máquina sem o CLI.
+**Testado depois pelo dono:** login de uma segunda conta Claude pela janela do app instalado, em um perfil separado, reconhecido como conectado pelo diagnóstico. Falta confirmar se a janela fechou sozinha.
+
+**Não testado:** login de uma segunda conta Codex; execução paga com uma chave válida; instalação em um clique em uma máquina sem o CLI.
 
 ## Primeira publicação
 
@@ -65,7 +67,7 @@ Um teste de instalação rodou enquanto a primeira cópia real estava sendo inst
 ## Limitações e testes pendentes
 
 - Uma atualização real pelo GitHub ainda não aconteceu, porque só existe uma versão publicada. O caminho completo foi testado contra um servidor local, e o teste pelo GitHub vem com a próxima versão.
-- Exigem pessoa e conta real: login de uma segunda conta, ferramentas MCP com o Unreal Editor aberto, Gemini CLI e o aviso do SmartScreen ao baixar pelo navegador.
+- Exigem pessoa e conta real: login de uma segunda conta Codex, ferramentas MCP com o Unreal Editor aberto, Gemini CLI e o aviso do SmartScreen ao baixar pelo navegador.
 - O teste de instalação no CI roda em uma máquina limpa, mas o Windows de lá tem Node.js. Falta uma execução em um Windows sem ele.
 - macOS e Linux estão configurados, mas sem testes nem publicação.
 - A recuperação depois de uma atualização com falha é a do instalador e a da cópia de segurança. Não há volta automática para a versão anterior.

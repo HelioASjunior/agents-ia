@@ -132,6 +132,7 @@ Plugin loading and configuration are tested. Tool calls against a running editor
 | Understand the design | [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md) |
 | Publish a version | [Releasing](docs/RELEASING.md) |
 | Report a vulnerability | [Security](SECURITY.md) |
+| Have another AI verify XinoIA, or move a project into it | [Guide for AIs](docs/GUIA_PARA_IAS.md) |
 
 ## Code signing policy
 
@@ -161,7 +162,7 @@ npm run typecheck
 npm test
 ```
 
-`npm run test:real` uses your real CLIs and logged-in accounts, and consumes some of your plan's quota, so it stays out of CI. To build the installer, see [Releasing](docs/RELEASING.md). See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
+`npm run verify` runs a safe end-to-end check, with no accounts or quota. `npm run test:real` uses your real CLIs and logged-in accounts, and consumes some of your plan's quota, so it stays out of CI. To build the installer, see [Releasing](docs/RELEASING.md). See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
 
 ## License
 

@@ -130,6 +130,7 @@ O carregamento do plugin e a configuração têm testes. As chamadas de ferramen
 | Entender o desenho | [Arquitetura](docs/ARCHITECTURE.md) · [Roteiro](docs/ROADMAP.md) |
 | Publicar uma versão | [Publicação](docs/RELEASING.md) |
 | Relatar uma vulnerabilidade | [Segurança](SECURITY.md) |
+| Pedir a outra IA para verificar o XinoIA ou levar um projeto para ele | [Guia para outra IA](docs/GUIA_PARA_IAS.md) |
 
 ## Code signing policy
 
@@ -159,7 +160,7 @@ npm run typecheck
 npm test
 ```
 
-O `npm run test:real` usa seus CLIs reais e contas logadas, e gasta um pouco da cota do seu plano. Por isso fica fora do CI. Para gerar o instalador, veja [Publicação](docs/RELEASING.md). Para contribuir, veja o [CONTRIBUTING.md](CONTRIBUTING.md).
+O `npm run verify` faz uma verificação completa e segura, sem contas nem cota. `npm run test:real` usa seus CLIs reais e contas logadas, e gasta um pouco da cota do seu plano. Por isso fica fora do CI. Para gerar o instalador, veja [Publicação](docs/RELEASING.md). Para contribuir, veja o [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licença
 
