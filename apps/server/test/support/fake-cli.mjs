@@ -112,7 +112,7 @@ if (command.includes('QUEBRAR')) {
   process.exit(3);
 }
 
-const reply = (text) => out({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: sessionId, usage: { input_tokens: 10, output_tokens: 5 } });
+const reply = (text) => out({ type: 'result', subtype: 'success', is_error: false, result: text, session_id: sessionId, ...(prompt.includes('SEM_CONSUMO') ? {} : { usage: { input_tokens: 10, output_tokens: 5 } }) });
 const parsedTeam = [...prompt.matchAll(/^- id: (\S+) \| nome: (\S+) \| papel: (.*)$/gm)].map((m) => ({ id: m[1], name: m[2], role: m[3] }));
 
 if (isPlanning) {

@@ -204,6 +204,14 @@
 </table>
 <p>Ligue as etapas arrastando entre elas. Uma etapa só começa depois das que estão ligadas a ela.</p>
 <div class="box"><b>Dica</b><p>Quem revisa em somente leitura não roda comandos. Faça uma etapa anterior reunir o resultado de <code>git diff</code> e dos testes, para o revisor ter o que avaliar.</p></div>
+<h2>Fila de objetivos</h2>
+<p><i>Chega na próxima versão.</i> Em <b>Fila</b>, dê uma lista de objetivos a um workflow. Cada objetivo vira uma missão, e o próximo começa quando ela termina.</p>
+<table>
+<tr><th style="width:30%">Opção</th><th>O que faz</th></tr>
+<tr><td><b>Se um objetivo falhar</b></td><td><b>Parar e esperar por mim</b> deixa a missão pausada para você resolver. <b>Registrar e seguir</b> cancela a missão, anota o motivo e passa para o próximo.</td></tr>
+<tr><td><b>Limite de gasto</b></td><td>Soma de tokens, conferida entre um objetivo e outro. Se alguma execução não informar consumo, a fila para.</td></tr>
+</table>
+<p>Com alterações sem commit, a fila não começa o objetivo e cita os arquivos: termine o workflow com uma etapa de commit, ou faça você e clique em <b>Continuar</b>. Fora do modo autônomo controlado, cada objetivo espera a aprovação do plano. Limite de uso e login nunca são pulados.</p>
 </section>
 
 <section class="chapter" id="c9">

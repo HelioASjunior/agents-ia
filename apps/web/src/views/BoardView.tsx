@@ -560,7 +560,7 @@ export function BoardView() {
   const projectId = useStore((state) => state.projectId);
   const setView = useStore((state) => state.setView);
   const [creating, setCreating] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => useStore.getState().boardMissionId);
   const active = activeMission(missions);
   const mission = missions.find((item) => item.id === selectedId) ?? active ?? missions[0];
 

@@ -265,4 +265,40 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE profiles ADD COLUMN api_key_cipher TEXT;
     `,
   },
+  {
+    version: 6,
+    name: 'fila de objetivos',
+    up: `
+      CREATE TABLE goal_queues (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+        workflow_id TEXT NOT NULL,
+        on_failure TEXT NOT NULL,
+        spend_limit INTEGER,
+        running INTEGER NOT NULL,
+        stop_reason TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      ) STRICT;
+
+      -- mission_id não tem chave estrangeira: o ID é gravado antes de a missão existir,
+      -- para um objetivo nunca começar duas vezes se o app fechar no meio.
+      CREATE TABLE goal_queue_items (
+        id TEXT PRIMARY KEY,
+        queue_id TEXT NOT NULL REFERENCES goal_queues(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        goal TEXT NOT NULL,
+        status TEXT NOT NULL,
+        mission_id TEXT,
+        reason TEXT,
+        input_spent INTEGER NOT NULL,
+        output_spent INTEGER NOT NULL,
+        runs_without_usage INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        started_at INTEGER,
+        ended_at INTEGER
+      ) STRICT;
+      CREATE INDEX idx_queue_items ON goal_queue_items(queue_id, position);
+    `,
+  },
 ];

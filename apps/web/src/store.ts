@@ -3,6 +3,7 @@ import type {
   Agent,
   AgentLiveState,
   ChatMessage,
+  GoalQueue,
   Mission,
   Profile,
   Project,
@@ -21,6 +22,7 @@ export type ViewId =
   | 'office'
   | 'board'
   | 'workflows'
+  | 'queue'
   | 'agents'
   | 'accounts'
   | 'projects'
@@ -72,6 +74,10 @@ interface State {
   missions: Mission[];
   tasks: Record<string, Task[]>;
   missionEvents: Record<string, StoredMissionEvent[]>;
+  /** A fila de objetivos do projeto aberto. */
+  queue: GoalQueue | null;
+  /** Missão que a tela de tarefas deve abrir, em vez da mais recente. */
+  boardMissionId: string | null;
   runs: Record<string, Run>;
   events: StoredRunEvent[];
   /** Texto já recebido de cada execução, para o chat em tempo real. */
@@ -84,6 +90,7 @@ interface State {
   lastEventId: number;
 
   setView(view: ViewId): void;
+  openMission(id: string): void;
   setTheme(theme: 'dark' | 'light'): void;
   setChannel(channel: string): void;
   selectAgent(id: string | null): void;
@@ -141,6 +148,8 @@ export const useStore = create<State>((set, get) => ({
   missions: [],
   tasks: {},
   missionEvents: {},
+  queue: null,
+  boardMissionId: null,
   runs: {},
   events: [],
   runText: {},
@@ -150,7 +159,9 @@ export const useStore = create<State>((set, get) => ({
   toasts: [],
   lastEventId: 0,
 
-  setView: (view) => set({ view }),
+  setView: (view) => set({ view, boardMissionId: null }),
+
+  openMission: (id) => set({ view: 'board', boardMissionId: id }),
 
   setTheme(theme) {
     persist(THEME_KEY, theme);
@@ -167,7 +178,7 @@ export const useStore = create<State>((set, get) => ({
 
   async setProject(id) {
     persist(PROJECT_KEY, id ?? '');
-    set({ projectId: id, messages: {}, events: [], runs: {}, runText: {}, runSteps: {}, missions: [], tasks: {}, missionEvents: {}, channel: 'team' });
+    set({ projectId: id, messages: {}, events: [], runs: {}, runText: {}, runSteps: {}, missions: [], tasks: {}, missionEvents: {}, queue: null, channel: 'team' });
     if (id) await get().loadProjectData(id);
   },
 
@@ -227,10 +238,11 @@ export const useStore = create<State>((set, get) => ({
   },
 
   async loadProjectData(projectId) {
-    const [runs, events, missions] = await Promise.all([
+    const [runs, events, missions, queue] = await Promise.all([
       api.get<Run[]>(`/api/runs?projectId=${projectId}&limit=200`),
       api.get<StoredRunEvent[]>(`/api/projects/${projectId}/terminal`),
       api.get<Mission[]>(`/api/missions?projectId=${projectId}`),
+      api.get<GoalQueue | null>(`/api/projects/${projectId}/queue`),
     ]);
     const runText: Record<string, string> = {};
     const runSteps: Record<string, string[]> = {};
@@ -244,6 +256,7 @@ export const useStore = create<State>((set, get) => ({
       runText,
       runSteps,
       missions,
+      queue,
       lastEventId: events.at(-1)?.id ?? get().lastEventId,
     });
     await Promise.all([
@@ -316,6 +329,8 @@ function reduce(state: State, message: ServerMessage): Partial<State> {
       const list = state.missionEvents[message.data.missionId] ?? [];
       return { missionEvents: { ...state.missionEvents, [message.data.missionId]: [...list, message.data] } };
     }
+    case 'queue_updated':
+      return message.data.projectId === state.projectId ? { queue: message.data } : {};
     case 'agent_state':
       return { agentStates: { ...state.agentStates, [message.data.agentId]: message.data } };
     case 'chat_message': {

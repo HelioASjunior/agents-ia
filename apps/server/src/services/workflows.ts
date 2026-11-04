@@ -226,10 +226,10 @@ export class WorkflowService {
     await this.db.workflows.delete(id);
   }
 
-  async run(id: string, input: unknown): Promise<Mission> {
+  async run(id: string, input: unknown, missionId?: string): Promise<Mission> {
     const data = RunWorkflowInput.parse(input);
     const workflow = await this.get(id);
     validateGraph(workflow.nodes, workflow.edges);
-    return this.orchestrator.startFromWorkflow(workflow, data.projectId, data.goal, data.settings);
+    return this.orchestrator.startFromWorkflow(workflow, data.projectId, data.goal, data.settings, missionId);
   }
 }

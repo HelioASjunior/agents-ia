@@ -7,6 +7,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 ### Adicionado
 
 - Guia de estudo em PDF, em português e inglês, para aprender como o sistema funciona e como usá-lo.
+- **Fila de objetivos**: uma lista ordenada de objetivos para um workflow, em que cada um começa quando o anterior termina. A falha pode parar a fila ou ser registrada e pulada. Há limite de gasto opcional, e a fila não começa um objetivo com alterações sem commit. Fora do modo autônomo, cada plano continua esperando aprovação.
 
 ### Corrigido
 

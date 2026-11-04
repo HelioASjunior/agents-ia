@@ -781,6 +781,57 @@ export const RunWorkflowInput = z.object({
   settings: MissionSettings.partial().default({}),
 });
 
+/** Fila de objetivos: um workflow executado em ordem, um objetivo de cada vez. */
+export const SaveQueueInput = z.object({
+  workflowId: z.string().min(1),
+  /** stop: espera a pessoa. skip: registra a falha e segue para o próximo objetivo. */
+  onFailure: z.enum(['stop', 'skip']).default('stop'),
+  /** Soma de tokens de entrada e saída. Conferida entre um objetivo e outro. */
+  tokenLimit: z.number().int().positive().nullable().default(null),
+});
+
+export const AddQueueItemsInput = z.object({
+  goals: z.array(z.string().trim().min(1).max(50_000)).min(1).max(200),
+});
+
+export const UpdateQueueItemInput = z.object({ goal: z.string().trim().min(1).max(50_000) });
+export const ReorderQueueInput = z.object({ itemIds: z.array(z.string().min(1)) });
+
+export type QueueItemStatus = 'pending' | 'running' | 'done' | 'failed';
+
+export interface QueueItem {
+  id: string;
+  position: number;
+  goal: string;
+  status: QueueItemStatus;
+  /** A missão mais recente deste objetivo. */
+  missionId: string | null;
+  /** Por que o objetivo falhou. */
+  reason: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  /** Execuções que não informaram consumo: os tokens acima não as incluem. */
+  runsWithoutUsage: number;
+  createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+}
+
+export interface GoalQueue {
+  id: string;
+  projectId: string;
+  workflowId: string;
+  onFailure: 'stop' | 'skip';
+  tokenLimit: number | null;
+  /** Ligada: inicia o próximo objetivo quando o atual terminar. */
+  running: boolean;
+  /** Por que a fila parou sozinha, ou null se ela nunca parou ou terminou tudo. */
+  stopReason: string | null;
+  items: QueueItem[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Workflow {
   id: string;
   name: string;
@@ -839,4 +890,5 @@ export type ServerMessage =
   /** O plano inteiro foi trocado, então as tarefas antigas deixam de existir. */
   | { kind: 'tasks_replaced'; missionId: string; data: Task[] }
   | { kind: 'mission_event'; data: StoredMissionEvent }
+  | { kind: 'queue_updated'; data: GoalQueue }
   | { kind: 'agent_state'; data: AgentLiveState };

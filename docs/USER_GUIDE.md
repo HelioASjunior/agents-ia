@@ -83,6 +83,25 @@ Um worktree começa sem `node_modules`, então o agente precisa instalar depend�
 
 Desenhe etapas e ligações, escolha quem faz cada uma, e defina condições como "só se a revisão aprovar". Os modelos prontos podem ser copiados e alterados.
 
+## Fila de objetivos
+
+*Chega na próxima versão.*
+
+Em **Fila**, dê uma lista de objetivos a um workflow. Cada objetivo vira uma missão, e o próximo começa quando ela termina.
+
+| Opção | O que faz |
+|---|---|
+| **Workflow** | O processo usado em todos os objetivos. |
+| **Se um objetivo falhar** | **Parar e esperar por mim** deixa a missão pausada para você resolver. **Registrar e seguir** cancela a missão, anota o motivo e passa para o próximo. |
+| **Limite de gasto** | Soma de tokens de entrada e saída. É conferido entre um objetivo e outro: o que está em andamento termina. Se alguma execução não informar consumo, a fila para em vez de seguir sem saber o gasto. |
+
+- Só o que ainda não começou pode ser editado, reordenado ou removido. Um objetivo que falhou pode voltar para a fila.
+- **Git sujo:** com alterações sem commit, a fila não começa o objetivo e cita os arquivos. Termine o workflow com uma etapa que faça commit, ou faça você e clique em **Continuar**. Em um projeto sem Git, essa conferência não acontece.
+- **Aprovação:** fora do modo autônomo controlado, cada objetivo espera a aprovação do plano. A fila nunca dispensa o que o modo exige.
+- **Limite de uso e login:** a fila nunca pula esses problemas, mesmo em **Registrar e seguir**, porque o próximo objetivo pararia pelo mesmo motivo.
+- **Uma tarefa de cada vez:** a fila roda na pasta do projeto, sem tarefas em paralelo.
+- **Ao fechar o app:** nada novo começa sozinho ao reabrir. A missão interrompida continua esperando você, e nenhum objetivo roda duas vezes.
+
 ## Unreal Engine
 
 1. No Unreal Editor, habilite os plugins **ModelContextProtocol** e **AllToolsets**, e rode `ModelContextProtocol.StartServer` no console.

@@ -35,6 +35,9 @@ import { workflowToTasks } from './workflows.ts';
 
 const ACTIVE: MissionStatus[] = ['planning', 'awaiting_approval', 'running', 'paused', 'reporting'];
 
+/** Por que uma missão pausou: uma falha do trabalho, um problema da conta ou só a vez da pessoa. */
+export type PauseKind = 'failure' | 'account' | 'waiting';
+
 export class Orchestrator {
   private readonly config: AppConfig;
   private readonly db: Persistence;
@@ -49,6 +52,8 @@ export class Orchestrator {
   private readonly idleWaiters = new Map<string, Array<() => void>>();
   /** Pasta e ramo de cada tarefa isolada em andamento. */
   private readonly workspaces = new Map<string, { dir: string; branch: string }>();
+  /** Avisado quando uma missão termina, ou pausa por um problema. */
+  onMissionStopped: ((mission: Mission, pause: PauseKind) => void) | null = null;
 
   constructor(config: AppConfig, db: Persistence, runs: RunService, hub: EventHub, memory: MemoryService, settings: SettingsService) {
     this.config = config;
@@ -113,13 +118,16 @@ export class Orchestrator {
     this.hub.publish({ kind: 'mission_event', data: stored });
   }
 
-  private async setStatus(mission: Mission, status: MissionStatus, reason: string | null = null): Promise<void> {
+  private async setStatus(mission: Mission, status: MissionStatus, reason: string | null = null, pause: PauseKind = 'failure'): Promise<void> {
     mission.status = status;
     mission.pauseReason = status === 'paused' || status === 'failed' ? reason : null;
     if (['completed', 'failed', 'cancelled'].includes(status)) mission.endedAt = Date.now();
     await this.saveMission(mission);
     await this.log(mission, null, { type: 'mission_status', status, reason });
     this.notifyIfIdle(mission.id, status);
+    if (['completed', 'failed', 'cancelled'].includes(status) || (status === 'paused' && pause !== 'waiting')) {
+      this.onMissionStopped?.({ ...mission }, pause);
+    }
   }
 
   private notifyIfIdle(missionId: string, status: MissionStatus): void {
@@ -255,15 +263,14 @@ export class Orchestrator {
     return mission;
   }
 
-  async startFromWorkflow(workflow: Workflow, projectId: string, goal: string, settings: Partial<MissionSettings>): Promise<Mission> {
+  async startFromWorkflow(workflow: Workflow, projectId: string, goal: string, settings: Partial<MissionSettings>, id: string = newId('mission')): Promise<Mission> {
     const project = await this.db.projects.get(projectId);
     if (!project) throw notFound('Projeto');
     await this.assertNoActive(project.id);
     const team = await this.db.agents.list();
     if (!team.length) throw badRequest('A equipe está vazia. Crie ao menos um agente.', 'no_agents');
 
-    const missionId = newId('mission');
-    const tasks = workflowToTasks(workflow, missionId, team);
+    const tasks = workflowToTasks(workflow, id, team);
     const coordinator = team.find((agent) => agent.role === 'coordinator') ?? team.find((agent) => agent.id === tasks[0]?.assigneeId) ?? team[0]!;
     const mission: Mission = {
       ...this.newMission({
@@ -275,7 +282,7 @@ export class Orchestrator {
         settings: MissionSettings.parse(settings),
         workflowId: workflow.builtin ? null : workflow.id,
       }),
-      id: missionId,
+      id,
       planSummary: `Workflow: ${workflow.name}`,
     };
     this.enforceMode(mission);
@@ -421,7 +428,7 @@ export class Orchestrator {
       if (supervised && !task.approvedAt) {
         // No modo supervisionado, cada tarefa espera liberação, sem interromper as outras.
         if (!flight.size) {
-          await this.setStatus(mission, 'paused', `Aprove para continuar: "${task.title}", por ${task.assigneeName}. Retome a missão quando quiser liberar esta tarefa.`);
+          await this.setStatus(mission, 'paused', `Aprove para continuar: "${task.title}", por ${task.assigneeName}. Retome a missão quando quiser liberar esta tarefa.`, 'waiting');
         }
         return;
       }
@@ -700,7 +707,7 @@ export class Orchestrator {
         missing: `A ferramenta de ${task.assigneeName} não está instalada neste computador.`,
         blocked: `${run.errorText ?? 'Um comando foi bloqueado.'} Decida se a tarefa deve tentar de novo ou ser pulada.`,
       }[run.errorKind];
-      await this.setStatus(mission, 'paused', reason);
+      await this.setStatus(mission, 'paused', reason, run.errorKind === 'blocked' ? 'failure' : 'account');
       return;
     }
 
@@ -838,7 +845,7 @@ export class Orchestrator {
     return this.serialize(id, async () => {
       const mission = await this.requireMission(id);
       if (mission.status !== 'running') throw conflict('A missão não está em execução.');
-      await this.setStatus(mission, 'paused', reason);
+      await this.setStatus(mission, 'paused', reason, 'waiting');
       return mission;
     });
   }

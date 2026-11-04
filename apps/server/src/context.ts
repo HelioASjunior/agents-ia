@@ -14,6 +14,7 @@ import { Orchestrator } from './services/orchestrator.ts';
 import { SettingsService } from './services/policy.ts';
 import { ProfileService } from './services/profiles.ts';
 import { ProjectService } from './services/projects.ts';
+import { QueueService } from './services/queues.ts';
 import { RunService } from './services/runs.ts';
 import { TerminalService } from './services/terminals.ts';
 import { ToolkitService } from './services/toolkits.ts';
@@ -41,6 +42,7 @@ export interface AppContext {
   terminals: TerminalService;
   memory: MemoryService;
   workflows: WorkflowService;
+  queues: QueueService;
   settings: SettingsService;
   /** Dados restaurados de uma cópia de segurança ao abrir, se houve dano. */
   recoveredFrom: string | null;
@@ -69,6 +71,7 @@ export async function createContext(config: AppConfig, registry = new ProviderRe
   const memory = new MemoryService(db);
   const orchestrator = new Orchestrator(config, db, runs, hub, memory, settings);
   const workflows = new WorkflowService(db, orchestrator);
+  const queues = new QueueService(db, orchestrator, workflows, hub);
   const chat = new ChatService(db, hub, runs, orchestrator, memory);
   const metrics = new MetricsService(db, agentState);
   const terminals = new TerminalService(config, db, registry, profiles);
@@ -76,6 +79,7 @@ export async function createContext(config: AppConfig, registry = new ProviderRe
   const interruptedOnStart = await db.runs.markUnfinishedAsInterrupted(Date.now());
   await db.messages.markStreamingAsInterrupted();
   await orchestrator.recover();
+  await queues.recover();
   await customProviders.load();
 
   const lastBackup = (await db.settings.get<number>('last_backup_at')) ?? 0;
@@ -103,6 +107,7 @@ export async function createContext(config: AppConfig, registry = new ProviderRe
     terminals,
     memory,
     workflows,
+    queues,
     settings,
     recoveredFrom: sqlite.opened.recoveredFrom,
     interruptedOnStart,

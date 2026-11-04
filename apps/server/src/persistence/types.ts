@@ -4,6 +4,7 @@ import type {
   AuthStatus,
   ChatMessage,
   CustomProvider,
+  GoalQueue,
   MemoryItem,
   Mission,
   MissionEventData,
@@ -89,6 +90,7 @@ export interface ProviderSessionRepository {
 export interface RunFilter {
   projectId?: string;
   agentId?: string;
+  missionId?: string;
   status?: RunStatus;
   limit?: number;
 }
@@ -169,7 +171,15 @@ export interface MemoryRepository {
   delete(id: string): Promise<void>;
 }
 
+export interface GoalQueueRepository {
+  list(): Promise<GoalQueue[]>;
+  getForProject(projectId: string): Promise<GoalQueue | null>;
+  /** Grava a fila e os objetivos dela de uma vez. Objetivo que saiu da lista é apagado. */
+  save(queue: GoalQueue): Promise<void>;
+}
+
 export interface Persistence {
+  queues: GoalQueueRepository;
   workflows: WorkflowRepository;
   memory: MemoryRepository;
   messages: MessageRepository;

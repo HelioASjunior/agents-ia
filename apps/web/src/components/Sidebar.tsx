@@ -8,6 +8,7 @@ import {
   History,
   KanbanSquare,
   KeyRound,
+  ListOrdered,
   MessageSquare,
   Moon,
   Settings,
@@ -23,6 +24,7 @@ const GROUPS: Array<Array<{ id: ViewId; label: string; icon: typeof MessageSquar
     { id: 'chat', label: 'Chat', icon: MessageSquare },
     { id: 'board', label: 'Tarefas', icon: KanbanSquare },
     { id: 'workflows', label: 'Workflows', icon: Workflow },
+    { id: 'queue', label: 'Fila', icon: ListOrdered },
   ],
   [
     { id: 'files', label: 'Arquivos', icon: FolderOpen },

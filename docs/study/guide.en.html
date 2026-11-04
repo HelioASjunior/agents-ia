@@ -205,6 +205,14 @@
 </table>
 <p>Connect steps by dragging between them. A step starts only after the ones connected to it.</p>
 <div class="box"><b>Tip</b><p>A read-only reviewer can't run commands. Have an earlier step gather the output of <code>git diff</code> and the tests, so the reviewer has something to evaluate.</p></div>
+<h2>Goal queue</h2>
+<p><i>Coming in the next version.</i> In <b>Fila</b> (queue), give a workflow a list of goals. Each goal becomes a mission, and the next one starts when it ends.</p>
+<table>
+<tr><th style="width:30%">Option</th><th>What it does</th></tr>
+<tr><td><b>Se um objetivo falhar</b> (if a goal fails)</td><td><b>Parar e esperar por mim</b> (stop and wait) leaves the mission paused for you to fix. <b>Registrar e seguir</b> (log and move on) cancels the mission, records why and goes to the next one.</td></tr>
+<tr><td><b>Limite de gasto</b> (spending limit)</td><td>A token total, checked between goals. If any run doesn't report usage, the queue stops.</td></tr>
+</table>
+<p>With uncommitted changes, the queue doesn't start the goal and names the files: end the workflow with a commit step, or do it yourself and click <b>Continuar</b>. Outside Autônomo controlado, each goal waits for plan approval. Usage limits and sign-in problems are never skipped.</p>
 </section>
 
 <section class="chapter" id="c9">

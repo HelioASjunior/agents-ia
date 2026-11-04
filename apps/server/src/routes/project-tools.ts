@@ -9,6 +9,7 @@ import { resolveInside } from '../services/files.ts';
 
 const idParam = z.object({ id: z.string().min(1) });
 const pathQuery = z.object({ path: z.string().min(1) });
+const itemParam = z.object({ id: z.string().min(1), itemId: z.string().min(1) });
 
 export function registerProjectToolRoutes(app: FastifyInstance, ctx: AppContext): void {
   const id = (request: { params: unknown }) => idParam.parse(request.params).id;
@@ -54,6 +55,19 @@ export function registerProjectToolRoutes(app: FastifyInstance, ctx: AppContext)
   });
   app.post('/api/workflows/:id/run', async (request, reply) =>
     reply.code(201).send(await ctx.workflows.run(id(request), request.body)));
+
+  // Fila de objetivos
+  const item = (request: { params: unknown }) => itemParam.parse(request.params);
+  app.get('/api/projects/:id/queue', async (request) => ctx.queues.get(id(request)));
+  app.put('/api/projects/:id/queue', async (request) => ctx.queues.save(id(request), request.body));
+  app.post('/api/projects/:id/queue/start', async (request) => ctx.queues.start(id(request)));
+  app.post('/api/projects/:id/queue/stop', async (request) => ctx.queues.stop(id(request)));
+  app.post('/api/projects/:id/queue/order', async (request) => ctx.queues.reorder(id(request), request.body));
+  app.post('/api/projects/:id/queue/clear', async (request) => ctx.queues.clearFinished(id(request)));
+  app.post('/api/projects/:id/queue/items', async (request) => ctx.queues.addItems(id(request), request.body));
+  app.patch('/api/projects/:id/queue/items/:itemId', async (request) => ctx.queues.updateItem(item(request).id, item(request).itemId, request.body));
+  app.delete('/api/projects/:id/queue/items/:itemId', async (request) => ctx.queues.removeItem(item(request).id, item(request).itemId));
+  app.post('/api/projects/:id/queue/items/:itemId/requeue', async (request) => ctx.queues.requeue(item(request).id, item(request).itemId));
 
   // Configurações
   app.get('/api/settings', async () => ctx.settings.get());

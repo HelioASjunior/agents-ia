@@ -14,6 +14,7 @@ import { FilesView } from './views/FilesView.tsx';
 import { HistoryView } from './views/HistoryView.tsx';
 import { OfficeView } from './views/OfficeView.tsx';
 import { ProjectsView } from './views/ProjectsView.tsx';
+import { QueueView } from './views/QueueView.tsx';
 import { SettingsView } from './views/SettingsView.tsx';
 import { activeMission, useStore, type ViewId } from './store.ts';
 
@@ -25,6 +26,7 @@ const VIEWS: Record<ViewId, () => ReactNode> = {
   office: () => <OfficeView />,
   board: () => <BoardView />,
   workflows: () => <WorkflowsView />,
+  queue: () => <QueueView />,
   agents: () => <AgentsView />,
   accounts: () => <AccountsView />,
   projects: () => <ProjectsView />,

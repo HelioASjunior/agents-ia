@@ -4,6 +4,7 @@ import type {
   AgentEvent,
   ChatMessage,
   CustomProvider,
+  GoalQueue,
   McpServer,
   MemoryItem,
   Mission,
@@ -12,6 +13,7 @@ import type {
   PermissionLevel,
   Profile,
   Project,
+  QueueItem,
   RoleId,
   Run,
   RunStatus,
@@ -176,6 +178,23 @@ function toTask(r: Row): Task {
   };
 }
 
+function toQueueItem(r: Row): QueueItem {
+  return {
+    id: String(r.id),
+    position: Number(r.position),
+    goal: String(r.goal),
+    status: String(r.status) as QueueItem['status'],
+    missionId: textOrNull(r.mission_id),
+    reason: textOrNull(r.reason),
+    inputTokens: Number(r.input_spent),
+    outputTokens: Number(r.output_spent),
+    runsWithoutUsage: Number(r.runs_without_usage),
+    createdAt: Number(r.created_at),
+    startedAt: numOrNull(r.started_at),
+    endedAt: numOrNull(r.ended_at),
+  };
+}
+
 function toWorkflow(r: Row): Workflow {
   return {
     id: String(r.id),
@@ -222,6 +241,19 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
   const all = (sql: string, ...params: SQLInputValue[]) => db.prepare(sql).all(...params) as Row[];
   const one = (sql: string, ...params: SQLInputValue[]) => db.prepare(sql).get(...params) as Row | undefined;
   const run = (sql: string, ...params: SQLInputValue[]) => db.prepare(sql).run(...params);
+
+  const toQueue = (r: Row): GoalQueue => ({
+    id: String(r.id),
+    projectId: String(r.project_id),
+    workflowId: String(r.workflow_id),
+    onFailure: String(r.on_failure) as GoalQueue['onFailure'],
+    tokenLimit: numOrNull(r.spend_limit),
+    running: Boolean(r.running),
+    stopReason: textOrNull(r.stop_reason),
+    items: all('SELECT * FROM goal_queue_items WHERE queue_id = ? ORDER BY position', String(r.id)).map(toQueueItem),
+    createdAt: Number(r.created_at),
+    updatedAt: Number(r.updated_at),
+  });
 
   const transaction = <T>(work: () => T): T => {
     db.exec('BEGIN IMMEDIATE');
@@ -602,6 +634,10 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
           where.push('agent_id = ?');
           params.push(filter.agentId);
         }
+        if (filter.missionId) {
+          where.push('mission_id = ?');
+          params.push(filter.missionId);
+        }
         if (filter.status) {
           where.push('status = ?');
           params.push(filter.status);
@@ -730,6 +766,55 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
           tokens,
           averageRunMs: average?.value === null || average?.value === undefined ? null : Number(average.value),
         };
+      },
+    },
+
+    queues: {
+      async list() {
+        return all('SELECT * FROM goal_queues ORDER BY created_at').map(toQueue);
+      },
+      async getForProject(projectId) {
+        const row = one('SELECT * FROM goal_queues WHERE project_id = ?', projectId);
+        return row ? toQueue(row) : null;
+      },
+      async save(q) {
+        transaction(() => {
+          run(
+            `INSERT INTO goal_queues (id, project_id, workflow_id, on_failure, spend_limit, running, stop_reason, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET workflow_id = excluded.workflow_id, on_failure = excluded.on_failure, spend_limit = excluded.spend_limit,
+               running = excluded.running, stop_reason = excluded.stop_reason, updated_at = excluded.updated_at`,
+            q.id,
+            q.projectId,
+            q.workflowId,
+            q.onFailure,
+            q.tokenLimit,
+            q.running ? 1 : 0,
+            q.stopReason,
+            q.createdAt,
+            q.updatedAt,
+          );
+          run('DELETE FROM goal_queue_items WHERE queue_id = ?', q.id);
+          for (const item of q.items) {
+            run(
+              `INSERT INTO goal_queue_items (id, queue_id, position, goal, status, mission_id, reason, input_spent, output_spent, runs_without_usage, created_at, started_at, ended_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              item.id,
+              q.id,
+              item.position,
+              item.goal,
+              item.status,
+              item.missionId,
+              item.reason,
+              item.inputTokens,
+              item.outputTokens,
+              item.runsWithoutUsage,
+              item.createdAt,
+              item.startedAt,
+              item.endedAt,
+            );
+          }
+        });
       },
     },
 
