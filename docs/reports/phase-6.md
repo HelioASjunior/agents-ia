@@ -89,6 +89,13 @@ Veio do uso real em um projeto com uma fila montada só por configuração:
 - **Modelos do Claude:** nomes completos e apelidos conferidos com o Claude Code 2.1.318. O card mostra o modelo informado pela última execução.
 - **Campo Outro…:** o texto extra relatado não foi reproduzido, e não há código que o escreva. O campo agora começa vazio.
 
+## Versão 0.1.5
+
+- **Reserva por etapa:** cada workflow pode dizer quem assume uma etapa quando a conta atinge o limite. Sem reserva, a missão pausa, como antes. A regra fica na etapa, e não na fila nem no sistema, porque cada pessoa decide a sua. A primeira versão era uma opção da fila e foi trocada antes de sair.
+- **Regras que valem na execução:** a reserva precisa ser de outro provedor e ter permissão igual ou maior, e assume uma vez por tarefa. Falta de ferramentas só gera aviso na tela, porque o XinoIA não sabe de quais delas a etapa precisa.
+- **Opção automática de Nova missão:** agora exige permissão igual ou maior e as mesmas ferramentas, não deixa ninguém revisar o próprio trabalho e não fica indo e vindo entre provedores no limite.
+- **Testado:** com CLIs de teste de dois provedores, nos testes automáticos e na tela em um navegador, com o limite simulado. Falta o uso com contas reais e um limite de verdade.
+
 ## Preparação da assinatura de código
 
 Os passos da SignPath estão no workflow, desligados, com a política em `README.md` e `PRIVACY.md`. O pedido ainda não foi feito: a decisão foi ganhar usuários antes, porque o formulário pede provas de reputação. O caminho completo, com um certificado descartável, roda no workflow **Teste de atualização**. A assinatura real pela SignPath só pode ser testada depois da aprovação, inclusive as regras de metadados de `.signpath/artifact-configurations/`.

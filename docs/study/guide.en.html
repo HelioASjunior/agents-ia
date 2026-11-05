@@ -11,7 +11,7 @@
   <img src="../assets/logo.svg" alt="">
   <h1>Xino<span class="accent">IA</span></h1>
   <p class="sub">Study guide: how to set it up, what you can do with it, and how to work with a team of AI agents</p>
-  <p class="meta">Covers version 0.1.4, for Windows 10 and 11.<br>
+  <p class="meta">Covers version 0.1.5, for Windows 10 and 11.<br>
   Project: github.com/HelioASjunior/agents-ia<br>
   XinoIA is an independent project, not affiliated with or endorsed by Anthropic, OpenAI, Google or Epic Games.<br>
   The interface is in Brazilian Portuguese for now, so button names appear here in Portuguese, with their meaning in English.</p>
@@ -202,6 +202,7 @@
 <tr><td><b>Tipo</b> (type)</td><td>Work, or Review, which approves or rejects.</td></tr>
 <tr><td><b>Condição</b> (condition)</td><td>Always, only if the review approves, or only if it rejects.</td></tr>
 <tr><td><b>Tentativas em caso de falha</b></td><td>How many attempts before stopping.</td></tr>
+<tr><td><b>Se a conta atingir o limite</b> (if the account hits its limit)</td><td>By default, it pauses and waits. You can pick a backup from another provider, with equal or higher permission. If it doesn't qualify, the mission pauses and says why.</td></tr>
 </table>
 <p>Connect steps by dragging between them. A step starts only after the ones connected to it.</p>
 <div class="box"><b>Tip</b><p>A read-only reviewer can't run commands. Have an earlier step gather the output of <code>git diff</code> and the tests, so the reviewer has something to evaluate.</p></div>
@@ -296,7 +297,7 @@
 <li><b>Limit fix rounds</b>, and use <code>Equipe, ...</code> only when you need to hear everyone.</li>
 <li><b>Pause</b> if a mission goes the wrong way, and guide the team.</li>
 </ul>
-<div class="box"><b>What to do at a limit</b><p>The task stops with a clear message. Wait for it to renew, change the agent's account or reassign the task. With the option on, it can pass to an agent from another provider.</p></div>
+<div class="box"><b>What to do at a limit</b><p>The task stops with a clear message. Wait for it to renew, change the agent's account or reassign the task. If the step has a backup, or with the mission option on, it passes to an agent from another provider.</p></div>
 </section>
 
 <section class="chapter" id="c13">

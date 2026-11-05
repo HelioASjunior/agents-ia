@@ -4,6 +4,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+## [0.1.5] - 2026-11-05
+
 ### Adicionado
 
 - **Reserva por etapa de workflow:** você pode escolher quem assume uma etapa quando a conta do responsável atingir o limite de uso. Sem reserva, nada muda: a missão pausa. A reserva precisa ser de outro provedor e ter permissão igual ou maior; se não for, a missão pausa e diz por quê. A troca aparece na tarefa, na linha do tempo e no relatório final, e vale também na fila. Testada só com o CLI de teste.

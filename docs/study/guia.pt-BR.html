@@ -11,7 +11,7 @@
   <img src="../assets/logo.svg" alt="">
   <h1>Xino<span class="accent">IA</span></h1>
   <p class="sub">Guia de estudo: como configurar, o que dá para fazer e como trabalhar com uma equipe de agentes de IA</p>
-  <p class="meta">Descreve a versão 0.1.4, para Windows 10 e 11.<br>
+  <p class="meta">Descreve a versão 0.1.5, para Windows 10 e 11.<br>
   Projeto: github.com/HelioASjunior/agents-ia<br>
   O XinoIA é um projeto independente, sem vínculo com Anthropic, OpenAI, Google ou Epic Games, e sem o endosso delas.</p>
 </div>
@@ -201,6 +201,7 @@
 <tr><td><b>Tipo</b></td><td>Trabalho, ou Revisão, que aprova ou reprova.</td></tr>
 <tr><td><b>Condição</b></td><td>Sempre, Só se a revisão aprovar ou Só se a revisão reprovar.</td></tr>
 <tr><td><b>Tentativas em caso de falha</b></td><td>Quantas vezes tentar antes de parar.</td></tr>
+<tr><td><b>Se a conta atingir o limite</b></td><td>Por padrão, pausa e espera. Você pode escolher uma reserva de outro provedor, com permissão igual ou maior. Se ela não servir, a missão pausa e diz por quê.</td></tr>
 </table>
 <p>Ligue as etapas arrastando entre elas. Uma etapa só começa depois das que estão ligadas a ela.</p>
 <div class="box"><b>Dica</b><p>Quem revisa em somente leitura não roda comandos. Faça uma etapa anterior reunir o resultado de <code>git diff</code> e dos testes, para o revisor ter o que avaliar.</p></div>
@@ -295,7 +296,7 @@
 <li><b>Limite as rodadas de correção</b> e use <code>Equipe, ...</code> só quando precisar ouvir todos.</li>
 <li><b>Pause</b> se a missão seguir por um caminho errado, e oriente a equipe.</li>
 </ul>
-<div class="box"><b>O que fazer ao atingir um limite</b><p>A tarefa para com uma mensagem clara. Espere renovar, troque a conta do agente ou reatribua a tarefa. Com a opção ligada, ela pode passar a um agente de outro provedor.</p></div>
+<div class="box"><b>O que fazer ao atingir um limite</b><p>A tarefa para com uma mensagem clara. Espere renovar, troque a conta do agente ou reatribua a tarefa. Se a etapa tiver reserva, ou com a opção da missão ligada, ela passa a um agente de outro provedor.</p></div>
 </section>
 
 <section class="chapter" id="c13">
