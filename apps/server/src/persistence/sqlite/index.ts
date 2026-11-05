@@ -188,6 +188,7 @@ function toQueueItem(r: Row): QueueItem {
     status: String(r.status) as QueueItem['status'],
     missionId: textOrNull(r.mission_id),
     reason: textOrNull(r.reason),
+    savedBranches: JSON.parse(String(r.saved_branches_json)) as string[],
     inputTokens: Number(r.input_spent),
     outputTokens: Number(r.output_spent),
     runsWithoutUsage: Number(r.runs_without_usage),
@@ -249,6 +250,7 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
     projectId: String(r.project_id),
     workflowId: String(r.workflow_id),
     onFailure: String(r.on_failure) as GoalQueue['onFailure'],
+    startBranch: textOrNull(r.start_branch),
     tokenLimit: numOrNull(r.spend_limit),
     running: Boolean(r.running),
     stopReason: textOrNull(r.stop_reason),
@@ -784,15 +786,16 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
       async save(q) {
         transaction(() => {
           run(
-            `INSERT INTO goal_queues (id, project_id, workflow_id, on_failure, spend_limit, running, stop_reason, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `INSERT INTO goal_queues (id, project_id, workflow_id, on_failure, spend_limit, start_branch, running, stop_reason, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET workflow_id = excluded.workflow_id, on_failure = excluded.on_failure, spend_limit = excluded.spend_limit,
-               running = excluded.running, stop_reason = excluded.stop_reason, updated_at = excluded.updated_at`,
+               start_branch = excluded.start_branch, running = excluded.running, stop_reason = excluded.stop_reason, updated_at = excluded.updated_at`,
             q.id,
             q.projectId,
             q.workflowId,
             q.onFailure,
             q.tokenLimit,
+            q.startBranch,
             q.running ? 1 : 0,
             q.stopReason,
             q.createdAt,
@@ -801,8 +804,8 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
           run('DELETE FROM goal_queue_items WHERE queue_id = ?', q.id);
           for (const item of q.items) {
             run(
-              `INSERT INTO goal_queue_items (id, queue_id, position, goal, status, mission_id, reason, input_spent, output_spent, runs_without_usage, created_at, started_at, ended_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              `INSERT INTO goal_queue_items (id, queue_id, position, goal, status, mission_id, reason, saved_branches_json, input_spent, output_spent, runs_without_usage, created_at, started_at, ended_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               item.id,
               q.id,
               item.position,
@@ -810,6 +813,7 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
               item.status,
               item.missionId,
               item.reason,
+              JSON.stringify(item.savedBranches),
               item.inputTokens,
               item.outputTokens,
               item.runsWithoutUsage,

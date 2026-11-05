@@ -4,11 +4,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import type { GoalQueue } from '@xinoia/shared';
+import { saveWorkToBranch } from '../src/services/git.ts';
 import { createHarness, removeDir, tempDir, type Harness } from './support/harness.ts';
 
 const sh = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' });
 
-async function queueFor(h: Harness, settings: { onFailure?: 'stop' | 'skip'; tokenLimit?: number | null } = {}) {
+async function queueFor(h: Harness, settings: { onFailure?: 'stop' | 'skip' | 'branch'; tokenLimit?: number | null } = {}) {
   const { projectId } = await h.setup('Ana');
   const workflow = await h.ctx.workflows.create({
     name: 'Um passo',
@@ -191,6 +192,188 @@ test('Fila: não inicia objetivo com o Git sujo, e continua depois do commit', a
   sh(h.projectDir, 'commit', '-q', '-m', 'primeiro');
   await h.ctx.queues.start(projectId);
   assert.deepEqual(statuses(await settled(h, projectId)), ['primeiro:done', 'segundo:done']);
+  await h.cleanup();
+});
+
+function gitProject(h: Harness) {
+  sh(h.projectDir, 'init', '-q', '-b', 'main');
+  sh(h.projectDir, 'config', 'user.name', 'Teste');
+  sh(h.projectDir, 'config', 'user.email', 'teste@example.com');
+  fs.writeFileSync(path.join(h.projectDir, '.gitignore'), 'ignorado.txt\n');
+  fs.writeFileSync(path.join(h.projectDir, 'base.txt'), 'x');
+  sh(h.projectDir, 'add', '-A');
+  sh(h.projectDir, 'commit', '-q', '-m', 'inicial');
+}
+
+const here = (h: Harness) => sh(h.projectDir, 'rev-parse', '--abbrev-ref', 'HEAD').trim();
+const saved = (h: Harness) => sh(h.projectDir, 'branch', '--list', 'xinoia/falhou/*', '--format=%(refname:short)').split('\n').filter(Boolean);
+
+test('Fila: guardar numa branch tira o trabalho da pasta, volta para a branch de origem e segue', async () => {
+  const h = await createHarness();
+  const { projectId } = await queueFor(h, { onFailure: 'branch' });
+  gitProject(h);
+  fs.writeFileSync(path.join(h.projectDir, 'ignorado.txt'), 'fica');
+  const before = sh(h.projectDir, 'rev-parse', 'main').trim();
+  await h.ctx.queues.addItems(projectId, { goals: ['FALHAR_SEMPRE Ação nº 1', 'depois'] });
+  await h.ctx.queues.start(projectId);
+  const queue = await settled(h, projectId);
+
+  assert.deepEqual(statuses(queue), ['FALHAR_SEMPRE Ação nº 1:failed', 'depois:done']);
+  assert.equal(queue.stopReason, null);
+  assert.deepEqual(queue.items[0]?.savedBranches, ['xinoia/falhou/falhar-sempre-acao-n-1']);
+  assert.deepEqual(queue.items[1]?.savedBranches, []);
+  assert.equal(here(h), 'main');
+  assert.equal(sh(h.projectDir, 'rev-parse', 'main').trim(), before, 'a branch de origem não recebeu commit');
+
+  const files = sh(h.projectDir, 'show', '--name-only', '--format=', 'xinoia/falhou/falhar-sempre-acao-n-1').split('\n');
+  assert.ok(files.includes('ordem.txt'), 'o que o objetivo escreveu está na branch');
+  assert.ok(!files.includes('ignorado.txt'), 'o que o .gitignore ignora fica de fora');
+  assert.equal(fs.readFileSync(path.join(h.projectDir, 'ignorado.txt'), 'utf8'), 'fica');
+  await h.cleanup();
+});
+
+test('Fila: quem não escolhe guardar numa branch continua como antes', async () => {
+  const h = await createHarness();
+  const { projectId } = await queueFor(h, { onFailure: 'skip' });
+  gitProject(h);
+  await h.ctx.queues.addItems(projectId, { goals: ['FALHAR_SEMPRE', 'depois'] });
+  await h.ctx.queues.start(projectId);
+  const queue = await settled(h, projectId);
+
+  assert.deepEqual(statuses(queue), ['FALHAR_SEMPRE:failed', 'depois:pending']);
+  assert.match(queue.stopReason ?? '', /sem commit no projeto/);
+  assert.deepEqual(saved(h), []);
+  assert.deepEqual(queue.items[0]?.savedBranches, []);
+  await h.cleanup();
+});
+
+test('Fila: se o commit falhar, a fila para, diz por quê e deixa tudo na pasta', async () => {
+  const h = await createHarness();
+  const { projectId } = await queueFor(h, { onFailure: 'branch' });
+  gitProject(h);
+  sh(h.projectDir, 'config', 'commit.gpgsign', 'true');
+  sh(h.projectDir, 'config', 'gpg.program', 'programa-que-nao-existe');
+  await h.ctx.queues.addItems(projectId, { goals: ['FALHAR_SEMPRE', 'depois'] });
+  await h.ctx.queues.start(projectId);
+  const queue = await settled(h, projectId);
+
+  assert.deepEqual(statuses(queue), ['FALHAR_SEMPRE:failed', 'depois:pending']);
+  assert.match(queue.stopReason ?? '', /não foi guardado, e nada foi apagado/);
+  assert.deepEqual(queue.items[0]?.savedBranches, []);
+  assert.deepEqual(saved(h), []);
+  assert.equal(here(h), 'main');
+  assert.ok(fs.existsSync(path.join(h.projectDir, 'ordem.txt')));
+  await h.cleanup();
+});
+
+test('Fila: sem Git não há onde guardar, então a fila para e diz por quê', async () => {
+  const h = await createHarness();
+  const { projectId } = await queueFor(h, { onFailure: 'branch' });
+  await h.ctx.queues.addItems(projectId, { goals: ['FALHAR_SEMPRE', 'depois'] });
+  await h.ctx.queues.start(projectId);
+  const queue = await settled(h, projectId);
+
+  assert.deepEqual(statuses(queue), ['FALHAR_SEMPRE:failed', 'depois:pending']);
+  assert.match(queue.stopReason ?? '', /não usa Git/);
+  assert.ok(fs.existsSync(path.join(h.projectDir, 'ordem.txt')));
+  await h.cleanup();
+});
+
+test('Fila: guardar numa branch nunca pula limite de uso', async () => {
+  const h = await createHarness();
+  const { projectId } = await queueFor(h, { onFailure: 'branch' });
+  gitProject(h);
+  await h.ctx.queues.addItems(projectId, { goals: ['LIMITE', 'depois'] });
+  await h.ctx.queues.start(projectId);
+  const queue = await settled(h, projectId);
+
+  assert.deepEqual(statuses(queue), ['LIMITE:running', 'depois:pending']);
+  assert.deepEqual(saved(h), []);
+  await h.cleanup();
+});
+
+test('Fila: a nova tentativa recebe o nome da branch, e a falha seguinte não sobrescreve a anterior', async () => {
+  const h = await createHarness();
+  const { projectId } = await queueFor(h, { onFailure: 'branch' });
+  gitProject(h);
+  await h.ctx.queues.addItems(projectId, { goals: ['FALHAR_SEMPRE'] });
+  await h.ctx.queues.start(projectId);
+  let queue = await settled(h, projectId);
+  const item = queue.items[0]!;
+  assert.deepEqual(item.savedBranches, ['xinoia/falhou/falhar-sempre']);
+
+  queue = await h.ctx.queues.requeue(projectId, item.id);
+  assert.deepEqual(queue.items[0]?.savedBranches, ['xinoia/falhou/falhar-sempre'], 'a tela continua citando a branch');
+  await h.ctx.queues.start(projectId);
+  queue = await settled(h, projectId);
+
+  assert.deepEqual(queue.items[0]?.savedBranches, ['xinoia/falhou/falhar-sempre', 'xinoia/falhou/falhar-sempre-2']);
+  assert.deepEqual(saved(h).sort(), ['xinoia/falhou/falhar-sempre', 'xinoia/falhou/falhar-sempre-2']);
+  const mission = await h.ctx.orchestrator.get(queue.items[0]!.missionId!);
+  assert.match(mission.goal, /Uma tentativa anterior deste objetivo falhou/);
+  assert.match(mission.goal, /em: xinoia\/falhou\/falhar-sempre\./);
+  assert.match(sh(h.projectDir, 'show', 'xinoia/falhou/falhar-sempre-2:prompt-recebido.txt'), /xinoia\/falhou\/falhar-sempre\b/);
+  await h.cleanup();
+});
+
+test('Fila: com o objetivo em outra branch, o trabalho fica seguro mesmo se a volta falhar', async () => {
+  const h = await createHarness();
+  await h.ctx.settings.update({ executionMode: 'semi' });
+  const { projectId } = await queueFor(h, { onFailure: 'branch' });
+  gitProject(h);
+  await h.ctx.queues.addItems(projectId, { goals: ['FALHAR_SEMPRE', 'depois'] });
+  await h.ctx.queues.start(projectId);
+  const waiting = await settled(h, projectId);
+  const other = tempDir('xinoia-outra-pasta-');
+  // A branch de origem presa em outra pasta faz o Git recusar a volta.
+  sh(h.projectDir, 'checkout', '-q', '-b', 'item/um');
+  sh(h.projectDir, 'worktree', 'add', '-q', path.join(other, 'main'), 'main');
+
+  await h.ctx.orchestrator.approve(waiting.items[0]!.missionId!);
+  await h.ctx.orchestrator.waitForIdle(waiting.items[0]!.missionId!);
+  const queue = await settled(h, projectId);
+
+  assert.deepEqual(statuses(queue), ['FALHAR_SEMPRE:failed', 'depois:pending']);
+  assert.deepEqual(queue.items[0]?.savedBranches, ['xinoia/falhou/falhar-sempre']);
+  assert.match(queue.stopReason ?? '', /ficou na branch xinoia\/falhou\/falhar-sempre, mas a fila não conseguiu voltar para main/);
+  assert.equal(here(h), 'xinoia/falhou/falhar-sempre');
+  sh(h.projectDir, 'worktree', 'remove', '--force', path.join(other, 'main'));
+  removeDir(other);
+  await h.cleanup();
+});
+
+test('Git: sem alterações, o trabalho é o que já está na outra branch; no meio de um merge, nada acontece', async () => {
+  const h = await createHarness();
+  gitProject(h);
+  sh(h.projectDir, 'checkout', '-q', '-b', 'item/um');
+  fs.writeFileSync(path.join(h.projectDir, 'feito.txt'), 'x');
+  sh(h.projectDir, 'add', '-A');
+  sh(h.projectDir, 'commit', '-q', '-m', 'feito');
+
+  assert.deepEqual(await saveWorkToBranch(h.projectDir, 'xinoia/falhou/a', 'main', 'msg'), { branch: 'item/um', returnError: null });
+  assert.equal(here(h), 'main');
+  assert.deepEqual(saved(h), []);
+  assert.deepEqual(await saveWorkToBranch(h.projectDir, 'xinoia/falhou/a', 'main', 'msg'), { branch: null, returnError: null }, 'nada a guardar');
+
+  await assert.rejects(saveWorkToBranch(h.projectDir, 'xinoia/falhou/a', 'nao-existe', 'msg'), /nao-existe não existe mais/);
+
+  // Um merge pela metade, mesmo sem conflito, não pode virar um commit comum.
+  sh(h.projectDir, 'checkout', '-q', '-b', 'item/dois');
+  sh(h.projectDir, 'merge', '-q', '--no-ff', '--no-commit', 'item/um');
+  await assert.rejects(saveWorkToBranch(h.projectDir, 'xinoia/falhou/a', 'main', 'msg'), /no meio de um merge/);
+  sh(h.projectDir, 'merge', '--abort');
+  sh(h.projectDir, 'checkout', '-q', 'main');
+
+  fs.writeFileSync(path.join(h.projectDir, 'base.txt'), 'na main');
+  sh(h.projectDir, 'commit', '-q', '-am', 'main');
+  sh(h.projectDir, 'checkout', '-q', 'item/um');
+  fs.writeFileSync(path.join(h.projectDir, 'base.txt'), 'no item');
+  sh(h.projectDir, 'commit', '-q', '-am', 'item');
+  assert.throws(() => sh(h.projectDir, 'merge', 'main'));
+  await assert.rejects(saveWorkToBranch(h.projectDir, 'xinoia/falhou/a', 'main', 'msg'), /no meio de um merge/);
+  assert.equal(here(h), 'item/um');
+  assert.deepEqual(saved(h), []);
+  assert.match(fs.readFileSync(path.join(h.projectDir, 'base.txt'), 'utf8'), /<<<<<<</);
   await h.cleanup();
 });
 

@@ -4,6 +4,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Guardar numa branch e seguir para o próximo:** uma terceira escolha em **Se um objetivo falhar**. O que o objetivo deixou sem commit vira um commit em uma branch local só dele, a fila volta para a branch em que começou, cita o nome no objetivo e segue. Nada é apagado nem enviado. Se o commit falhar, a fila para e diz por quê. Limite de uso e login continuam sem ser pulados, e quem não escolher esta opção não vê nenhuma mudança. Testada só com o CLI de teste.
+
 ## [0.1.5] - 2026-11-05
 
 ### Adicionado

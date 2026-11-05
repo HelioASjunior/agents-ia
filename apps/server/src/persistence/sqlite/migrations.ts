@@ -309,4 +309,12 @@ export const MIGRATIONS: Migration[] = [
       ALTER TABLE tasks ADD COLUMN handovers_json TEXT NOT NULL DEFAULT '[]';
     `,
   },
+  {
+    version: 8,
+    name: 'trabalho de objetivo que falhou guardado em branch',
+    up: `
+      ALTER TABLE goal_queues ADD COLUMN start_branch TEXT;
+      ALTER TABLE goal_queue_items ADD COLUMN saved_branches_json TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
 ];

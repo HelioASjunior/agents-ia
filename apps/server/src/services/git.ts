@@ -55,6 +55,11 @@ export async function currentBranch(cwd: string): Promise<string | null> {
   return name && name !== 'HEAD' ? name : null;
 }
 
+/** A branch atual ou, sem branch, o commit. Null se o projeto não usa Git ou não tem commits. */
+export async function currentHead(cwd: string): Promise<string | null> {
+  return (await currentBranch(cwd)) ?? (await git(cwd, ['rev-parse', '--verify', 'HEAD']).then((value) => value.trim(), () => null));
+}
+
 export function parseStatus(output: string): GitChange[] {
   const changes: GitChange[] = [];
   const parts = output.split('\0').filter(Boolean);
@@ -168,6 +173,63 @@ export async function commitAll(dir: string, message: string): Promise<boolean> 
 async function gitDir(dir: string): Promise<string> {
   const value = (await git(dir, ['rev-parse', '--git-dir'])).trim();
   return path.isAbsolute(value) ? value : path.join(dir, value);
+}
+
+/** Com uma destas operações pela metade, guardar o trabalho misturaria tudo em um commit só. */
+const UNFINISHED = ['MERGE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'rebase-merge', 'rebase-apply'];
+
+async function freeBranchName(cwd: string, wanted: string): Promise<string> {
+  const taken = (name: string) => git(cwd, ['rev-parse', '--verify', '--quiet', `refs/heads/${name}`]).then(() => true, () => false);
+  let name = wanted;
+  for (let attempt = 2; await taken(name); attempt += 1) name = `${wanted}-${attempt}`;
+  return name;
+}
+
+export interface SavedWork {
+  /** Onde o trabalho ficou, ou null se não havia nada para guardar. */
+  branch: string | null;
+  /** O trabalho está seguro, mas o projeto não voltou para a branch de origem. */
+  returnError: string | null;
+}
+
+/**
+ * Tira o trabalho da pasta sem apagar nada: as alterações viram um commit em uma branch
+ * própria, respeitando o .gitignore, e a pasta volta para `back`. Sem alterações, mas em
+ * outra branch, o trabalho já está nela. Se o commit falhar, as alterações ficam na pasta.
+ */
+export async function saveWorkToBranch(cwd: string, wanted: string, back: string, message: string): Promise<SavedWork> {
+  const dir = await gitDir(cwd);
+  const { changes } = await status(cwd);
+  if (UNFINISHED.some((name) => fs.existsSync(path.join(dir, name))) || changes.some((change) => change.status === 'U')) {
+    throw new Error('o Git está no meio de um merge ou rebase, ou há arquivos em conflito.');
+  }
+  const backAt = (await git(cwd, ['rev-parse', '--verify', `${back}^{commit}`]).catch(() => {
+    throw new Error(`${back} não existe mais.`);
+  })).trim();
+  const here = await currentBranch(cwd);
+  const head = (await git(cwd, ['rev-parse', 'HEAD'])).trim();
+
+  let branch: string | null = null;
+  if (changes.length) {
+    branch = await freeBranchName(cwd, wanted);
+    await git(cwd, ['checkout', '-q', '-b', branch]);
+    try {
+      await commitAll(cwd, message);
+    } catch (error) {
+      await git(cwd, ['checkout', '-q', here ?? head]).catch(() => undefined);
+      await git(cwd, ['branch', '-D', branch]).catch(() => undefined);
+      throw error;
+    }
+  } else if (here && here !== back) {
+    branch = here;
+  } else if (!here && head !== backAt) {
+    branch = await freeBranchName(cwd, wanted);
+    await git(cwd, ['branch', branch]);
+  }
+
+  if (!branch && here === back) return { branch, returnError: null };
+  const returnError = await git(cwd, ['checkout', '-q', back]).then(() => null, (error: Error) => error.message);
+  return { branch, returnError };
 }
 
 export interface MergeResult {

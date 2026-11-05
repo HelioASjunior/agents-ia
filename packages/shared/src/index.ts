@@ -813,8 +813,8 @@ export const RunWorkflowInput = z.object({
 /** Fila de objetivos: um workflow executado em ordem, um objetivo de cada vez. */
 export const SaveQueueInput = z.object({
   workflowId: z.string().min(1),
-  /** stop: espera a pessoa. skip: registra a falha e segue para o próximo objetivo. */
-  onFailure: z.enum(['stop', 'skip']).default('stop'),
+  /** stop: espera a pessoa. skip: registra a falha e segue. branch: também guarda o trabalho em uma branch própria. */
+  onFailure: z.enum(['stop', 'skip', 'branch']).default('stop'),
   /** Soma de tokens de entrada e saída. Conferida entre um objetivo e outro. */
   tokenLimit: z.number().int().positive().nullable().default(null),
 });
@@ -837,6 +837,8 @@ export interface QueueItem {
   missionId: string | null;
   /** Por que o objetivo falhou. */
   reason: string | null;
+  /** Onde ficou o trabalho das tentativas que falharam, da mais antiga para a mais recente. */
+  savedBranches: string[];
   inputTokens: number;
   outputTokens: number;
   /** Execuções que não informaram consumo: os tokens acima não as incluem. */
@@ -850,8 +852,10 @@ export interface GoalQueue {
   id: string;
   projectId: string;
   workflowId: string;
-  onFailure: 'stop' | 'skip';
+  onFailure: 'stop' | 'skip' | 'branch';
   tokenLimit: number | null;
+  /** A branch em que a fila foi iniciada, para onde ela volta depois de guardar um trabalho. */
+  startBranch: string | null;
   /** Ligada: inicia o próximo objetivo quando o atual terminar. */
   running: boolean;
   /** Por que a fila parou sozinha, ou null se ela nunca parou ou terminou tudo. */

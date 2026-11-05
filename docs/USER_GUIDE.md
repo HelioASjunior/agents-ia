@@ -97,13 +97,15 @@ Em **Fila**, dê uma lista de objetivos a um workflow. Cada objetivo vira uma mi
 | Opção | O que faz |
 |---|---|
 | **Workflow** | O processo usado em todos os objetivos. |
-| **Se um objetivo falhar** | **Parar e esperar por mim** deixa a missão pausada para você resolver. **Registrar e seguir** cancela a missão, anota o motivo e passa para o próximo. |
+| **Se um objetivo falhar** | **Parar e esperar por mim** deixa a missão pausada para você resolver. **Registrar e seguir** cancela a missão, anota o motivo e passa para o próximo. **Guardar numa branch e seguir** faz o mesmo, depois de tirar o trabalho da pasta. |
 | **Limite de gasto** | Soma de tokens de entrada e saída. É conferido entre um objetivo e outro: o que está em andamento termina. Se alguma execução não informar consumo, a fila para em vez de seguir sem saber o gasto. |
 
 - Só o que ainda não começou pode ser editado, reordenado ou removido. Um objetivo que falhou pode voltar para a fila.
 - **Git sujo:** com alterações sem commit, a fila não começa o objetivo e cita os arquivos. Termine o workflow com uma etapa que faça commit, ou faça você e clique em **Continuar**. Em um projeto sem Git, essa conferência não acontece.
 - **Aprovação:** fora do modo autônomo controlado, cada objetivo espera a aprovação do plano. A fila nunca dispensa o que o modo exige.
-- **Limite de uso e login:** a fila nunca pula esses problemas, mesmo em **Registrar e seguir**, porque o próximo objetivo pararia pelo mesmo motivo. Se a etapa do workflow tiver uma [reserva](#workflows), ela assume e a fila segue.
+- **Guardar numa branch:** o que o objetivo deixou sem commit vira um commit em uma branch local só dele, `xinoia/falhou/...`, e a fila volta para a branch em que foi iniciada, ou em que você clicou em **Continuar**. O que o `.gitignore` ignora fica de fora, e o nome da branch aparece no objetivo. Nada é apagado nem enviado ao GitHub, e apagar a branch depois é com você. Se o agente já tiver feito commits em outra branch e não houver mais nada pendente, o objetivo cita essa branch. Se o commit falhar, ou o Git estiver no meio de um merge ou rebase, a fila para, diz por quê e deixa tudo na pasta. Se a branch de origem não puder voltar, por exemplo com um arquivo aberto em outro programa, a fila também para. Só funciona em projetos com Git e ao menos um commit.
+- **Nova tentativa:** ao colocar um objetivo que falhou de novo na fila, ele começa da branch atual, sem o trabalho guardado. Os agentes recebem o nome da branch no objetivo, para conferir e aproveitar o que servir.
+- **Limite de uso e login:** a fila nunca pula esses problemas, mesmo em **Registrar e seguir** e **Guardar numa branch**, porque o próximo objetivo pararia pelo mesmo motivo. Se a etapa do workflow tiver uma [reserva](#workflows), ela assume e a fila segue.
 - **Uma tarefa de cada vez:** a fila roda na pasta do projeto, sem tarefas em paralelo.
 - **Ao fechar o app:** nada novo começa sozinho ao reabrir. A missão interrompida continua esperando você, e nenhum objetivo roda duas vezes.
 

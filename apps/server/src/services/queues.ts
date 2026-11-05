@@ -18,6 +18,16 @@ const MAX_RUNS_PER_MISSION = 10_000;
 
 const tokensOf = (queue: GoalQueue): number => queue.items.reduce((sum, item) => sum + item.inputTokens + item.outputTokens, 0);
 
+const branchFor = (goal: string): string => {
+  const slug = goal.split('\n')[0]!.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40).replace(/^-+|-+$/g, '');
+  return `xinoia/falhou/${slug || 'objetivo'}`;
+};
+
+/** A nova tentativa precisa saber o que a anterior deixou, já que começa de outra branch. */
+const goalOf = (item: QueueItem): string => (item.savedBranches.length
+  ? `${item.goal}\n\nUma tentativa anterior deste objetivo falhou, e o que ela fez está fora da branch atual, em: ${item.savedBranches.join(', ')}. Confira com o Git antes de refazer, e aproveite o que servir.`
+  : item.goal);
+
 /**
  * Executa um workflow para cada objetivo, em ordem. Quem decide o trabalho continua
  * sendo o orquestrador, com as regras do modo de execução: a fila só escolhe quando
@@ -85,6 +95,7 @@ export class QueueService {
       const queue = (await this.db.queues.getForProject(projectId)) ?? {
         id: newId('queue'),
         projectId,
+        startBranch: null,
         running: false,
         stopReason: null,
         items: [],
@@ -110,6 +121,7 @@ export class QueueService {
           status: 'pending',
           missionId: null,
           reason: null,
+          savedBranches: [],
           inputTokens: 0,
           outputTokens: 0,
           runsWithoutUsage: 0,
@@ -183,6 +195,11 @@ export class QueueService {
   async start(projectId: string): Promise<GoalQueue> {
     return this.serialize(projectId, async () => {
       const queue = await this.require(projectId);
+      // Com um objetivo em andamento, a pasta pode estar na branch que ele abriu.
+      if (!queue.items.some((item) => item.status === 'running')) {
+        const project = await this.db.projects.get(projectId);
+        queue.startBranch = project ? await gitOps.currentHead(project.path) : null;
+      }
       queue.running = true;
       queue.stopReason = null;
       await this.advance(queue);
@@ -261,7 +278,7 @@ export class QueueService {
       // autoApprove só vale no modo autônomo: o orquestrador desliga nos outros.
       await this.workflows.run(queue.workflowId, {
         projectId: queue.projectId,
-        goal: next.goal,
+        goal: goalOf(next),
         settings: { concurrency: 1, autoApprove: true },
       }, missionId);
     } catch (error) {
@@ -287,6 +304,30 @@ export class QueueService {
     }
   }
 
+  /** Deixa a pasta pronta para o próximo objetivo, sem apagar nada. Devolve false se a fila precisou parar. */
+  private async saveWork(queue: GoalQueue, item: QueueItem): Promise<boolean> {
+    const stop = async (reason: string) => {
+      await this.halt(queue, `O trabalho deste objetivo não foi guardado, e nada foi apagado: ${reason}`);
+      return false;
+    };
+    const project = await this.db.projects.get(queue.projectId);
+    if (!project) throw notFound('Projeto');
+    if (!(await gitOps.isGitRepo(project.path))) return stop('este projeto não usa Git.');
+    const back = queue.startBranch ?? (await gitOps.currentHead(project.path));
+    if (!back) return stop('o projeto ainda não tem nenhum commit.');
+    try {
+      const saved = await gitOps.saveWorkToBranch(project.path, branchFor(item.goal), back, `XinoIA: trabalho de um objetivo que falhou: ${item.goal.split('\n')[0]!.slice(0, 60)}`);
+      if (saved.branch) item.savedBranches.push(saved.branch);
+      if (saved.returnError) {
+        await this.halt(queue, `O trabalho ficou na branch ${saved.branch}, mas a fila não conseguiu voltar para ${back}: ${saved.returnError} Resolva isso, volte para ${back} e continue a fila.`);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      return stop(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   private async onMissionStopped(mission: Mission, pause: PauseKind): Promise<void> {
     await this.serialize(mission.projectId, async () => {
       const queue = await this.db.queues.getForProject(mission.projectId);
@@ -296,10 +337,11 @@ export class QueueService {
       if (mission.status === 'paused') {
         // Pular não resolve limite nem login: o próximo objetivo bateria no mesmo problema.
         // Nos outros casos, a missão espera a pessoa na tela dela, e a fila espera a missão.
-        if (queue.onFailure !== 'skip' || pause === 'account' || !queue.running) return;
+        if (queue.onFailure === 'stop' || pause === 'account' || !queue.running) return;
         await this.settleItem(item, 'failed', mission.pauseReason);
         await this.persist(queue);
         await this.orchestrator.cancel(mission.id);
+        if (queue.onFailure === 'branch' && !(await this.saveWork(queue, item))) return;
         await this.advance(queue);
         return;
       }
@@ -316,6 +358,7 @@ export class QueueService {
           await this.halt(queue, `Um objetivo falhou: ${mission.pauseReason ?? 'erro desconhecido'}`);
           return;
         }
+        if (queue.onFailure === 'branch' && !(await this.saveWork(queue, item))) return;
       }
       await this.advance(queue);
     });

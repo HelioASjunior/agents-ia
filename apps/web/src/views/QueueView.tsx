@@ -68,6 +68,15 @@ function Item({ queue, item, index, onMove }: { queue: GoalQueue; item: QueueIte
             {item.runsWithoutUsage > 0 && <span className="text-amber">{item.runsWithoutUsage} execução(ões) sem consumo informado</span>}
           </div>
           {item.reason && <p className="mt-1.5 text-xs text-danger">{item.reason}</p>}
+          {item.savedBranches.length > 0 && (
+            <p className="mt-1.5 text-xs text-soft">
+              O trabalho da tentativa que falhou ficou em{' '}
+              {item.savedBranches.map((branch, position) => (
+                <span key={branch}>{position > 0 && ', '}<code className="break-all font-mono">{branch}</code></span>
+              ))}
+              .{item.status === 'pending' && ' A nova tentativa recebe esse nome, mas começa da branch atual.'}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           {item.status === 'pending' && draft === null && (
@@ -197,6 +206,7 @@ export function QueueView() {
               <select className="field" value={settings.onFailure} onChange={(event) => void save({ onFailure: event.target.value as GoalQueue['onFailure'] })}>
                 <option value="stop">Parar e esperar por mim</option>
                 <option value="skip">Registrar e seguir para o próximo</option>
+                <option value="branch" disabled={!project?.info.isGit}>Guardar numa branch e seguir para o próximo</option>
               </select>
             </Field>
             <Field label="Limite de gasto, em tokens">
@@ -243,6 +253,12 @@ export function QueueView() {
                 ? 'Antes de cada objetivo, o projeto precisa estar sem alterações pendentes. Termine o workflow com uma etapa que faça commit, ou faça você mesmo e clique em Continuar.'
                 : 'Este projeto não usa Git, então a fila não consegue conferir se há alterações pendentes antes de cada objetivo.'}
             </li>
+            {settings.onFailure === 'branch' && (
+              <li className="flex items-start gap-2">
+                <Info size={13} className="mt-0.5 shrink-0" />
+                Se um objetivo falhar, o que ele deixou sem commit vai para uma branch só dele, e a fila volta para a branch em que começou. O que o .gitignore ignora fica de fora. Nada é apagado nem enviado ao GitHub. Se o commit falhar, a fila para e diz por quê.
+              </li>
+            )}
             <li className="flex items-start gap-2"><Info size={13} className="mt-0.5 shrink-0" />A fila roda uma tarefa de cada vez, na pasta do projeto.</li>
             <li className="flex items-start gap-2"><Info size={13} className="mt-0.5 shrink-0" />Se uma conta atingir o limite de uso, a missão pausa e a fila espera, a menos que a etapa do workflow tenha uma reserva.</li>
           </ul>
