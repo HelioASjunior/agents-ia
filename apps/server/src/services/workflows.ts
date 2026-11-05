@@ -178,6 +178,8 @@ export function workflowToTasks(workflow: Pick<Workflow, 'nodes' | 'edges'>, mis
       maxAttempts: item.maxAttempts,
       mergeFrom: null,
       approvedAt: null,
+      fallbackAgentId: item.fallbackAgentId ?? null,
+      handovers: [],
     };
   });
 }

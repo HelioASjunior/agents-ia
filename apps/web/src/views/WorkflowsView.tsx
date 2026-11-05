@@ -17,8 +17,8 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Copy, Play, Plus, Save, Trash2, Workflow as WorkflowIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Mission, RoleId, Workflow, WorkflowNode } from '@xinoia/shared';
-import { ROLES } from '@xinoia/shared';
+import type { Mission, PermissionLevel, RoleId, Workflow, WorkflowNode } from '@xinoia/shared';
+import { reserveProblem, ROLES } from '@xinoia/shared';
 import { api } from '../api.ts';
 import { Button, Dialog, Empty, Field, PageHeader } from '../components/ui.tsx';
 import { useStore } from '../store.ts';
@@ -32,8 +32,11 @@ const RUN_IF_LABEL: Record<WorkflowNode['runIf'], string> = {
   rejected: 'Só se a revisão reprovar',
 };
 
+const PERMISSION_LABEL: Record<PermissionLevel, string> = { read: 'somente leitura', edit: 'editar', full: 'total' };
+
 function StepView({ data, selected }: NodeProps<StepNode>) {
   const agent = useStore((state) => state.agents.find((item) => item.id === data.agentId));
+  const reserve = useStore((state) => state.agents.find((item) => item.id === data.fallbackAgentId));
   return (
     <div className={`w-52 rounded-lg border bg-raised px-3 py-2 text-ink transition-colors ${selected ? 'border-accent' : 'border-line-strong'}`}>
       <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-line-strong !bg-accent" />
@@ -42,6 +45,7 @@ function StepView({ data, selected }: NodeProps<StepNode>) {
       <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
         {data.type === 'review' && <span className="rounded bg-hover px-1 text-review">revisão</span>}
         {data.runIf !== 'always' && <span className="rounded bg-amber-soft px-1 text-amber">{data.runIf === 'approved' ? 'se aprovado' : 'se reprovado'}</span>}
+        {reserve && <span className="rounded bg-hover px-1 text-soft">reserva: {reserve.name}</span>}
       </div>
       <Handle type="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-line-strong !bg-accent" />
     </div>
@@ -111,6 +115,10 @@ function RunDialog({ workflow, onClose }: { workflow: Workflow; onClose: () => v
 function Inspector({ node, onChange, onRemove, readOnly }: { node: StepNode; onChange: (change: Partial<WorkflowNode>) => void; onRemove: () => void; readOnly: boolean }) {
   const agents = useStore((state) => state.agents);
   const { data } = node;
+  const owner = agents.find((agent) => agent.id === data.agentId);
+  const reserve = agents.find((agent) => agent.id === data.fallbackAgentId);
+  const problem = owner && reserve ? reserveProblem(owner, reserve) : null;
+  const missingTools = owner && reserve && owner.toolkitIds.some((id) => !reserve.toolkitIds.includes(id));
   return (
     <aside className="w-72 shrink-0 space-y-3 overflow-y-auto border-l border-line bg-panel p-4" aria-label="Detalhes da etapa">
       <h2 className="label">Etapa</h2>
@@ -128,6 +136,17 @@ function Inspector({ node, onChange, onRemove, readOnly }: { node: StepNode; onC
             {agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
           </select>
         </Field>
+        <Field label="Se a conta atingir o limite" hint="Vale só nesta etapa deste workflow. A troca fica registrada na tarefa.">
+          <select className="field" value={data.fallbackAgentId ?? ''} onChange={(event) => onChange({ fallbackAgentId: event.target.value || null })}>
+            <option value="">Pausar e esperar</option>
+            {agents.filter((agent) => agent.id !== data.agentId).map((agent) => (
+              <option key={agent.id} value={agent.id}>Passar para {agent.name} ({agent.provider}, {PERMISSION_LABEL[agent.permission]})</option>
+            ))}
+          </select>
+        </Field>
+        {problem && <p role="alert" className="rounded-md bg-danger-soft px-2 py-1.5 text-xs text-danger">{problem} Com esta escolha, a missão pausa em vez de trocar.</p>}
+        {missingTools && <p role="status" className="rounded-md bg-amber-soft px-2 py-1.5 text-xs text-amber">{reserve!.name} não tem todas as ferramentas de {owner!.name}, então pode não conseguir fazer esta etapa.</p>}
+        {reserve && !owner && <p className="text-xs text-muted">Esta etapa é escolhida pela função: a permissão e o provedor da reserva são conferidos na hora da troca.</p>}
         <Field label="Tipo">
           <select className="field" value={data.type} onChange={(event) => onChange({ type: event.target.value as WorkflowNode['type'] })}>
             <option value="work">Trabalho</option>
@@ -182,7 +201,7 @@ function Editor({ workflow, onSaved }: { workflow: Workflow; onSaved: (saved: Wo
       id,
       type: 'step',
       position: { x: (last?.position.x ?? -280) + 280, y: last?.position.y ?? 0 },
-      data: { id, title: 'Nova etapa', description: '', role: 'developer', type: 'work', runIf: 'always', maxAttempts: 2, x: 0, y: 0, agentId: null } as StepData,
+      data: { id, title: 'Nova etapa', description: '', role: 'developer', type: 'work', runIf: 'always', maxAttempts: 2, x: 0, y: 0, agentId: null, fallbackAgentId: null } as StepData,
     }]);
     setSelectedId(id);
   };

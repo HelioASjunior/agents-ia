@@ -1,6 +1,6 @@
 // Funções puras sobre planos de missão, separadas para serem testadas sem processos.
 import type { Agent, Task, Verdict } from '@xinoia/shared';
-import { PlanTaskInput, ROLES } from '@xinoia/shared';
+import { hasPermissionOf, PlanTaskInput, ROLES } from '@xinoia/shared';
 import { newId } from '../ids.ts';
 
 export function extractJsonPlan(text: string): { summary?: unknown; tasks: unknown[] } | null {
@@ -100,6 +100,8 @@ export function buildTasks(missionId: string, rawTasks: unknown[], agents: Agent
       maxAttempts: kept?.maxAttempts ?? null,
       mergeFrom: null,
       approvedAt: null,
+      fallbackAgentId: kept?.fallbackAgentId ?? null,
+      handovers: [],
     };
   });
 }
@@ -183,6 +185,7 @@ export function addFixRound(tasks: Task[], review: Task, fixer: Agent): { fix: T
     maxAttempts: null,
     mergeFrom: null,
     approvedAt: null,
+    handovers: [],
   };
   const fix: Task = {
     ...base,
@@ -195,6 +198,8 @@ export function addFixRound(tasks: Task[], review: Task, fixer: Agent): { fix: T
     type: 'work',
     dependsOn: [review.id],
     isFix: true,
+    // A correção é do mesmo trabalho, então a reserva é a dele.
+    fallbackAgentId: ancestors(tasks, review).find((task) => task.type === 'work' && task.assigneeId === fixer.id)?.fallbackAgentId ?? null,
   };
   const recheck: Task = {
     ...base,
@@ -207,6 +212,7 @@ export function addFixRound(tasks: Task[], review: Task, fixer: Agent): { fix: T
     type: 'review',
     dependsOn: [fix.id],
     isFix: false,
+    fallbackAgentId: review.fallbackAgentId,
   };
   const changed: Task[] = [];
   for (const task of tasks) {
@@ -233,4 +239,45 @@ export function findFixerId(tasks: Task[], review: Task): string | null {
     queue.push(...task.dependsOn);
   }
   return null;
+}
+
+/** As tarefas de que esta depende, direta ou indiretamente. */
+function ancestors(tasks: Task[], task: Task): Task[] {
+  const byId = new Map(tasks.map((item) => [item.id, item]));
+  const seen = new Map<string, Task>();
+  const queue = [...task.dependsOn];
+  while (queue.length) {
+    const id = queue.shift()!;
+    const item = byId.get(id);
+    if (!item || seen.has(id)) continue;
+    seen.set(id, item);
+    queue.push(...item.dependsOn);
+  }
+  return [...seen.values()];
+}
+
+/** Quem fez o trabalho não dá o veredito sobre ele, nem assume um trabalho que vai revisar. */
+function wouldReviewOwnWork(tasks: Task[], task: Task, agentId: string): boolean {
+  if (task.type === 'review') return ancestors(tasks, task).some((item) => item.type === 'work' && item.assigneeId === agentId);
+  return tasks.some((item) => item.type === 'review' && item.assigneeId === agentId && ancestors(tasks, item).some((dep) => dep.id === task.id));
+}
+
+/**
+ * Escolha automática de quem assume, para a opção da missão: a etapa de um workflow
+ * pode ter uma reserva definida pela pessoa, que vem antes disto. Sem alguém que
+ * consiga fazer o mesmo trabalho, é melhor pausar: um veredito de quem não pode rodar
+ * nada é pior do que esperar a conta renovar.
+ */
+export function pickFallback(tasks: Task[], task: Task, current: Agent, team: Agent[]): Agent | null {
+  // Um provedor que já atingiu o limite nesta tarefa não volta, para ela não ficar indo e vindo.
+  const exhausted = new Set([current.provider, ...task.handovers.map((item) => item.fromProvider)]);
+  const able = team.filter((agent) => agent.profileId
+    && !exhausted.has(agent.provider)
+    && hasPermissionOf(agent, current)
+    && current.toolkitIds.every((id) => agent.toolkitIds.includes(id))
+    && !wouldReviewOwnWork(tasks, task, agent.id));
+  return able.find((agent) => agent.role === current.role)
+    ?? able.find((agent) => ROLES[agent.role].reviews === (task.type === 'review'))
+    ?? able[0]
+    ?? null;
 }

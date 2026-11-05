@@ -448,7 +448,8 @@ export const MissionSettings = z.object({
   autoApprove: z.boolean().default(false),
   /**
    * Passa a tarefa para um agente de OUTRO provedor quando um limite é atingido.
-   * Nunca para outra conta do mesmo provedor, o que seria contornar o limite.
+   * Nunca para outra conta do mesmo provedor, o que seria contornar o limite, nem para
+   * quem tem menos permissão ou menos ferramentas do que o responsável.
    */
   fallbackToOtherProvider: z.boolean().default(false),
 });
@@ -513,6 +514,15 @@ export interface Mission {
   endedAt: number | null;
 }
 
+/** Uma troca de provedor porque a conta do responsável atingiu o limite de uso. */
+export interface TaskHandover {
+  fromAgentName: string;
+  fromProvider: string;
+  toAgentName: string;
+  toProvider: string;
+  at: number;
+}
+
 export interface Task {
   id: string;
   missionId: string;
@@ -546,6 +556,23 @@ export interface Task {
   mergeFrom: string | null;
   /** Quando o usuário liberou esta tarefa, no modo supervisionado. */
   approvedAt: number | null;
+  /** A reserva escolhida na etapa do workflow, se houver. */
+  fallbackAgentId: string | null;
+  handovers: TaskHandover[];
+}
+
+const PERMISSION_RANK: Record<PermissionLevel, number> = { read: 0, edit: 1, full: 2 };
+
+export const hasPermissionOf = (agent: Pick<Agent, 'permission'>, other: Pick<Agent, 'permission'>): boolean =>
+  PERMISSION_RANK[agent.permission] >= PERMISSION_RANK[other.permission];
+
+type ReserveFields = Pick<Agent, 'name' | 'provider' | 'permission'>;
+
+/** Por que este agente não pode assumir o trabalho de quem atingiu o limite, ou null se pode. */
+export function reserveProblem(current: ReserveFields, reserve: ReserveFields): string | null {
+  if (reserve.provider === current.provider) return `${reserve.name} usa o mesmo provedor de ${current.name}, e trocar de conta seria contornar o limite.`;
+  if (!hasPermissionOf(reserve, current)) return `${reserve.name} tem menos permissão do que ${current.name}, e pode não conseguir fazer esta etapa.`;
+  return null;
 }
 
 export type MissionEventData =
@@ -754,6 +781,8 @@ export const WorkflowNode = z.object({
   description: z.string().max(8000).default(''),
   /** Quem faz: um agente específico, ou o primeiro da equipe com esta função. */
   agentId: z.string().nullish(),
+  /** Quem assume se a conta do responsável atingir o limite. Sem reserva, a missão pausa. */
+  fallbackAgentId: z.string().nullish(),
   role: RoleId.default('developer'),
   type: z.enum(['work', 'review']).default('work'),
   /** Condição em relação à revisão da etapa anterior. */

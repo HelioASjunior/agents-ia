@@ -83,6 +83,13 @@ Um worktree começa sem `node_modules`, então o agente precisa instalar depend�
 
 Desenhe etapas e ligações, escolha quem faz cada uma, e defina condições como "só se a revisão aprovar". Os modelos prontos podem ser copiados e alterados.
 
+**Reserva da etapa:** em **Se a conta atingir o limite**, escolha quem assume aquela etapa. O padrão é **Pausar e esperar**, e a escolha vale só naquela etapa daquele workflow.
+
+- A reserva precisa ser de outro provedor e ter permissão igual ou maior que a do responsável. Trocar de conta no mesmo provedor seria contornar o limite. A tela avisa ao configurar, e na hora da troca a missão pausa e diz por quê.
+- A troca acontece uma vez por tarefa. Se a reserva também atingir o limite, a missão pausa.
+- A troca aparece no card e no detalhe da tarefa, na linha do tempo e no relatório final. Quem assume é avisado de que o trabalho pode ter parado no meio.
+- Quem dá a reserva decide o que ela faz: se a mesma reserva assumir o trabalho e o teste, ela testa o próprio trabalho. Para manter um olhar independente, deixe a revisão sem reserva.
+
 ## Fila de objetivos
 
 Em **Fila**, dê uma lista de objetivos a um workflow. Cada objetivo vira uma missão, e o próximo começa quando ela termina.
@@ -96,7 +103,7 @@ Em **Fila**, dê uma lista de objetivos a um workflow. Cada objetivo vira uma mi
 - Só o que ainda não começou pode ser editado, reordenado ou removido. Um objetivo que falhou pode voltar para a fila.
 - **Git sujo:** com alterações sem commit, a fila não começa o objetivo e cita os arquivos. Termine o workflow com uma etapa que faça commit, ou faça você e clique em **Continuar**. Em um projeto sem Git, essa conferência não acontece.
 - **Aprovação:** fora do modo autônomo controlado, cada objetivo espera a aprovação do plano. A fila nunca dispensa o que o modo exige.
-- **Limite de uso e login:** a fila nunca pula esses problemas, mesmo em **Registrar e seguir**, porque o próximo objetivo pararia pelo mesmo motivo.
+- **Limite de uso e login:** a fila nunca pula esses problemas, mesmo em **Registrar e seguir**, porque o próximo objetivo pararia pelo mesmo motivo. Se a etapa do workflow tiver uma [reserva](#workflows), ela assume e a fila segue.
 - **Uma tarefa de cada vez:** a fila roda na pasta do projeto, sem tarefas em paralelo.
 - **Ao fechar o app:** nada novo começa sozinho ao reabrir. A missão interrompida continua esperando você, e nenhum objetivo roda duas vezes.
 

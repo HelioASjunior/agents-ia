@@ -4,6 +4,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Reserva por etapa de workflow:** você pode escolher quem assume uma etapa quando a conta do responsável atingir o limite de uso. Sem reserva, nada muda: a missão pausa. A reserva precisa ser de outro provedor e ter permissão igual ou maior; se não for, a missão pausa e diz por quê. A troca aparece na tarefa, na linha do tempo e no relatório final, e vale também na fila. Testada só com o CLI de teste.
+
+### Corrigido
+
+- A opção automática de **Nova missão** podia entregar uma tarefa a quem tem menos permissão, como um revisor somente leitura no lugar de quem compila e testa, e ficar indo e vindo se os dois provedores estivessem no limite. Agora quem assume precisa ter permissão igual ou maior e as mesmas ferramentas, e não pode revisar o próprio trabalho. Se ninguém puder, a missão pausa e diz por quê.
+
 ## [0.1.4] - 2026-11-04
 
 ### Alterado

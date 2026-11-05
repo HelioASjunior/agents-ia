@@ -128,7 +128,7 @@ function NewMission({ onClose }: { onClose: () => void }) {
           )}
           <label className="flex items-start gap-2">
             <input type="checkbox" className="mt-1" checked={fallback} onChange={(event) => setFallback(event.target.checked)} />
-            <span>Se uma conta atingir o limite, passar a tarefa a um agente de <b>outro provedor</b>. Nunca troca para outra conta do mesmo provedor.</span>
+            <span>Se uma conta atingir o limite, passar a tarefa a um agente de <b>outro provedor</b> com permissão igual ou maior e as mesmas ferramentas. Nunca troca para outra conta do mesmo provedor.</span>
           </label>
         </div>
       </div>
@@ -285,6 +285,11 @@ function TaskDetail({ task, onClose }: { task: Task; onClose: () => void }) {
         <div><dt className="label">Fim</dt><dd>{formatDateTime(task.endedAt) || '—'}</dd></div>
       </dl>
       {task.description && <p className="mt-3 whitespace-pre-wrap text-[13px] text-soft">{task.description}</p>}
+      {task.handovers.map((item) => (
+        <p key={item.at} className="mt-3 rounded-md bg-amber-soft px-3 py-2 text-[13px] text-amber">
+          {item.fromAgentName} ({item.fromProvider}) atingiu o limite de uso em {formatDateTime(item.at)}, e {item.toAgentName} ({item.toProvider}) assumiu a tarefa.
+        </p>
+      ))}
       {task.errorText && <p className="mt-3 rounded-md bg-danger-soft px-3 py-2 text-[13px] text-danger">{task.errorText}</p>}
       {task.filesChanged.length > 0 && (
         <div className="mt-3">
@@ -345,6 +350,7 @@ function TaskCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
         <span>{task.assigneeName}</span>
         {task.type === 'review' && <span className="rounded bg-hover px-1 text-review">revisão</span>}
         {task.isFix && <span className="rounded bg-amber-soft px-1 text-amber">correção</span>}
+        {task.handovers.length > 0 && <span className="rounded bg-amber-soft px-1 text-amber">era de {task.handovers[0]!.fromAgentName}</span>}
         {task.verdict && <span className={task.verdict === 'APROVADO' ? 'text-ok' : 'text-danger'}>{task.verdict}</span>}
         {task.attempts > 1 && <span>{task.attempts}ª tentativa</span>}
         {task.status === 'skipped' && <span>pulada</span>}

@@ -36,6 +36,15 @@ export function fakeAdapter(overrides: Partial<ProviderAdapter> = {}): ProviderA
   };
 }
 
+/** Um segundo provedor, para as trocas por limite. `ESGOTADO_<id>` no prompt esgota só um deles. */
+export function otherAdapter(): ProviderAdapter {
+  return fakeAdapter({
+    id: 'outro',
+    label: 'Outro CLI de teste',
+    buildArgs: (options) => [fakeCli, '--provedor=outro', ...claudeAdapter.buildArgs(options)],
+  });
+}
+
 export interface Harness extends XinoiaApp {
   config: AppConfig;
   dataDir: string;
@@ -47,12 +56,12 @@ export interface Harness extends XinoiaApp {
   setup(name?: string): Promise<{ projectId: string; profileId: string; agentId: string }>;
 }
 
-export async function createHarness(options: { dataDir?: string; keep?: boolean; homeDir?: string } = {}): Promise<Harness> {
+export async function createHarness(options: { dataDir?: string; keep?: boolean; homeDir?: string; providers?: ProviderAdapter[] } = {}): Promise<Harness> {
   const dataDir = options.dataDir ?? tempDir();
   const projectDir = tempDir('xinoia-projeto-');
   const homeDir = options.homeDir ?? tempDir('xinoia-home-');
   const config = createConfig({ dataDir, homeDir });
-  const registry = new ProviderRegistry([fakeAdapter()]);
+  const registry = new ProviderRegistry(options.providers ?? [fakeAdapter()]);
   const instance = await createApp({ config, providers: registry, logToFile: false, token: 'token-de-teste' });
   // Os testes de orquestração controlam a aprovação por conta própria. Os de modos de
   // execução mudam esta configuração explicitamente.

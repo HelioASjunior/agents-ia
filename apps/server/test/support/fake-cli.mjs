@@ -98,7 +98,8 @@ if (meeting) {
   }
 }
 
-if (command.includes('LIMITE')) {
+const provider = args.find((arg) => arg.startsWith('--provedor='))?.split('=')[1] ?? 'fake';
+if (command.includes('LIMITE') || command.includes(`ESGOTADO_${provider}`)) {
   out({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: 1793760600, unifiedWindows: { five_hour: { utilization: 1, resetsAt: 1793760600, status: 'rejected' } } }, session_id: sessionId });
   out({ type: 'result', subtype: 'success', is_error: true, result: "You've hit your usage limit", session_id: sessionId });
   process.exit(1);

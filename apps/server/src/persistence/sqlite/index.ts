@@ -175,6 +175,8 @@ function toTask(r: Row): Task {
     maxAttempts: numOrNull(r.max_attempts),
     mergeFrom: textOrNull(r.merge_from),
     approvedAt: numOrNull(r.approved_at),
+    fallbackAgentId: textOrNull(r.fallback_agent_id),
+    handovers: parse(r.handovers_json),
   };
 }
 
@@ -289,8 +291,8 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
 
   const insertTask = (t: Task): void => {
     run(
-      `INSERT INTO tasks (id, mission_id, position, title, description, assignee_id, assignee_name, type, priority, depends_on_json, status, round, is_fix, attempts, verdict, result, handoff, files_changed_json, error_kind, error_text, started_at, ended_at, run_if, max_attempts, merge_from, approved_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tasks (id, mission_id, position, title, description, assignee_id, assignee_name, type, priority, depends_on_json, status, round, is_fix, attempts, verdict, result, handoff, files_changed_json, error_kind, error_text, started_at, ended_at, run_if, max_attempts, merge_from, approved_at, fallback_agent_id, handovers_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       t.id,
       t.missionId,
       t.position,
@@ -317,6 +319,8 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
       t.maxAttempts,
       t.mergeFrom,
       t.approvedAt,
+      t.fallbackAgentId,
+      JSON.stringify(t.handovers),
     );
   };
 
@@ -950,7 +954,7 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
       },
       async update(t) {
         run(
-          `UPDATE tasks SET position = ?, title = ?, description = ?, assignee_id = ?, assignee_name = ?, type = ?, priority = ?, depends_on_json = ?, status = ?, round = ?, is_fix = ?, attempts = ?, verdict = ?, result = ?, handoff = ?, files_changed_json = ?, error_kind = ?, error_text = ?, started_at = ?, ended_at = ?, run_if = ?, max_attempts = ?, merge_from = ?, approved_at = ? WHERE id = ?`,
+          `UPDATE tasks SET position = ?, title = ?, description = ?, assignee_id = ?, assignee_name = ?, type = ?, priority = ?, depends_on_json = ?, status = ?, round = ?, is_fix = ?, attempts = ?, verdict = ?, result = ?, handoff = ?, files_changed_json = ?, error_kind = ?, error_text = ?, started_at = ?, ended_at = ?, run_if = ?, max_attempts = ?, merge_from = ?, approved_at = ?, fallback_agent_id = ?, handovers_json = ? WHERE id = ?`,
           t.position,
           t.title,
           t.description,
@@ -975,6 +979,8 @@ export function createSqlitePersistence(file: string, backupsDir: string): Sqlit
           t.maxAttempts,
           t.mergeFrom,
           t.approvedAt,
+          t.fallbackAgentId,
+          JSON.stringify(t.handovers),
           t.id,
         );
       },

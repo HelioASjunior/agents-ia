@@ -301,4 +301,12 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX idx_queue_items ON goal_queue_items(queue_id, position);
     `,
   },
+  {
+    version: 7,
+    name: 'reserva da etapa e troca de provedor por limite de uso',
+    up: `
+      ALTER TABLE tasks ADD COLUMN fallback_agent_id TEXT;
+      ALTER TABLE tasks ADD COLUMN handovers_json TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
 ];

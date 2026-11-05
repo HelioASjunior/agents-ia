@@ -9,7 +9,7 @@ import type {
   Task,
   Workflow,
 } from '@xinoia/shared';
-import { ApproveMissionInput, CreateMissionInput, MissionSettings, ROLES } from '@xinoia/shared';
+import { ApproveMissionInput, CreateMissionInput, MissionSettings, reserveProblem } from '@xinoia/shared';
 import type { AppConfig } from '../config.ts';
 import { badRequest, conflict, notFound } from '../errors.ts';
 import { newId } from '../ids.ts';
@@ -26,6 +26,7 @@ import {
   extractVerdict,
   findFixerId,
   parsePlan,
+  pickFallback,
   pipelineTasks,
   blockingRejections, readyTasks,
 } from './planning.ts';
@@ -608,6 +609,7 @@ export class Orchestrator {
       maxAttempts: null,
       mergeFrom: workspace.branch,
       approvedAt: Date.now(),
+      handovers: [],
     };
     await this.db.tasks.insert(resolver);
     this.hub.publish({ kind: 'task_updated', data: resolver });
@@ -697,12 +699,16 @@ export class Orchestrator {
 
     // Limite, login, ferramenta ausente ou bloqueio não se resolvem tentando de novo.
     if (run.errorKind === 'limit' || run.errorKind === 'auth' || run.errorKind === 'missing' || run.errorKind === 'blocked') {
-      if (run.errorKind === 'limit' && mission.settings.fallbackToOtherProvider && (await this.tryFallback(mission, task))) return;
+      const replacement = run.errorKind === 'limit' ? await this.replacementFor(mission, task) : { agent: null, problem: null };
+      if (replacement.agent) {
+        await this.handOver(mission, task, replacement.agent);
+        return;
+      }
       task.status = 'failed';
       await this.saveTask(task);
       await this.log(mission, task.id, { type: 'task_status', title: task.title, status: 'failed', agentName: task.assigneeName, runId: run.id, error: run.errorText });
       const reason = {
-        limit: `${task.assigneeName} atingiu o limite de uso da conta. Espere renovar ou reatribua a tarefa a outro agente.`,
+        limit: `${task.assigneeName} atingiu o limite de uso da conta.${replacement.problem ? ` ${replacement.problem}` : ''} Espere renovar ou reatribua a tarefa a outro agente.`,
         auth: `A conta de ${task.assigneeName} precisa de login. Faça o login oficial e tente de novo.`,
         missing: `A ferramenta de ${task.assigneeName} não está instalada neste computador.`,
         blocked: `${run.errorText ?? 'Um comando foi bloqueado.'} Decida se a tarefa deve tentar de novo ou ser pulada.`,
@@ -724,27 +730,45 @@ export class Orchestrator {
     await this.setStatus(mission, 'paused', `"${task.title}" falhou depois de ${task.attempts} tentativas: ${run.errorText ?? 'erro desconhecido'}`);
   }
 
-  private async tryFallback(mission: Mission, task: Task): Promise<boolean> {
-    const agents = await this.missionAgents(mission);
-    const current = agents.find((agent) => agent.id === task.assigneeId);
-    if (!current) return false;
-    const others = agents.filter((agent) => agent.provider !== current.provider && agent.profileId);
-    const next = others.find((agent) => agent.role === current.role)
-      ?? others.find((agent) => ROLES[agent.role].reviews === (task.type === 'review'));
-    if (!next) return false;
+  /** Quem assume a tarefa no limite de uso e, se ninguém puder, o porquê para a pessoa ler. */
+  private async replacementFor(mission: Mission, task: Task): Promise<{ agent: Agent | null; problem: string | null }> {
+    const current = task.assigneeId ? await this.db.agents.get(task.assigneeId) : null;
+    if (!current) return { agent: null, problem: null };
+    // A reserva vale uma vez: se ela também atingir o limite, a tarefa não volta para o primeiro.
+    if (task.fallbackAgentId && !task.handovers.length) {
+      const reserve = await this.db.agents.get(task.fallbackAgentId);
+      if (!reserve) return { agent: null, problem: 'A reserva escolhida para esta etapa não existe mais.' };
+      const problem = reserveProblem(current, reserve);
+      return problem ? { agent: null, problem } : { agent: reserve, problem: null };
+    }
+    if (!mission.settings.fallbackToOtherProvider) return { agent: null, problem: null };
+    const agent = pickFallback(await this.db.tasks.listForMission(mission.id), task, current, await this.missionAgents(mission));
+    return agent
+      ? { agent, problem: null }
+      : { agent: null, problem: 'Ninguém de outro provedor pode assumir: é preciso ter permissão igual ou maior e as mesmas ferramentas, sem revisar o próprio trabalho.' };
+  }
+
+  private async handOver(mission: Mission, task: Task, next: Agent): Promise<void> {
+    const current = task.assigneeId ? await this.db.agents.get(task.assigneeId) : null;
     await this.log(mission, task.id, {
       type: 'reassigned',
       title: task.title,
-      fromAgentName: current.name,
+      fromAgentName: task.assigneeName,
       toAgentName: next.name,
-      reason: 'limite de uso da conta',
+      reason: task.fallbackAgentId === next.id ? 'limite de uso da conta, reserva escolhida no workflow' : 'limite de uso da conta',
     });
+    task.handovers = [...task.handovers, {
+      fromAgentName: task.assigneeName,
+      fromProvider: current?.provider ?? '',
+      toAgentName: next.name,
+      toProvider: next.provider,
+      at: Date.now(),
+    }];
     task.assigneeId = next.id;
     task.assigneeName = next.name;
     task.attempts = 0;
     task.status = 'pending';
     await this.saveTask(task);
-    return true;
   }
 
   private async finish(mission: Mission, tasks: Task[]): Promise<void> {

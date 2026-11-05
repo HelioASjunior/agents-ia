@@ -66,6 +66,7 @@ export function taskPrompt(mission: Mission, task: Task, tasks: Task[], memory =
     memory,
     notesBlock(mission),
     task.mergeFrom ? 'A pasta está no meio de uma integração com conflitos, marcados nos arquivos com <<<<<<<. Resolva todos mantendo as duas contribuições quando fizer sentido, e remova as marcações. Não faça commit: o XinoIA registra o resultado.' : '',
+    task.handovers.length ? `Esta tarefa era de ${task.handovers.at(-1)!.fromAgentName}, cuja conta atingiu o limite de uso no meio do caminho. Confira o estado atual dos arquivos antes de começar: o que já estiver feito não precisa ser refeito, e o que ficou pela metade precisa ser concluído ou desfeito.` : '',
     isReview
       ? [
           'Revise de verdade: confira os arquivos e, se puder, rode o que for possível. Reprove só por problema real, apontando arquivo e o que corrigir.',
@@ -99,9 +100,11 @@ export function reportPrompt(mission: Mission, tasks: Task[]): string {
 export function factualSummary(tasks: Task[]): string {
   const files = [...new Set(tasks.flatMap((task) => task.filesChanged))].sort();
   const done = tasks.filter((task) => task.status === 'done').length;
+  const handovers = tasks.flatMap((task) => task.handovers.map((item) => `- ${task.title}: de ${item.fromAgentName} (${item.fromProvider}) para ${item.toAgentName} (${item.toProvider})`));
   const lines = [
     `Tarefas concluídas: ${done} de ${tasks.length}.`,
     files.length ? `Arquivos alterados:\n${files.map((file) => `- ${file}`).join('\n')}` : 'Nenhuma alteração de arquivo foi registrada.',
+    ...(handovers.length ? [`Tarefas que mudaram de provedor por limite de uso:\n${handovers.join('\n')}`] : []),
   ];
   return lines.join('\n\n');
 }

@@ -244,6 +244,7 @@ export function QueueView() {
                 : 'Este projeto não usa Git, então a fila não consegue conferir se há alterações pendentes antes de cada objetivo.'}
             </li>
             <li className="flex items-start gap-2"><Info size={13} className="mt-0.5 shrink-0" />A fila roda uma tarefa de cada vez, na pasta do projeto.</li>
+            <li className="flex items-start gap-2"><Info size={13} className="mt-0.5 shrink-0" />Se uma conta atingir o limite de uso, a missão pausa e a fila espera, a menos que a etapa do workflow tenha uma reserva.</li>
           </ul>
         </div>
       </div>
