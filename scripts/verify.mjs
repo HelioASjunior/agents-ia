@@ -52,6 +52,8 @@ async function verifyServer() {
     env: { ...process.env, XINOIA_DATA_DIR: path.join(work, 'dados'), XINOIA_PORT: String(PORT) },
     stdio: ['ignore', 'pipe', 'ignore'],
   });
+  // No Windows, a pasta só pode ser apagada depois que o servidor sai de vez.
+  const stopped = new Promise((resolve) => server.once('exit', resolve));
   let token;
   try {
     token = await new Promise((resolve, reject) => {
@@ -69,6 +71,7 @@ async function verifyServer() {
   } catch (error) {
     report(false, 'Servidor abre em uma pasta temporária', error.message);
     server.kill();
+    await stopped;
     return;
   }
 
@@ -111,6 +114,7 @@ async function verifyServer() {
     if (!/default-src 'self'/.test(page.headers['content-security-policy'] ?? '')) throw new Error('sem política de segurança');
   });
   server.kill();
+  await stopped;
 }
 
 async function verifyRelease() {

@@ -11,6 +11,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). 
 ### Corrigido
 
 - A opção automática de **Nova missão** podia entregar uma tarefa a quem tem menos permissão, como um revisor somente leitura no lugar de quem compila e testa, e ficar indo e vindo se os dois provedores estivessem no limite. Agora quem assume precisa ter permissão igual ou maior e as mesmas ferramentas, e não pode revisar o próprio trabalho. Se ninguém puder, a missão pausa e diz por quê.
+- `npm run verify` sem `--release` quebrava no fim no Windows, ao apagar a pasta temporária com o servidor de teste ainda saindo.
 
 ## [0.1.4] - 2026-11-04
 
